@@ -24,11 +24,18 @@ import { searchRouter } from './routes/search.js';
 import { tasksRouter } from './routes/tasks.js';
 import { trashRouter } from './routes/trash.js';
 
+export interface DesktopInfo {
+  version: string;
+  releasesUrl: string;
+}
+
 export interface AppOptions {
   /** Directory with the built client. When it contains an index.html, the server also serves the app. */
   clientDist?: string;
   /** If given, only requests for these host:port values from the same origin are accepted (desktop app). */
   trustedHosts?: () => readonly string[];
+  /** Set by the desktop app: its version and where new versions are published (for the update reminder). */
+  desktop?: DesktopInfo;
   /** Folder for attachment files (`<dataDir>/uploads`). Tests may leave it out and get a throwaway folder. */
   uploadsDir?: string;
 }
@@ -59,9 +66,10 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   api.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
-  // Facts about the installation; `sampleProjectId` is null once the sample project was deleted.
+  // Facts about the installation; `sampleProjectId` is null once the sample project was deleted, `desktop` is
+  // null outside the desktop app.
   api.get('/meta', (_req, res) => {
-    res.json({ sampleProjectId: meta.sampleProjectId() });
+    res.json({ sampleProjectId: meta.sampleProjectId(), desktop: options.desktop ?? null });
   });
   api.use('/projects', projectsRouter(projects));
   api.use('/projects/:projectId', projectScopedRouter({ activities, projects, notes, tasks, board }));

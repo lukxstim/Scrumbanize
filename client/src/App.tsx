@@ -16,9 +16,11 @@ import ThemeSwitcher from './components/ThemeSwitcher';
 import Kbd, { modKey } from './components/ui/Kbd';
 import { useProjects } from './hooks/useProjects';
 import { useStoredState } from './hooks/useStoredState';
+import { useToast } from './hooks/useToast';
 import { useTrashCount } from './hooks/useTrash';
 import { onTourStartRequest } from './utils/appEvents';
 import { closedTourState, INITIAL_TOUR_STATE, isTourState, TOUR_STORAGE_KEY } from './utils/tour';
+import { isReminderState, REMINDER_STORAGE_KEY, reminderStep, type ReminderState } from './utils/updateReminder';
 import { ACTIVITY_PARAM, paths, withActivityDrawer } from './utils/paths';
 
 
@@ -39,7 +41,8 @@ const tabClass = (active: boolean) =>
   }`;
 
 export default function App() {
-  const { projects } = useProjects();
+  const { projects, desktop } = useProjects();
+  const toast = useToast();
   const projectMatch = useMatch('/p/:projectId/*');
   const activeProject = projects.find((p) => p.id === Number(projectMatch?.params.projectId));
   // A task's details are shown on the board, so the Board tab stays active there.
@@ -77,6 +80,35 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [hasProject, tourState.status]);
   useEffect(() => onTourStartRequest(() => setTourOpen(true)), []);
+
+  // Desktop app only: every few weeks a reminder to look for a new version (it cannot check by itself, the
+  // releases are private). Never while the tour is open, and at most once per start.
+  const [reminder, setReminder] = useStoredState<ReminderState | null>(REMINDER_STORAGE_KEY, null, isReminderState);
+  const reminderChecked = useRef(false);
+  const tourOpenRef = useRef(tourOpen);
+  const reminderTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => {
+    tourOpenRef.current = tourOpen;
+  });
+  // Scheduling the next reminder re-runs the effect below, so its timer is only cleared when the app goes away.
+  useEffect(() => () => clearTimeout(reminderTimer.current), []);
+  useEffect(() => {
+    if (!desktop || reminderChecked.current) return;
+    reminderChecked.current = true;
+    const { remind, next } = reminderStep(reminder, new Date());
+    if (next) setReminder(next);
+    if (!remind) return;
+    // A little later, so a tour that starts by itself (after 0.7 s) comes first and the reminder stays away.
+    reminderTimer.current = setTimeout(() => {
+      if (tourOpenRef.current) return;
+      toast({
+        message: `Zeit für ein Update? Du nutzt Version ${desktop.version}.`,
+        tone: 'info',
+        duration: 20_000,
+        action: { label: 'Nachsehen', onClick: () => void window.open(desktop.releasesUrl, '_blank', 'noopener') },
+      });
+    }, 3000);
+  }, [desktop, reminder, setReminder, toast]);
 
   // ⌘K / Ctrl+K opens the command palette from anywhere, also while typing.
   useEffect(() => {

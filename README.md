@@ -1,6 +1,97 @@
-# Scrumbanize
+<p align="center">
+  <img src="docs/branding/scrumbanize-logo.png" alt="" width="120" />
+</p>
 
-<img src="docs/branding/scrumbanize-logo.png" alt="Scrumbanize-Logo" width="120" />
+<h1 align="center">Scrumbanize</h1>
+
+<p align="center"><b>Notizen und Aufgaben an einem Ort – übersichtlich, privat und direkt auf deinem Computer.</b></p>
+
+<p align="center">
+  <a href="https://github.com/lukxstim/Scrumbanize/releases/latest">
+    <img src="https://img.shields.io/badge/Jetzt%20herunterladen-Windows%2010%20%2F%2011-1a7090?style=for-the-badge&logo=windows&logoColor=white" alt="Scrumbanize für Windows herunterladen" />
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/lukxstim/Scrumbanize/releases/latest"><b>Direkt-Download: neueste Version für Windows</b></a>
+</p>
+
+---
+
+## Anleitung für die Installation
+
+Du brauchst keine Vorkenntnisse – die Installation dauert etwa eine Minute.
+
+> **Vorab:** Scrumbanize wird nur an eingeladene Personen verteilt. Du brauchst ein kostenloses GitHub-Konto und eine Einladung (kommt per E-Mail – einmal auf „Accept invitation“ klicken). Zum Herunterladen musst du bei GitHub **angemeldet** sein, sonst zeigt die Seite „404“.
+
+**1. Herunterladen**
+Klicke oben auf **„Jetzt herunterladen“**. Auf der Seite, die sich öffnet, siehst du unten den Bereich **„Assets“**. Klicke dort auf die Datei **`Scrumbanize-Setup-….exe`** – der Download startet.
+
+**2. Ausführen**
+Öffne die heruntergeladene Datei (meist im Ordner „Downloads“, oder unten bzw. oben rechts im Browser auf die Datei klicken).
+
+Windows zeigt dann vielleicht ein **blaues Fenster „Der Computer wurde durch Windows geschützt“**. Das ist normal bei Programmen von kleinen Entwicklern und kein Virus-Fund. So geht es weiter:
+
+1. Auf **„Weitere Informationen“** klicken.
+2. Auf **„Trotzdem ausführen“** klicken.
+
+Scrumbanize installiert sich jetzt von allein – ohne Fragen und ohne Administrator-Passwort.
+
+**3. Starten und loslegen**
+Scrumbanize öffnet sich nach der Installation automatisch. Später startest du es über das Symbol **„Scrumbanize“ auf dem Desktop** oder im **Startmenü**.
+
+Beim ersten Start wartet ein **Beispielprojekt** mit einer kurzen Anleitung auf dich, und eine kleine Einführung zeigt dir die wichtigsten Knöpfe. Probier einfach alles aus – im Beispielprojekt kannst du nichts kaputt machen.
+
+> **Ohne Installation?** Unter „Assets“ gibt es auch **`Scrumbanize-…-portable.exe`**. Die startet direkt, ohne Installation (z. B. vom USB-Stick), muss aber für neue Versionen von Hand ersetzt werden.
+
+## Was kann Scrumbanize?
+
+### Notizen
+Schreibe Notizen mit Überschriften, Listen, **Checklisten** und farbigen Markierungen – so einfach wie in einem Textprogramm. Hänge Bilder, PDFs und Dokumente an. Aus jedem Satz wird mit einem Klick eine Aufgabe.
+
+![Notizen mit Checklisten und Markierungen](docs/screenshots/notizen.png)
+
+### Aufgaben-Board
+Deine Aufgaben als Karten in Spalten wie „To Do“, „In Progress“ und „Done“. Ziehe Karten mit der Maus weiter, wenn du vorankommst. Prioritäten, Fälligkeiten und Checklisten siehst du direkt auf der Karte.
+
+![Aufgaben-Board mit Karten in Spalten](docs/screenshots/board.png)
+
+### Kalender
+Alle Fälligkeiten im Monat oder in der Woche. Einen Termin verschiebst du, indem du ihn auf einen anderen Tag ziehst.
+
+![Kalender mit Terminen im Oktober](docs/screenshots/kalender.png)
+
+### Papierkorb
+Aus Versehen gelöscht? Kein Problem: Gelöschtes landet zuerst im Papierkorb und lässt sich mit einem Klick wiederherstellen.
+
+![Papierkorb mit wiederherstellbaren Einträgen](docs/screenshots/papierkorb.png)
+
+### Und außerdem
+- **Projekte**, um Privates, Arbeit oder Schule zu trennen – jedes mit eigener Farbe.
+- **Suche über alles** mit `Strg` + `K`.
+- **Heller und dunkler Modus.**
+- **Verlauf**: Die Uhr oben rechts zeigt, was zuletzt passiert ist.
+
+## Deine Daten
+
+- Alles bleibt **auf deinem Computer** – es gibt kein Konto, keine Cloud und keine Werbung. Internet brauchst du nur zum Herunterladen.
+- Gespeichert wird im Ordner `%APPDATA%\Scrumbanize` (in die Adresszeile des Explorers eintippen). **Zum Sichern** Scrumbanize schließen und diesen Ordner z. B. auf einen USB-Stick kopieren.
+- Jede Person am Computer hat mit ihrem eigenen Windows-Konto auch ihre eigenen Notizen.
+
+## Neue Version installieren
+
+Alle **4 Wochen erinnert dich Scrumbanize** mit einem kleinen Hinweis unten rechts daran, nach einer neuen Version zu schauen. Ein Klick auf **„Nachsehen“** zeigt die neueste Version im Browser.
+
+Gibt es dort eine neuere Version als deine (die Nummer steht im Hinweis), lade sie wie oben beschrieben herunter und führe die neue `Scrumbanize-Setup-….exe` aus. Sie ersetzt die alte Version – **deine Notizen und Aufgaben bleiben erhalten.**
+
+## Hilfe
+
+- **Die Einführung noch einmal sehen:** `Strg` + `K` drücken und „Einführung erneut starten“ wählen.
+- **Etwas funktioniert nicht?** Melde dich bei der Person, die dir Scrumbanize empfohlen hat, oder lege auf GitHub unter [Issues](https://github.com/lukxstim/Scrumbanize/issues) eine Meldung an.
+
+---
+
+## Für Entwicklerinnen und Entwickler
 
 Selbstgehostete Web-App, die Notizen und ein Scrumban-Board verbindet. Hintergrund und Ziele: [docs/vision.md](docs/vision.md), User Stories: [docs/stories](docs/stories).
 
@@ -38,7 +129,7 @@ Die Desktop-App bündelt Frontend, Server und SQLite in einem Electron-Programm.
 
 ### Installieren und starten
 
-Zwei Varianten (Windows 10/11, 64 Bit):
+Die Schritt-für-Schritt-Anleitung für Nutzerinnen und Nutzer steht oben unter [Anleitung für die Installation](#anleitung-für-die-installation). Zwei Varianten (Windows 10/11, 64 Bit):
 
 - **`Scrumbanize-Setup-1.0.0.exe`** – Installer. Installiert ohne Administratorrechte für den aktuellen Benutzer (nach `%LOCALAPPDATA%\Programs\scrumbanize`) und legt Verknüpfungen auf dem Desktop und im Startmenü an. Deinstallation über „Apps & Features“.
 - **`Scrumbanize-1.0.0-portable.exe`** – ohne Installation, z. B. vom USB-Stick. Startet etwas langsamer, weil sie sich bei jedem Start entpackt.
@@ -75,6 +166,16 @@ npm install
 npm run desktop        # baut Client und Desktop-App und startet sie (Daten in "%APPDATA%\Scrumbanize (Dev)")
 npm run desktop:dist   # erzeugt die .exe-Dateien in desktop/release/
 ```
+
+### Release veröffentlichen
+
+Die Download-Links oben und die Erinnerung in der Desktop-App (`RELEASES_URL` in `desktop/src/main.ts`) zeigen auf `https://github.com/lukxstim/Scrumbanize/releases/latest`. Das Repository ist privat: Wer die App bekommen soll, wird unter **Settings → Collaborators** eingeladen und lädt angemeldet herunter. Die App prüft selbst nicht auf Updates (ohne Zugangsdaten sieht sie die privaten Releases nicht); sie erinnert alle 4 Wochen an einen Blick auf die Release-Seite – die Versionsnummer im Hinweis kommt aus `desktop/package.json`.
+
+1. Version in `desktop/package.json` erhöhen (z. B. `1.0.0` → `1.1.0`); sie steht im Namen der `.exe`-Dateien.
+2. `npm run desktop:dist` – erzeugt in `desktop/release/` die Dateien `Scrumbanize-Setup-<Version>.exe` und `Scrumbanize-<Version>-portable.exe`.
+3. Änderungen committen und pushen.
+4. Auf GitHub: **Releases → „Draft a new release“** → Tag `v<Version>` anlegen (auf `main`), Titel z. B. „Scrumbanize 1.1.0“, kurze Beschreibung der Neuerungen auf Deutsch.
+5. Beide `.exe`-Dateien in das Feld „Attach binaries“ ziehen und **„Publish release“** klicken. Der Link „neueste Version“ zeigt danach automatisch auf dieses Release.
 
 Im Desktop-Fenster öffnet `F12` die Entwicklertools, nur beim ungepackten Start (`npm run desktop`). Die Umgebungsvariable `SCRUMBANIZE_USER_DATA` legt für Tests einen anderen Datenordner fest.
 

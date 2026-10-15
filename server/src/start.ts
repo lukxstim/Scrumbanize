@@ -1,6 +1,6 @@
 import { createServer, type Server } from 'node:http';
 import path from 'node:path';
-import { createApp } from './app.js';
+import { createApp, type DesktopInfo } from './app.js';
 import { openDatabase } from './database.js';
 import { seedSampleProject } from './sampleProject.js';
 import { loopbackHosts } from './hostGuard.js';
@@ -21,6 +21,8 @@ export interface ServerOptions {
    * Requires `host: '127.0.0.1'`. Off for dev and Docker, which are reached via other host names.
    */
   localOnly?: boolean;
+  /** The desktop app passes its version and release page, for the reminder to look for new versions. */
+  desktop?: DesktopInfo;
 }
 
 export interface RunningServer {
@@ -56,6 +58,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   const app = createApp(db, {
     clientDist: options.clientDist,
     uploadsDir,
+    desktop: options.desktop,
     trustedHosts: options.localOnly ? () => loopbackHosts(actualPort) : undefined,
   });
 

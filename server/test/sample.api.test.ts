@@ -25,7 +25,7 @@ describe('sample project', () => {
     expect(projects.map((p) => p.name)).toEqual(['Allgemein', SAMPLE_PROJECT_NAME]);
     const sample = projects[1]!;
     expect(sample).toMatchObject({ noteCount: 1, taskCount: 7 });
-    expect((await api.get('/api/meta')).body).toEqual({ sampleProjectId: sample.id });
+    expect((await api.get('/api/meta')).body).toEqual({ sampleProjectId: sample.id, desktop: null });
   });
 
   it('spreads tasks over the board with priorities, dates, a checklist, a link and the source note', async () => {
@@ -59,9 +59,9 @@ describe('sample project', () => {
   it('is no longer reported once it is in the trash or deleted', async () => {
     const id = (await api.get('/api/meta')).body.sampleProjectId;
     await api.delete(`/api/projects/${id}`);
-    expect((await api.get('/api/meta')).body).toEqual({ sampleProjectId: null });
+    expect((await api.get('/api/meta')).body).toEqual({ sampleProjectId: null, desktop: null });
     await api.post(`/api/trash/project/${id}/restore`);
-    expect((await api.get('/api/meta')).body).toEqual({ sampleProjectId: id });
+    expect((await api.get('/api/meta')).body).toEqual({ sampleProjectId: id, desktop: null });
   });
 });
 
@@ -92,6 +92,12 @@ describe('first start', () => {
     expect(await projectNames()).toEqual(['Allgemein']);
   });
 
+  it('tells the client when it runs in the desktop app, with version and release page', async () => {
+    const desktop = { version: '1.2.3', releasesUrl: 'https://example.com/releases/latest' };
+    server = await startServer({ port: 0, host: '127.0.0.1', dataDir: dir, desktop });
+    expect(await (await fetch(`${server.url}/api/meta`)).json()).toMatchObject({ desktop });
+  });
+
   it('leaves existing installations alone when they are updated', async () => {
     const v10 = new Database(path.join(dir, 'scrumbanize.db'));
     for (const sql of migrations.slice(0, 10)) v10.exec(sql);
@@ -100,6 +106,6 @@ describe('first start', () => {
 
     server = await startServer({ port: 0, host: '127.0.0.1', dataDir: dir });
     expect(await projectNames()).toEqual(['Allgemein']);
-    expect(await (await fetch(`${server.url}/api/meta`)).json()).toEqual({ sampleProjectId: null });
+    expect(await (await fetch(`${server.url}/api/meta`)).json()).toEqual({ sampleProjectId: null, desktop: null });
   });
 });

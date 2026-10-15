@@ -37,9 +37,16 @@ async function trashRequest<T>(path: string, init: RequestInit): Promise<T> {
   return result;
 }
 
+/** Set when the app runs inside the desktop app. */
+export interface DesktopInfo {
+  version: string;
+  /** Where new versions are published. */
+  releasesUrl: string;
+}
+
 export const metaApi = {
   /** Facts about the installation; `sampleProjectId` is null if there is no sample project (any more). */
-  get: () => request<{ sampleProjectId: number | null }>('/meta'),
+  get: () => request<{ sampleProjectId: number | null; desktop: DesktopInfo | null }>('/meta'),
 };
 
 export const projectsApi = {

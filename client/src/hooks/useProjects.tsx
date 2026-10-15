@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Project, ProjectInput } from '../types/project';
-import { metaApi, projectsApi } from '../utils/api';
+import { metaApi, projectsApi, type DesktopInfo } from '../utils/api';
 import { sortProjects } from '../utils/projects';
 import type { LoadStatus } from './useNotes';
 
@@ -10,6 +10,8 @@ interface ProjectsState {
   status: LoadStatus;
   /** The sample project of the first start, opened when this browser has no last project yet. */
   sampleProjectId: number | null;
+  /** Version and release page, inside the desktop app only. */
+  desktop: DesktopInfo | null;
   /** Refreshes the list, e.g. for current note and task counts. */
   reload: () => Promise<void>;
   createProject: (input: ProjectInput) => Promise<Project>;
@@ -23,12 +25,14 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [status, setStatus] = useState<LoadStatus>('loading');
   const [sampleProjectId, setSampleProjectId] = useState<number | null>(null);
+  const [desktop, setDesktop] = useState<DesktopInfo | null>(null);
 
   const reload = useCallback(async () => {
     try {
       const [list, meta] = await Promise.all([projectsApi.list(), metaApi.get()]);
       setProjects(sortProjects(list));
       setSampleProjectId(meta.sampleProjectId);
+      setDesktop(meta.desktop);
       setStatus('ready');
     } catch {
       // Keep showing a list that was already loaded; only the first load can fail visibly.
@@ -58,8 +62,8 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ projects, status, sampleProjectId, reload, createProject, updateProject, deleteProject }),
-    [projects, status, sampleProjectId, reload, createProject, updateProject, deleteProject],
+    () => ({ projects, status, sampleProjectId, desktop, reload, createProject, updateProject, deleteProject }),
+    [projects, status, sampleProjectId, desktop, reload, createProject, updateProject, deleteProject],
   );
 
   return <ProjectsContext.Provider value={value}>{children}</ProjectsContext.Provider>;

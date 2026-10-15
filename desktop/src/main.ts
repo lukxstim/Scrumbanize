@@ -7,6 +7,12 @@ import { loadWindowState, trackWindowState } from './windowState.js';
 /** The port the app prefers, so its address (and with it the browser storage: theme, last project …) stays the same. */
 const PREFERRED_PORT = 41723;
 
+/**
+ * Where new versions are published. The repository is private: family members are collaborators and see the
+ * releases when logged in to GitHub. The app does not check by itself; it reminds every few weeks (client).
+ */
+const RELEASES_URL = 'https://github.com/lukxstim/Scrumbanize/releases/latest';
+
 // Unpacked runs (`npm run desktop`) keep their data apart from an installed app. SCRUMBANIZE_USER_DATA lets
 // automated tests use a throwaway directory.
 if (process.env.SCRUMBANIZE_USER_DATA) app.setPath('userData', process.env.SCRUMBANIZE_USER_DATA);
@@ -56,6 +62,7 @@ async function start(): Promise<void> {
     localOnly: true,
     dataDir: app.getPath('userData'),
     clientDist,
+    desktop: { version: app.getVersion(), releasesUrl: RELEASES_URL },
   });
   log(`Scrumbanize ${app.getVersion()} started: ${server.url}, database ${server.dbFile}`);
   if (server.port !== PREFERRED_PORT) log(`Port ${PREFERRED_PORT} was busy; settings stored in the browser start fresh on this port.`);
