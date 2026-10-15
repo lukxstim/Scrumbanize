@@ -9,6 +9,7 @@ import { hostGuard } from './hostGuard.js';
 import { createActivityRepository } from './repositories/activityRepository.js';
 import { createAttachmentsRepository } from './repositories/attachmentsRepository.js';
 import { createBoardRepository } from './repositories/boardRepository.js';
+import { createMetaRepository } from './repositories/metaRepository.js';
 import { createNotesRepository } from './repositories/notesRepository.js';
 import { createProjectsRepository } from './repositories/projectsRepository.js';
 import { createSearchRepository } from './repositories/searchRepository.js';
@@ -41,6 +42,7 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   const search = createSearchRepository(db);
   const activities = createActivityRepository(db);
   const trash = createTrashRepository(db);
+  const meta = createMetaRepository(db);
   const attachments = createAttachmentsRepository(
     db,
     options.uploadsDir ?? path.join(os.tmpdir(), `scrumbanize-uploads-${randomUUID()}`),
@@ -56,6 +58,10 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   const api = express.Router();
   api.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
+  });
+  // Facts about the installation; `sampleProjectId` is null once the sample project was deleted.
+  api.get('/meta', (_req, res) => {
+    res.json({ sampleProjectId: meta.sampleProjectId() });
   });
   api.use('/projects', projectsRouter(projects));
   api.use('/projects/:projectId', projectScopedRouter({ activities, projects, notes, tasks, board }));

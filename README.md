@@ -1,12 +1,13 @@
 # Scrumbanize
 
-<img src="client/public/scrumbanize.svg" alt="scrumbanize – Hybrid Agile Platform" width="160" />
+<img src="docs/branding/scrumbanize-logo.png" alt="Scrumbanize-Logo" width="120" />
 
 Selbstgehostete Web-App, die Notizen und ein Scrumban-Board verbindet. Hintergrund und Ziele: [docs/vision.md](docs/vision.md), User Stories: [docs/stories](docs/stories).
 
-**Stand:** US-01 bis US-12 sind umgesetzt:
+**Stand:** US-01 bis US-13 sind umgesetzt:
 
-- **Projekte:** Notizen und Board sind nach Projekten getrennt (z. B. „Privat“, „Studium“). Projekte werden im Header gewechselt, angelegt, umbenannt, eingefärbt und gelöscht (sie kommen nach einer Rückfrage in den Papierkorb; das letzte Projekt bleibt erhalten). Beim ersten Start gibt es das Projekt „Allgemein“; das zuletzt geöffnete Projekt merkt sich der Browser.
+- **Projekte:** Notizen und Board sind nach Projekten getrennt (z. B. „Privat“, „Studium“). Projekte werden im Header gewechselt, angelegt, umbenannt, eingefärbt und gelöscht (sie kommen nach einer Rückfrage in den Papierkorb; das letzte Projekt bleibt erhalten). Beim ersten Start gibt es das leere Projekt „Allgemein“ und das Beispielprojekt „Willkommen bei Scrumbanize“ (siehe Einstieg); das zuletzt geöffnete Projekt merkt sich der Browser.
+- **Einstieg:** Eine neue Installation (leere Datenbank) legt einmalig das Beispielprojekt „Willkommen bei Scrumbanize“ an – mit einer Notiz „So funktioniert Scrumbanize“ (Checkliste, Hervorhebungen, Tastenkürzel) und sieben Tasks über alle Spalten (Prioritäten, Termine relativ zum ersten Start, Checkliste, Verknüpfung, aus der Notiz erstellt). Es öffnet sich beim ersten Besuch; gelöscht kommt es nicht wieder, und bestehende Installationen bekommen es beim Update nicht. Dazu zeigt eine kurze Einführung in 7 Schritten die wichtigsten Stellen im Header. Jeder Schritt hat „Überspringen“ und „Nicht erneut anzeigen“ (voreingestellt); die Wahl merkt sich der Browser. Ohne Haken erscheint die Einführung beim nächsten Start wieder. Neu starten: Befehlspalette → „Einführung erneut starten“.
 - **Notizen** (`/p/:projectId/notes`): Titel, Inhalt und Tags, Auto-Save, Live-Suche und Tag-Filter.
 - **Editor** für Notizen und Task-Beschreibungen: formatiert bearbeiten (WYSIWYG) mit Werkzeugleiste – Überschriften, fett, kursiv, durchgestrichen, Code, Hervorheben in 5 Farben, Listen, Checklisten, Zitat, Codeblock, Link, Rückgängig – und Markdown-Kürzeln beim Tippen (`## `, `- [ ] `, `**…**`). Gespeichert wird weiterhin Markdown (GFM); Hervorhebungen als `<mark data-color="…">`. Der Schalter „Formatiert / Markdown“ zeigt den Quelltext (merkt sich der Browser). Inhalte mit HTML oder Fußnoten öffnen nur als Markdown, damit nichts verloren geht. Beim Speichern über den Editor kann sich die Schreibweise vereinheitlichen (z. B. `*`-Listen zu `-`, `__fett__` zu `**fett**`), der Inhalt bleibt gleich.
 - **Anhänge** an Notizen und Tasks: per Drag-and-Drop oder „auswählen“, bis zu 10 Dateien je Upload und 25 MB je Datei. Erlaubt sind Bilder (PNG, JPEG, GIF, WebP), PDF, Office (DOCX, XLSX, PPTX), OpenDocument (ODT, ODS, ODP), TXT, CSV, MD und ZIP – kein SVG. Bilder erscheinen als Vorschaubilder, andere Dateien als Liste; Bilder und PDFs öffnen in einer Vorschau (← → blättern), alles lässt sich herunterladen (mit Originalnamen) und nach Rückfrage endgültig entfernen. Anhänge folgen Notiz bzw. Task in den Papierkorb und werden beim endgültigen Löschen mit entfernt; bei der Umwandlung einer Notiz bleiben sie an der Notiz.
@@ -132,6 +133,7 @@ Listen und Neuanlagen gehören zu einem Projekt (`/api/projects/:projectId/…`)
 | Methode | Pfad              | Beschreibung |
 |---------|-------------------|--------------|
 | GET     | `/api/health`     | Health-Check |
+| GET     | `/api/meta`       | Angaben zur Installation: `{ "sampleProjectId" }` – das Beispielprojekt des ersten Starts, `null` wenn es (nicht mehr) existiert oder im Papierkorb liegt |
 | GET     | `/api/projects`   | Alle Projekte, alphabetisch, mit `noteCount` und `taskCount` |
 | POST    | `/api/projects`   | Projekt anlegen: `{ "name", "color" }` – Farben: `slate`, `red`, `amber`, `emerald`, `sky`, `indigo`, `violet`, `pink`. Namen sind eindeutig (ohne Groß-/Kleinschreibung), sonst 409 |
 | PATCH   | `/api/projects/:id` | Name und/oder Farbe ändern |

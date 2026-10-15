@@ -46,8 +46,11 @@ export function setLastProjectId(id: number): void {
   }
 }
 
-/** The project to open when the URL names none: the last one used, else the first. */
-export function defaultProject(projects: Project[]): Project | undefined {
+/**
+ * The project to open when the URL names none: the last one used in this browser, else the sample project
+ * of the first start (if it still exists), else the first.
+ */
+export function defaultProject(projects: Project[], sampleProjectId: number | null = null): Project | undefined {
   const lastId = getLastProjectId();
-  return projects.find((p) => p.id === lastId) ?? projects[0];
+  return projects.find((p) => p.id === lastId) ?? projects.find((p) => p.id === sampleProjectId) ?? projects[0];
 }

@@ -6,7 +6,7 @@ import { useStoredState } from '../hooks/useStoredState';
 import { useTheme, type ThemeSetting } from '../hooks/useTheme';
 import type { Project } from '../types/project';
 import { searchApi, type SearchResults } from '../utils/api';
-import { requestNewProject, type CreateRequest } from '../utils/appEvents';
+import { requestNewProject, requestTourStart, type CreateRequest } from '../utils/appEvents';
 import { matchesQuery } from '../utils/matchQuery';
 import { paths, withActivityDrawer } from '../utils/paths';
 import { colorDot } from '../utils/projects';
@@ -17,6 +17,7 @@ import {
   TrashIcon,
   CheckIcon,
   HistoryIcon,
+  InfoIcon,
   CompactIcon,
   FolderIcon,
   MonitorIcon,
@@ -204,6 +205,13 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
   groups.push({
     heading: 'Einstellungen',
     items: [
+      {
+        id: 'tour',
+        label: 'Einführung erneut starten',
+        keywords: 'einführung tour hilfe onboarding rundgang erklärung',
+        icon: <InfoIcon />,
+        run: requestTourStart,
+      },
       ...(['light', 'dark', 'system'] as const).map((value) => ({
         id: `theme-${value}`,
         label: `Farbschema: ${THEME_LABELS[value]}`,

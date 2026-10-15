@@ -50,6 +50,13 @@ describe('last project', () => {
     expect(defaultProject(projects)?.id).toBe(5);
   });
 
+  it('opens the sample project on the first start, but the last used one afterwards', () => {
+    expect(defaultProject(projects, 5)?.id).toBe(5);
+    expect(defaultProject(projects, 99)?.id).toBe(1); // sample project deleted
+    setLastProjectId(1);
+    expect(defaultProject(projects, 5)?.id).toBe(1);
+  });
+
   it('falls back to the first project if the last one is gone or unknown', () => {
     expect(defaultProject(projects)?.id).toBe(1);
     setLastProjectId(99);

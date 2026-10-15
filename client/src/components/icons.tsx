@@ -168,3 +168,10 @@ export const PaperclipIcon = (props: SVGProps<SVGSVGElement>) => (
     <path d="m13 7.5-5.4 5.4a3.25 3.25 0 0 1-4.6-4.6l5.6-5.6a2.1 2.1 0 0 1 3 3L6 11.3a1 1 0 0 1-1.4-1.4l5.1-5.1" />
   </Icon>
 );
+
+export const InfoIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <circle cx="8" cy="8" r="5.75" />
+    <path d="M8 7.25v3.5M8 5.25v.01" />
+  </Icon>
+);

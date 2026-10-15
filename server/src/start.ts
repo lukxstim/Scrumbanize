@@ -2,6 +2,7 @@ import { createServer, type Server } from 'node:http';
 import path from 'node:path';
 import { createApp } from './app.js';
 import { openDatabase } from './database.js';
+import { seedSampleProject } from './sampleProject.js';
 import { loopbackHosts } from './hostGuard.js';
 
 export interface ServerOptions {
@@ -47,7 +48,8 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
 
   const dbFile = path.join(path.resolve(options.dataDir), DB_FILE_NAME);
   const uploadsDir = path.join(path.resolve(options.dataDir), UPLOADS_DIR_NAME);
-  const db = openDatabase(dbFile);
+  // A brand-new database starts with the sample project (US-13); updates of existing ones never get it.
+  const db = openDatabase(dbFile, { onCreate: (created) => seedSampleProject(created) });
 
   // The guard needs the actual port, which is only known after listening.
   let actualPort = options.port;

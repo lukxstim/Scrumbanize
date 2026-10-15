@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Link, Navigate, NavLink, Route, Routes, useLocation, useMatch, useNavigate, useParams, useSearchParams } from 'react-router';
 import BoardPage from './components/board/BoardPage';
@@ -11,10 +11,14 @@ import NotesPage from './components/notes/NotesPage';
 import ProjectLayout from './components/projects/ProjectLayout';
 import ProjectSwitcher from './components/projects/ProjectSwitcher';
 import RedirectToProject from './components/projects/RedirectToProject';
+import Tour from './components/onboarding/Tour';
 import ThemeSwitcher from './components/ThemeSwitcher';
 import Kbd, { modKey } from './components/ui/Kbd';
 import { useProjects } from './hooks/useProjects';
+import { useStoredState } from './hooks/useStoredState';
 import { useTrashCount } from './hooks/useTrash';
+import { onTourStartRequest } from './utils/appEvents';
+import { closedTourState, INITIAL_TOUR_STATE, isTourState, TOUR_STORAGE_KEY } from './utils/tour';
 import { ACTIVITY_PARAM, paths, withActivityDrawer } from './utils/paths';
 
 
@@ -59,6 +63,21 @@ export default function App() {
   const trashCount = useTrashCount(activeProject?.id);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
+  // The onboarding tour starts by itself once the first project is shown, unless it was dismissed for good
+  // ("Nicht erneut anzeigen"); the command palette can start it again.
+  const [tourState, setTourState] = useStoredState(TOUR_STORAGE_KEY, INITIAL_TOUR_STATE, isTourState);
+  const [tourOpen, setTourOpen] = useState(false);
+  const tourOffered = useRef(false);
+  const hasProject = activeProject !== undefined;
+  useEffect(() => {
+    if (!hasProject || tourOffered.current || tourState.status === 'done') return;
+    tourOffered.current = true;
+    // A moment after the page appeared, so the tour points at a settled header.
+    const timer = setTimeout(() => setTourOpen(true), 700);
+    return () => clearTimeout(timer);
+  }, [hasProject, tourState.status]);
+  useEffect(() => onTourStartRequest(() => setTourOpen(true)), []);
+
   // ⌘K / Ctrl+K opens the command palette from anywhere, also while typing.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -75,36 +94,30 @@ export default function App() {
   return (
     <div className="flex h-screen flex-col bg-canvas text-fg">
       <header className="relative z-20 flex h-13 shrink-0 items-center gap-3 border-b border-line bg-surface/80 px-4 backdrop-blur-md">
-        <span className="flex items-center gap-2">
-          {/* The emblem of public/scrumbanize.svg; the wordmark next to it is plain text, so it stays sharp. */}
-          <img
-            src="/scrumbanize-icon.svg"
-            alt=""
-            width={28}
-            height={28}
-            className="size-7 rounded-lg shadow-sm ring-1 ring-black/5 dark:ring-white/10"
-          />
+        <span className="flex shrink-0 items-center gap-2">
+          {/* The logo tile (public/scrumbanize-logo.png, from docs/branding); the wordmark is plain text, so it stays sharp. */}
+          <img src="/scrumbanize-logo.png" alt="" width={28} height={28} className="size-7 rounded-md shadow-sm" />
           <span className="text-sm font-semibold tracking-tight">Scrumbanize</span>
         </span>
         {activeProject && (
           <>
-            <span className="text-fg-faint" aria-hidden="true">
+            <span className="shrink-0 text-fg-faint" aria-hidden="true">
               /
             </span>
             <ProjectSwitcher active={activeProject} section={section} />
             <nav
-              className="ml-2 inline-flex rounded-lg bg-surface-muted p-0.5 ring-1 ring-line ring-inset"
+              className="ml-2 inline-flex shrink-0 rounded-lg bg-surface-muted p-0.5 ring-1 ring-line ring-inset"
               aria-label="Hauptnavigation"
             >
-              <NavLink to={paths.notes(activeProject.id)} className={({ isActive }) => tabClass(isActive)}>
+              <NavLink to={paths.notes(activeProject.id)} className={({ isActive }) => tabClass(isActive)} data-tour="tab-notes">
                 <NoteIcon className="size-3.5" />
                 Notizen
               </NavLink>
-              <NavLink to={paths.board(activeProject.id)} className={() => tabClass(onBoard)}>
+              <NavLink to={paths.board(activeProject.id)} className={() => tabClass(onBoard)} data-tour="tab-board">
                 <BoardIcon className="size-3.5" />
                 Board
               </NavLink>
-              <NavLink to={paths.calendar(activeProject.id)} className={({ isActive }) => tabClass(isActive)}>
+              <NavLink to={paths.calendar(activeProject.id)} className={({ isActive }) => tabClass(isActive)} data-tour="tab-calendar">
                 <CalendarIcon className="size-3.5" />
                 Kalender
               </NavLink>
@@ -115,10 +128,11 @@ export default function App() {
         <button
           type="button"
           onClick={() => setPaletteOpen(true)}
-          className="flex h-8 w-60 items-center gap-2 rounded-md border border-line bg-surface-muted px-2.5 text-sm text-fg-subtle transition-colors hover:border-line-strong hover:text-fg-muted focus-visible:outline-2 focus-visible:outline-accent"
+          data-tour="search"
+          className="flex h-8 w-44 shrink-0 items-center gap-2 xl:w-60 rounded-md border border-line bg-surface-muted px-2.5 text-sm text-fg-subtle transition-colors hover:border-line-strong hover:text-fg-muted focus-visible:outline-2 focus-visible:outline-accent"
         >
           <SearchIcon className="size-4" />
-          <span>Suchen …</span>
+          <span className="truncate">Suchen …</span>
           <span className="ml-auto flex gap-0.5">
             <Kbd>{modKey}</Kbd>
             <Kbd>K</Kbd>
@@ -126,7 +140,7 @@ export default function App() {
         </button>
         <ThemeSwitcher />
         {activeProject && (
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1" data-tour="header-tools">
             <Link
               to={paths.trash(activeProject.id)}
               className={headerIconClass(onTrash)}
@@ -176,6 +190,15 @@ export default function App() {
 
       {activityOpen && activeProject && (
         <ActivityDrawer key={activeProject.id} projectId={activeProject.id} projectName={activeProject.name} onClose={closeActivity} />
+      )}
+
+      {tourOpen && !paletteOpen && (
+        <Tour
+          onClose={(dontShowAgain) => {
+            setTourOpen(false);
+            setTourState(closedTourState(dontShowAgain));
+          }}
+        />
       )}
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} activeProject={activeProject} />

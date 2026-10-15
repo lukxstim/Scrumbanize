@@ -111,6 +111,7 @@ export const text = {
     limit === null ? `WIP-Limit von ${quote(column)} entfernt` : `WIP-Limit von ${quote(column)} auf ${limit} gesetzt`,
 
   projectCreated: (name: string) => `Projekt ${quote(name)} angelegt`,
+  sampleProjectCreated: () => 'Beispielprojekt angelegt',
   projectRenamed: (from: string, to: string) => `Projekt ${quote(from)} in ${quote(to)} umbenannt`,
   projectRecolored: (name: string) => `Farbe von Projekt ${quote(name)} geändert`,
   projectTrashed: (name: string) => `Projekt ${quote(name)} in den Papierkorb verschoben`,

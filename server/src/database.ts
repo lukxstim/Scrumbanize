@@ -275,26 +275,41 @@ export const migrations: string[] = [
   CREATE INDEX idx_attachments_note ON attachments(note_id);
   CREATE INDEX idx_attachments_task ON attachments(task_id);
   `,
+  // Facts about the installation, e.g. which project is the sample project created on the first start.
+  `
+  CREATE TABLE app_meta (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+  `,
 ];
 
+export interface OpenOptions {
+  /** Runs once, right after a brand-new database was set up (e.g. to create the sample project). */
+  onCreate?: (db: Db) => void;
+}
+
 /** Opens (or creates) the database at `file` and brings its schema up to date. Pass ':memory:' for tests. */
-export function openDatabase(file: string): Db {
+export function openDatabase(file: string, options: OpenOptions = {}): Db {
   if (file !== ':memory:') {
     fs.mkdirSync(path.dirname(file), { recursive: true });
   }
 
   const db = new Database(file);
   db.pragma('journal_mode = WAL');
-  migrate(db);
+  const previousVersion = migrate(db);
   db.pragma('foreign_keys = ON');
+  // Version 0 before migrating means the file was just created: a first start, not an update.
+  if (previousVersion === 0) options.onCreate?.(db);
   return db;
 }
 
 /**
  * Foreign keys stay off while migrating, so tables can be rebuilt (SQLite only allows switching them
  * outside a transaction). Each migration is checked with foreign_key_check before it is committed.
+ * Returns the schema version the database had before.
  */
-function migrate(db: Db): void {
+function migrate(db: Db): number {
   const current = db.pragma('user_version', { simple: true }) as number;
   db.pragma('foreign_keys = OFF');
 
@@ -308,4 +323,5 @@ function migrate(db: Db): void {
       db.pragma(`user_version = ${version + 1}`);
     })();
   }
+  return current;
 }

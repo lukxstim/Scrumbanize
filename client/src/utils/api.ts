@@ -37,6 +37,11 @@ async function trashRequest<T>(path: string, init: RequestInit): Promise<T> {
   return result;
 }
 
+export const metaApi = {
+  /** Facts about the installation; `sampleProjectId` is null if there is no sample project (any more). */
+  get: () => request<{ sampleProjectId: number | null }>('/meta'),
+};
+
 export const projectsApi = {
   list: () => request<Project[]>('/projects'),
   create: (input: ProjectInput) => request<Project>('/projects', { method: 'POST', body: JSON.stringify(input) }),

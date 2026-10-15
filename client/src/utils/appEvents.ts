@@ -23,6 +23,18 @@ export function isCreateRequest(state: unknown): state is CreateRequest {
   return !!s && (s.create === 'note' || s.create === 'task') && typeof s.title === 'string';
 }
 
+const START_TOUR = 'scrumbanize:start-tour';
+
+/** Starts the onboarding tour again (from the command palette). */
+export function requestTourStart(): void {
+  window.dispatchEvent(new Event(START_TOUR));
+}
+
+export function onTourStartRequest(handler: () => void): () => void {
+  window.addEventListener(START_TOUR, handler);
+  return () => window.removeEventListener(START_TOUR, handler);
+}
+
 const TRASH_CHANGED = 'scrumbanize:trash-changed';
 
 /** Something went into or out of the trash, so the trash tab updates its count. */

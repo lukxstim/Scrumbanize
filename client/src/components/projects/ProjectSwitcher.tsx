@@ -144,6 +144,7 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
         aria-haspopup="menu"
         aria-expanded={menuOpen}
         aria-label={`Projekt: ${active.name}. Projekt wechseln`}
+        data-tour="project-switcher"
         onClick={() => setMenuOpen((open) => !open)}
         onKeyDown={(event) => {
           if (event.key === 'ArrowDown' && !menuOpen) {
@@ -151,7 +152,7 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
             setMenuOpen(true);
           }
         }}
-        className="flex h-8 max-w-64 items-center gap-2 rounded-md px-2.5 text-sm font-medium text-fg transition-colors duration-150 hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-accent aria-expanded:bg-surface-hover"
+        className="flex h-8 max-w-44 items-center gap-2 xl:max-w-64 rounded-md px-2.5 text-sm font-medium text-fg transition-colors duration-150 hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-accent aria-expanded:bg-surface-hover"
       >
         <span className={`size-2.5 shrink-0 rounded-full ${colorDot(active.color)}`} aria-hidden="true" />
         <span className="truncate">{active.name}</span>

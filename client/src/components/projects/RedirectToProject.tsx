@@ -29,8 +29,8 @@ export function ProjectsLoading() {
 
 /** Sends addresses without a (valid) project to the last project used, or the first one. */
 export default function RedirectToProject({ section = 'notes' }: { section?: Section }) {
-  const { projects, status } = useProjects();
-  const target = defaultProject(projects);
+  const { projects, status, sampleProjectId } = useProjects();
+  const target = defaultProject(projects, sampleProjectId);
 
   if (status !== 'ready' || !target) return <ProjectsLoading />;
   return <Navigate to={sectionPath(target.id, section)} replace />;
