@@ -94,7 +94,7 @@ export default function ActivityPage() {
           )}
 
           {log.status === 'ready' &&
-            groupByDay(log.items, now).map((group) => (
+            groupByDay(log.items, now, (a) => a.createdAt).map((group) => (
               <section key={group.label} aria-label={group.label} className="mb-6">
                 <h2 className="sticky top-0 z-10 -mx-1 bg-canvas/90 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-fg-subtle backdrop-blur">
                   {group.label}

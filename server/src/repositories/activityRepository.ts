@@ -3,7 +3,8 @@ import type { Db } from '../database.js';
 
 export const ENTITY_TYPES = ['note', 'task', 'board', 'project'] as const;
 export type EntityType = (typeof ENTITY_TYPES)[number];
-export type ActionType = 'create' | 'update' | 'move' | 'delete';
+/** "delete" moves a note, task or project to the trash; "purge" deletes it for good. */
+export type ActionType = 'create' | 'update' | 'move' | 'delete' | 'restore' | 'purge';
 
 /** Edits of the same note or task within this window are aggregated into one entry (auto-save). */
 export const AGGREGATE_WINDOW_MS = 10 * 60 * 1000;
@@ -26,8 +27,10 @@ export interface Activity {
   description: string;
   metadata: Record<string, unknown>;
   createdAt: string;
-  /** Whether the note or task still exists, so the UI only links to existing ones. */
+  /** Whether the note or task can be opened, so the UI only links to those. */
   exists: boolean;
+  /** The note or task is in the trash (and could be restored). */
+  trashed: boolean;
 }
 
 interface ActivityRow {
@@ -40,6 +43,7 @@ interface ActivityRow {
   metadata: string;
   created_at: string;
   entity_exists?: number;
+  entity_trashed?: number;
 }
 
 export interface EditInput {
@@ -161,10 +165,15 @@ export function createActivityRepository(db: Db) {
         .prepare<(string | number)[], ActivityRow>(
           `SELECT a.*,
              CASE a.entity_type
-               WHEN 'note' THEN EXISTS (SELECT 1 FROM notes WHERE id = a.entity_id)
-               WHEN 'task' THEN EXISTS (SELECT 1 FROM tasks WHERE id = a.entity_id)
+               WHEN 'note' THEN EXISTS (SELECT 1 FROM live_notes WHERE id = a.entity_id)
+               WHEN 'task' THEN EXISTS (SELECT 1 FROM live_tasks WHERE id = a.entity_id)
                ELSE 1
-             END AS entity_exists
+             END AS entity_exists,
+             CASE a.entity_type
+               WHEN 'note' THEN EXISTS (SELECT 1 FROM notes WHERE id = a.entity_id AND deleted_at IS NOT NULL)
+               WHEN 'task' THEN EXISTS (SELECT 1 FROM tasks WHERE id = a.entity_id AND deleted_at IS NOT NULL)
+               ELSE 0
+             END AS entity_trashed
            FROM activities a
            WHERE a.project_id = ?
              ${options.type ? 'AND a.entity_type = ?' : ''}
@@ -185,6 +194,7 @@ export function createActivityRepository(db: Db) {
         metadata: JSON.parse(row.metadata) as Record<string, unknown>,
         createdAt: row.created_at,
         exists: row.entity_exists === 1,
+        trashed: row.entity_trashed === 1,
       }));
       return { items, nextCursor: rows.length > options.limit ? page.at(-1)!.id : null };
     },

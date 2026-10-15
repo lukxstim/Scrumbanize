@@ -5,7 +5,8 @@ import BoardPage from './components/board/BoardPage';
 import CommandPalette from './components/CommandPalette';
 import ActivityPage from './components/activity/ActivityPage';
 import CalendarPage from './components/calendar/CalendarPage';
-import { BoardIcon, CalendarIcon, ClockIcon, NoteIcon, SearchIcon } from './components/icons';
+import TrashPage from './components/trash/TrashPage';
+import { BoardIcon, CalendarIcon, ClockIcon, NoteIcon, SearchIcon, TrashIcon } from './components/icons';
 import NotesPage from './components/notes/NotesPage';
 import ProjectLayout from './components/projects/ProjectLayout';
 import ProjectSwitcher from './components/projects/ProjectSwitcher';
@@ -13,6 +14,7 @@ import RedirectToProject from './components/projects/RedirectToProject';
 import ThemeSwitcher from './components/ThemeSwitcher';
 import Kbd, { modKey } from './components/ui/Kbd';
 import { useProjects } from './hooks/useProjects';
+import { useTrashCount } from './hooks/useTrash';
 import { paths } from './utils/paths';
 
 
@@ -31,7 +33,9 @@ export default function App() {
   const onBoard = boardMatch !== null || taskMatch !== null;
   const onActivity = useMatch('/p/:projectId/activity') !== null;
   const onCalendar = useMatch('/p/:projectId/calendar') !== null;
-  const section = onActivity ? 'activity' : onCalendar ? 'calendar' : onBoard ? 'board' : 'notes';
+  const onTrash = useMatch('/p/:projectId/trash') !== null;
+  const section = onTrash ? 'trash' : onActivity ? 'activity' : onCalendar ? 'calendar' : onBoard ? 'board' : 'notes';
+  const trashCount = useTrashCount(activeProject?.id);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   // ⌘K / Ctrl+K opens the command palette from anywhere, also while typing.
@@ -87,6 +91,19 @@ export default function App() {
                 <ClockIcon className="size-3.5" />
                 Aktivität
               </NavLink>
+              <NavLink
+                to={paths.trash(activeProject.id)}
+                className={({ isActive }) => tabClass(isActive)}
+                aria-label={`Papierkorb${trashCount > 0 ? `, ${trashCount} ${trashCount === 1 ? 'Eintrag' : 'Einträge'}` : ''}`}
+                title="Papierkorb"
+              >
+                <TrashIcon className="size-3.5" />
+                {trashCount > 0 && (
+                  <span aria-hidden="true" className="min-w-4 rounded-full bg-surface-strong px-1 text-center text-[11px] leading-4 tabular-nums">
+                    {trashCount}
+                  </span>
+                )}
+              </NavLink>
             </nav>
           </>
         )}
@@ -117,6 +134,7 @@ export default function App() {
           </Route>
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="activity" element={<ActivityPage />} />
+          <Route path="trash" element={<TrashPage />} />
         </Route>
         {/* Addresses from before projects existed, and anything unknown, open the last project. */}
         <Route path="/board" element={<RedirectToProject section="board" />} />

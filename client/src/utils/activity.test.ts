@@ -15,6 +15,7 @@ function activity(id: number, createdAt: Date, overrides: Partial<Activity> = {}
     metadata: {},
     createdAt: createdAt.toISOString(),
     exists: true,
+    trashed: false,
     ...overrides,
   };
 }
@@ -33,6 +34,7 @@ describe('groupByDay', () => {
     const groups = groupByDay(
       [activity(3, new Date(2026, 9, 15, 12)), activity(2, new Date(2026, 9, 15, 8)), activity(1, new Date(2026, 9, 13, 18))],
       now,
+      (a) => a.createdAt,
     );
     expect(groups.map((g) => [g.label, g.items.map((i) => i.id)])).toEqual([
       ['Heute', [3, 2]],
@@ -58,6 +60,7 @@ describe('activityLink', () => {
 
   it('does not link deleted items or project entries', () => {
     expect(activityLink(activity(1, now, { exists: false }))).toBeUndefined();
+    expect(activityLink(activity(1, now, { exists: false, trashed: true }))).toBe('/p/1/trash');
     expect(activityLink(activity(1, now, { entityType: 'project', entityId: 1 }))).toBeUndefined();
   });
 });

@@ -53,7 +53,10 @@ function orderedList<T>(
   options: { table: 'board_columns' | 'lanes'; taskField: 'column_id' | 'lane_id'; max: number; toItem: (row: ItemRow) => T },
 ) {
   const { table, taskField, max, toItem } = options;
-  const selectItem = db.prepare<[number], ItemRow>(`SELECT * FROM ${table} WHERE id = ?`);
+  // Columns and lanes of a trashed project cannot be changed.
+  const selectItem = db.prepare<[number], ItemRow>(
+    `SELECT i.* FROM ${table} i JOIN live_projects p ON p.id = i.project_id WHERE i.id = ?`,
+  );
   const selectItems = db.prepare<[number], ItemRow>(`SELECT * FROM ${table} WHERE project_id = ? ORDER BY position, id`);
   const insertItem = db.prepare<[number, string, number], { id: number }>(
     `INSERT INTO ${table} (project_id, name, position) VALUES (?, ?, ?) RETURNING id`,
@@ -61,7 +64,9 @@ function orderedList<T>(
   const updateName = db.prepare<[string, number]>(`UPDATE ${table} SET name = ? WHERE id = ?`);
   const updatePosition = db.prepare<[number, number]>(`UPDATE ${table} SET position = ? WHERE id = ?`);
   const deleteItem = db.prepare<[number]>(`DELETE FROM ${table} WHERE id = ?`);
-  const countTasks = db.prepare<[number], { n: number }>(`SELECT COUNT(*) AS n FROM tasks WHERE ${taskField} = ?`);
+  // Tasks in the trash do not count (WIP limits, "move tasks to"), but they are moved along when an item is deleted.
+  const countTasks = db.prepare<[number], { n: number }>(`SELECT COUNT(*) AS n FROM live_tasks WHERE ${taskField} = ?`);
+  const countAllTasks = db.prepare<[number], { n: number }>(`SELECT COUNT(*) AS n FROM tasks WHERE ${taskField} = ?`);
   const maxTaskPosition = db.prepare<[number], { max: number }>(
     `SELECT COALESCE(MAX(position), 0) AS max FROM tasks WHERE ${taskField} = ?`,
   );
@@ -118,6 +123,10 @@ function orderedList<T>(
         if (!target || target.id === id || target.project_id !== row.project_id) {
           return { ok: false, reason: 'invalid_target' };
         }
+        reassignTasks.run(target.id, maxTaskPosition.get(target.id)!.max, new Date().toISOString(), id);
+      } else if (countAllTasks.get(id)!.n > 0) {
+        // Only trashed tasks are left: they go to the first remaining item, so a restore finds a cell.
+        const target = selectItems.all(row.project_id).find((r) => r.id !== id)!;
         reassignTasks.run(target.id, maxTaskPosition.get(target.id)!.max, new Date().toISOString(), id);
       }
       deleteItem.run(id);

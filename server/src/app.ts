@@ -10,12 +10,14 @@ import { createNotesRepository } from './repositories/notesRepository.js';
 import { createProjectsRepository } from './repositories/projectsRepository.js';
 import { createSearchRepository } from './repositories/searchRepository.js';
 import { createTasksRepository } from './repositories/tasksRepository.js';
+import { createTrashRepository } from './repositories/trashRepository.js';
 import { columnsRouter, lanesRouter } from './routes/board.js';
 import { notesRouter } from './routes/notes.js';
 import { projectScopedRouter } from './routes/projectScoped.js';
 import { projectsRouter } from './routes/projects.js';
 import { searchRouter } from './routes/search.js';
 import { tasksRouter } from './routes/tasks.js';
+import { trashRouter } from './routes/trash.js';
 
 export interface AppOptions {
   /** Directory with the built client. When it contains an index.html, the server also serves the app. */
@@ -32,6 +34,7 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   const projects = createProjectsRepository(db);
   const search = createSearchRepository(db);
   const activities = createActivityRepository(db);
+  const trash = createTrashRepository(db);
 
   app.disable('x-powered-by');
   // Before everything else, so rejected requests reach neither the API nor the static files.
@@ -49,6 +52,7 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   api.use('/columns', columnsRouter(board));
   api.use('/lanes', lanesRouter(board));
   api.use('/search', searchRouter(search));
+  api.use('/trash', trashRouter(trash, projects));
   api.use(apiNotFoundHandler);
   app.use('/api', api);
 

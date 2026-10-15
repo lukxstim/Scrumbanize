@@ -2,6 +2,7 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { useNotes } from '../../hooks/useNotes';
 import { useToast } from '../../hooks/useToast';
+import { trashApi } from '../../utils/api';
 import { isCreateRequest } from '../../utils/appEvents';
 import { filterNotes, sortByUpdated } from '../../utils/filterNotes';
 import { paths } from '../../utils/paths';
@@ -18,7 +19,7 @@ import TagFilter from './TagFilter';
 export default function NotesPage() {
   const { projectId: projectParam, noteId } = useParams();
   const projectId = Number(projectParam);
-  const { notes, status, reload, createNote, saveNote, deleteNote, createTaskFromNote, deleteTask } = useNotes(projectId);
+  const { notes, status, reload, createNote, saveNote, deleteNote, createTaskFromNote, discardTask } = useNotes(projectId);
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
@@ -61,10 +62,25 @@ export default function NotesPage() {
     void handleCreate(location.state.title);
   });
 
+  // Deleting moves the note to the trash right away; the toast can take it back.
   async function handleDelete(id: number) {
     await deleteNote(id);
     navigate(paths.notes(projectId), { replace: true });
-    toast({ message: 'Notiz gelöscht.' });
+    toast({
+      message: 'Notiz in den Papierkorb verschoben.',
+      action: {
+        label: 'Rückgängig',
+        onClick: async () => {
+          try {
+            await trashApi.restore('note', id);
+            await reload();
+            navigate(paths.notes(projectId, id));
+          } catch {
+            toast({ message: 'Die Notiz konnte nicht wiederhergestellt werden.', tone: 'error' });
+          }
+        },
+      },
+    });
   }
 
   function toggleTag(tag: string) {
@@ -126,7 +142,7 @@ export default function NotesPage() {
             onSave={saveNote}
             onDelete={handleDelete}
             onCreateTask={createTaskFromNote}
-            onDeleteTask={deleteTask}
+            onDiscardTask={discardTask}
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center">

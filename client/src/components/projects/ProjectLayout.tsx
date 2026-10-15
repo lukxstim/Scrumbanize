@@ -13,6 +13,7 @@ export default function ProjectLayout() {
   const taskMatch = useMatch('/p/:projectId/tasks/:taskId');
   const activityMatch = useMatch('/p/:projectId/activity');
   const calendarMatch = useMatch('/p/:projectId/calendar');
+  const trashMatch = useMatch('/p/:projectId/trash');
 
   useEffect(() => {
     if (project) setLastProjectId(project.id);
@@ -22,7 +23,9 @@ export default function ProjectLayout() {
   // Keep the requested page when falling back to another project.
   if (!project) {
     return <RedirectToProject
-        section={activityMatch ? 'activity' : calendarMatch ? 'calendar' : boardMatch || taskMatch ? 'board' : 'notes'}
+        section={
+          trashMatch ? 'trash' : activityMatch ? 'activity' : calendarMatch ? 'calendar' : boardMatch || taskMatch ? 'board' : 'notes'
+        }
       />;
   }
 

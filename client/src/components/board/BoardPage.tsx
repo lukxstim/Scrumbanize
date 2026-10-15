@@ -32,6 +32,7 @@ import {
 import { isCreateRequest } from '../../utils/appEvents';
 import { columnDropIndex, dropPosition, type CellGeometry } from '../../utils/dropPosition';
 import { todayIso } from '../../utils/dates';
+import { trashApi } from '../../utils/api';
 import { paths } from '../../utils/paths';
 import { applyView, DEFAULT_VIEW, dropIndexInCell, isTaskView } from '../../utils/taskView';
 import AddItemButton from './AddItemButton';
@@ -536,8 +537,22 @@ export default function BoardPage() {
           onMove={moveToCellEnd}
           onDelete={async (id) => {
             await board.deleteTask(id);
-            toast({ message: 'Task gelöscht.' });
             navigate(paths.board(projectId), { replace: true });
+            toast({
+              message: 'Task in den Papierkorb verschoben.',
+              action: {
+                label: 'Rückgängig',
+                onClick: async () => {
+                  try {
+                    await trashApi.restore('task', id);
+                    await board.reload();
+                    navigate(paths.task(projectId, id));
+                  } catch {
+                    toast({ message: 'Der Task konnte nicht wiederhergestellt werden.', tone: 'error' });
+                  }
+                },
+              },
+            });
           }}
         />
       )}

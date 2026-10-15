@@ -135,3 +135,15 @@ export const FlagIcon = (props: SVGProps<SVGSVGElement>) => (
     <path d="M3.5 14V2.5M3.5 3h8l-1.75 3 1.75 3h-8" />
   </Icon>
 );
+
+export const TrashIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="M2.75 4.25h10.5M6.25 4.25V2.75h3.5v1.5M4 4.25l.6 8.4a1 1 0 0 0 1 .93h4.8a1 1 0 0 0 1-.93l.6-8.4M6.75 7v4M9.25 7v4" />
+  </Icon>
+);
+
+export const RestoreIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="M3 8a5 5 0 1 0 1.5-3.55M3 2.75v2.5h2.5" />
+  </Icon>
+);

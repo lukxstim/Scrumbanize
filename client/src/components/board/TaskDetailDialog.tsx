@@ -6,7 +6,6 @@ import { formatDate } from '../../utils/format';
 import { paths } from '../../utils/paths';
 import type { Schedule } from '../../utils/schedule';
 import { UNTITLED_NOTE } from '../../utils/taskFromNote';
-import ConfirmDialog from '../ConfirmDialog';
 import ScheduleFields from '../tasks/ScheduleFields';
 import MarkdownPreview from '../notes/LazyMarkdownPreview';
 import Button from '../ui/Button';
@@ -32,7 +31,6 @@ export default function TaskDetailDialog({ task, columns, lanes, onClose, onSave
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
   const [mode, setMode] = useState<'edit' | 'preview'>(task.description ? 'preview' : 'edit');
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteFailed, setDeleteFailed] = useState(false);
   // Priority and dates are saved right away (no typing involved); a failed save puts the old values back.
   const [dates, setDates] = useState<Schedule>({ priority: task.priority, startDate: task.startDate, dueDate: task.dueDate });
@@ -61,8 +59,8 @@ export default function TaskDetailDialog({ task, columns, lanes, onClose, onSave
     }
   }
 
-  async function confirmDelete() {
-    setConfirmingDelete(false);
+  // No confirmation: the task goes to the trash, and the toast offers "Rückgängig" (see onDelete).
+  async function moveToTrash() {
     cancel();
     await flush();
     try {
@@ -75,7 +73,6 @@ export default function TaskDetailDialog({ task, columns, lanes, onClose, onSave
   return (
     <Dialog
       onClose={onClose}
-      dismissible={!confirmingDelete}
       closeOnBackdrop
       labelledBy="task-detail-title"
       className="max-h-[90vh] max-w-2xl open:flex open:flex-col"
@@ -190,19 +187,11 @@ export default function TaskDetailDialog({ task, columns, lanes, onClose, onSave
         <span>Erstellt {formatDate(task.createdAt)}</span>
         <span>Geändert {formatDate(task.updatedAt)}</span>
         <div className="flex-1" />
-        <Button variant="danger-ghost" size="sm" onClick={() => setConfirmingDelete(true)}>
+        <Button variant="danger-ghost" size="sm" onClick={() => void moveToTrash()}>
           Löschen
         </Button>
       </div>
 
-      <ConfirmDialog
-        open={confirmingDelete}
-        title="Task löschen?"
-        message={`„${title.trim() || task.title}“ wird dauerhaft gelöscht.`}
-        confirmLabel="Löschen"
-        onConfirm={() => void confirmDelete()}
-        onCancel={() => setConfirmingDelete(false)}
-      />
     </Dialog>
   );
 }

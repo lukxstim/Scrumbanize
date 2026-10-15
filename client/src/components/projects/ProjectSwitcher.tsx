@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { useProjects } from '../../hooks/useProjects';
 import { useToast } from '../../hooks/useToast';
 import type { Project, ProjectInput } from '../../types/project';
+import { trashApi } from '../../utils/api';
 import { onNewProjectRequest } from '../../utils/appEvents';
 import { paths, sectionPath, type Section } from '../../utils/paths';
 import { colorDot, countLabel, PROJECT_COLORS } from '../../utils/projects';
@@ -108,11 +109,28 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
   }
 
   async function remove() {
-    const name = active.name;
+    const { id, name } = active;
     await deleteProject(active.id);
     setDialog(null);
     navigate('/', { replace: true });
-    toast({ message: `Projekt „${name}“ gelöscht.` });
+    toast({
+      message: `Projekt „${name}“ in den Papierkorb verschoben.`,
+      action: {
+        label: 'Rückgängig',
+        onClick: async () => {
+          try {
+            const result = await trashApi.restore('project', id);
+            await reload();
+            navigate(sectionPath(id, 'notes'));
+            if (result.type === 'project' && result.renamedFrom) {
+              toast({ message: `Wiederhergestellt als „${result.item.name}“ – der Name war inzwischen vergeben.` });
+            }
+          } catch {
+            toast({ message: 'Das Projekt konnte nicht wiederhergestellt werden.', tone: 'error' });
+          }
+        },
+      },
+    });
   }
 
   // New projects start with a color that is not used yet, if there is one.

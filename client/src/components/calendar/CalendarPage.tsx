@@ -20,6 +20,7 @@ import { useBoard } from '../../hooks/useBoard';
 import { useStoredState } from '../../hooks/useStoredState';
 import { useToast } from '../../hooks/useToast';
 import type { Task } from '../../types/task';
+import { trashApi } from '../../utils/api';
 import { cellTasks } from '../../utils/board';
 import { layoutWeek, scheduleOn, shiftTask } from '../../utils/calendarLayout';
 import {
@@ -320,7 +321,21 @@ export default function CalendarPage() {
           onDelete={async (id) => {
             await board.deleteTask(id);
             setOpenTaskId(null);
-            toast({ message: 'Task gelöscht.' });
+            toast({
+              message: 'Task in den Papierkorb verschoben.',
+              action: {
+                label: 'Rückgängig',
+                onClick: async () => {
+                  try {
+                    await trashApi.restore('task', id);
+                    await board.reload();
+                    
+                  } catch {
+                    toast({ message: 'Der Task konnte nicht wiederhergestellt werden.', tone: 'error' });
+                  }
+                },
+              },
+            });
           }}
         />
       )}

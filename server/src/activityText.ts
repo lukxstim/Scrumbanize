@@ -57,6 +57,9 @@ export const text = {
     return `Notiz ${noteName(title)} bearbeitet${details ? ` (${details})` : ''}`;
   },
   noteDeleted: (title: string) => `Notiz ${noteName(title)} gelöscht`,
+  noteTrashed: (title: string) => `Notiz ${noteName(title)} in den Papierkorb verschoben`,
+  noteRestored: (title: string) => `Notiz ${noteName(title)} wiederhergestellt`,
+  notePurged: (title: string) => `Notiz ${noteName(title)} endgültig gelöscht`,
 
   taskCreated: (title: string, column: string, sourceNote?: string) =>
     sourceNote === undefined
@@ -73,6 +76,16 @@ export const text = {
     return `Task ${quote(title)} ${parts.join(' ')} verschoben`;
   },
   taskDeleted: (title: string) => `Task ${quote(title)} gelöscht`,
+  taskTrashed: (title: string) => `Task ${quote(title)} in den Papierkorb verschoben`,
+  taskRestored: (title: string, column: string) => `Task ${quote(title)} wiederhergestellt (in ${quote(column)})`,
+  taskPurged: (title: string) => `Task ${quote(title)} endgültig gelöscht`,
+  trashEmptied: (notes: number, tasks: number) =>
+    `Papierkorb geleert (${[
+      notes > 0 ? (notes === 1 ? '1 Notiz' : `${notes} Notizen`) : '',
+      tasks > 0 ? (tasks === 1 ? '1 Task' : `${tasks} Tasks`) : '',
+    ]
+      .filter(Boolean)
+      .join(', ')})`,
 
   itemCreated: (kind: BoardKind, name: string) => `${KIND_LABELS[kind]} ${quote(name)} angelegt`,
   itemRenamed: (kind: BoardKind, from: string, to: string) => `${KIND_LABELS[kind]} ${quote(from)} in ${quote(to)} umbenannt`,
@@ -87,6 +100,9 @@ export const text = {
   projectCreated: (name: string) => `Projekt ${quote(name)} angelegt`,
   projectRenamed: (from: string, to: string) => `Projekt ${quote(from)} in ${quote(to)} umbenannt`,
   projectRecolored: (name: string) => `Farbe von Projekt ${quote(name)} geändert`,
+  projectTrashed: (name: string) => `Projekt ${quote(name)} in den Papierkorb verschoben`,
+  projectRestored: (name: string, renamedTo?: string) =>
+    `Projekt ${quote(name)} wiederhergestellt${renamedTo ? ` als ${quote(renamedTo)}` : ''}`,
 };
 
 export type BoardKind = 'column' | 'lane';

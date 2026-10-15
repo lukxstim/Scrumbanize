@@ -40,6 +40,8 @@ interface TaskRow {
   position: number;
   source_note_id: number | null;
   source_note_title: string | null;
+  /** Set while the source note is outside the trash; a trashed note is not shown on its tasks. */
+  source_note_live: number | null;
   priority: TaskPriority | null;
   start_date: string | null;
   due_date: string | null;
@@ -47,9 +49,10 @@ interface TaskRow {
   updated_at: string;
 }
 
+// Reads go through live_tasks and live_notes, which leave out the trash and the contents of trashed projects.
 const selectTaskSql = `
-  SELECT t.*, n.title AS source_note_title
-  FROM tasks t LEFT JOIN notes n ON n.id = t.source_note_id`;
+  SELECT t.*, n.title AS source_note_title, n.id AS source_note_live
+  FROM live_tasks t LEFT JOIN live_notes n ON n.id = t.source_note_id`;
 
 export type MoveResult = { ok: true; task: Task } | { ok: false; reason: 'not_found' | 'invalid_target' };
 export type UpdateResult = { ok: true; task: Task } | { ok: false; reason: 'not_found' } | { ok: false; reason: 'invalid_schedule'; message: string };
@@ -62,7 +65,7 @@ export function createTasksRepository(db: Db) {
   const selectLaneName = db.prepare<[number], { name: string }>(`SELECT name FROM lanes WHERE id = ?`);
   const columnName = (id: number) => selectColumnName.get(id)?.name ?? '';
   const laneName = (id: number) => selectLaneName.get(id)?.name ?? '';
-  const selectNoteProject = db.prepare<[number], { project_id: number }>(`SELECT project_id FROM notes WHERE id = ?`);
+  const selectNoteProject = db.prepare<[number], { project_id: number }>(`SELECT project_id FROM live_notes WHERE id = ?`);
   const selectFirstColumn = db.prepare<[number], { id: number }>(
     `SELECT id FROM board_columns WHERE project_id = ? ORDER BY position, id LIMIT 1`,
   );
@@ -96,6 +99,12 @@ export function createTasksRepository(db: Db) {
      ORDER BY c.position, l.position, t.position, t.id`,
   );
   const deleteTask = db.prepare<[number]>(`DELETE FROM tasks WHERE id = ?`);
+  // A task in the trash of a project that is not itself in the trash: the ones that can be restored or purged.
+  const selectTrashedTask = db.prepare<[number], { id: number; project_id: number; column_id: number; title: string }>(
+    `SELECT t.id, t.project_id, t.column_id, t.title FROM tasks t JOIN live_projects p ON p.id = t.project_id
+     WHERE t.id = ? AND t.deleted_at IS NOT NULL`,
+  );
+  const setDeletedAt = db.prepare<[string | null, number]>(`UPDATE tasks SET deleted_at = ? WHERE id = ?`);
   const selectNoteTags = db.prepare<[number], { name: string }>(
     `SELECT t.name FROM note_tags nt JOIN tags t ON t.id = nt.tag_id WHERE nt.note_id = ? ORDER BY t.name`,
   );
@@ -104,7 +113,7 @@ export function createTasksRepository(db: Db) {
     `UPDATE tasks SET title = ?, description = ?, priority = ?, start_date = ?, due_date = ?, updated_at = ? WHERE id = ?`,
   );
   const selectCellSiblings = db.prepare<[number, number, number], { id: number; position: number }>(
-    `SELECT id, position FROM tasks WHERE column_id = ? AND lane_id = ? AND id != ? ORDER BY position, id`,
+    `SELECT id, position FROM live_tasks WHERE column_id = ? AND lane_id = ? AND id != ? ORDER BY position, id`,
   );
   const updatePlacement = db.prepare<[number, number, number, string, number]>(
     `UPDATE tasks SET column_id = ?, lane_id = ?, position = ?, updated_at = ? WHERE id = ?`,
@@ -121,7 +130,7 @@ export function createTasksRepository(db: Db) {
       description: row.description,
       position: row.position,
       sourceNote:
-        row.source_note_id === null
+        row.source_note_id === null || row.source_note_live === null
           ? null
           : {
               id: row.source_note_id,
@@ -286,20 +295,58 @@ export function createTasksRepository(db: Db) {
       return { ok: true, task: toTask(selectTask.get(id)!) };
     }),
 
-    /** Returns false if the task did not exist. */
+    /** Moves the task to the trash, keeping its cell and position for a restore. False if there is no such task. */
     remove: db.transaction((id: number): boolean => {
       const before = selectTask.get(id);
       if (!before) return false;
-      deleteTask.run(id);
+      setDeletedAt.run(new Date().toISOString(), id);
       activities.record({
         projectId: before.project_id,
         entityType: 'task',
         entityId: id,
         actionType: 'delete',
-        description: text.taskDeleted(before.title),
+        description: text.taskTrashed(before.title),
         metadata: { title: before.title, column: columnName(before.column_id) },
       });
       return true;
+    }),
+
+    /**
+     * Brings a task back from the trash into its column, lane and position. Columns and lanes that were deleted
+     * meanwhile took their trashed tasks along to another one, so the cell always exists. WIP limits only warn.
+     */
+    restore: db.transaction((id: number): Task | undefined => {
+      const trashed = selectTrashedTask.get(id);
+      if (!trashed) return undefined;
+      setDeletedAt.run(null, id);
+      const column = columnName(trashed.column_id);
+      activities.record({
+        projectId: trashed.project_id,
+        entityType: 'task',
+        entityId: id,
+        actionType: 'restore',
+        description: text.taskRestored(trashed.title, column),
+        metadata: { title: trashed.title, column },
+      });
+      return toTask(selectTask.get(id)!);
+    }),
+
+    /** Deletes a task in the trash for good. With `log: false` the caller records one entry for several tasks. */
+    purge: db.transaction((id: number, log = true): { project_id: number; title: string } | undefined => {
+      const trashed = selectTrashedTask.get(id);
+      if (!trashed) return undefined;
+      deleteTask.run(id);
+      if (log) {
+        activities.record({
+          projectId: trashed.project_id,
+          entityType: 'task',
+          entityId: id,
+          actionType: 'purge',
+          description: text.taskPurged(trashed.title),
+          metadata: { title: trashed.title },
+        });
+      }
+      return trashed;
     }),
   };
 }

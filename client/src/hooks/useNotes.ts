@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Note, NoteInput } from '../types/note';
 import type { Task } from '../types/task';
-import { notesApi, tasksApi } from '../utils/api';
+import { notesApi, tasksApi, trashApi } from '../utils/api';
 import type { TaskDraft } from '../utils/taskFromNote';
 
 export type LoadStatus = 'loading' | 'ready' | 'error';
@@ -51,8 +51,10 @@ export function useNotes(projectId: number) {
     return task;
   }, [projectId]);
 
-  const deleteTask = useCallback(async (taskId: number): Promise<void> => {
+  /** Takes back a task just created from a note ("Rückgängig"): it is deleted for good, not kept in the trash. */
+  const discardTask = useCallback(async (taskId: number): Promise<void> => {
     await tasksApi.remove(taskId);
+    await trashApi.purge('task', taskId);
     setNotes((current) =>
       current.map((note) =>
         note.tasks.some((t) => t.id === taskId) ? { ...note, tasks: note.tasks.filter((t) => t.id !== taskId) } : note,
@@ -60,5 +62,5 @@ export function useNotes(projectId: number) {
     );
   }, []);
 
-  return { notes, status, reload, createNote, saveNote, deleteNote, createTaskFromNote, deleteTask };
+  return { notes, status, reload, createNote, saveNote, deleteNote, createTaskFromNote, discardTask };
 }

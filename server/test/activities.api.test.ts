@@ -59,11 +59,11 @@ describe('notes', () => {
 
     const { items } = await activities();
     expect(items.map((a) => [a.entityType, a.actionType, a.description])).toEqual([
-      ['note', 'delete', 'Notiz „Kickoff“ gelöscht'],
+      ['note', 'delete', 'Notiz „Kickoff“ in den Papierkorb verschoben'],
       ['note', 'update', 'Notiz „Kickoff“ bearbeitet (Inhalt, Tags +q4)'],
       ['note', 'create', 'Notiz „Kickoff“ erstellt'],
     ]);
-    expect(items.every((a) => a.entityId === note.id && a.exists === false)).toBe(true);
+    expect(items.every((a) => a.entityId === note.id && a.exists === false && a.trashed === true)).toBe(true);
   });
 
   it('folds edits right after creating into the "created" entry (a new note titled while typing)', async () => {
@@ -140,7 +140,7 @@ describe('tasks', () => {
     await api.delete(`/api/tasks/${task.id}`);
 
     expect(await descriptions('?type=task')).toEqual([
-      'Task „Folien bauen“ gelöscht',
+      'Task „Folien bauen“ in den Papierkorb verschoben',
       'Task „Folien bauen“ bearbeitet (Beschreibung, Titel)',
       'Task „Folien“ in „Backlog“ erstellt',
     ]);
@@ -203,11 +203,14 @@ describe('projects', () => {
     expect(await descriptions('')).toEqual([]);
   });
 
-  it('deletes the log with the project', async () => {
+  it('keeps the log of a trashed project and deletes it with the project for good', async () => {
     const p = (await api.post('/api/projects').send({ name: 'Weg', color: 'red' })).body;
     await api.post(`/api/projects/${p.id}/notes`).send({ title: 'N', content: '', tags: [] });
     await api.delete(`/api/projects/${p.id}`);
-    expect(db.prepare(`SELECT COUNT(*) AS n FROM activities WHERE project_id = ?`).get(p.id)).toEqual({ n: 0 });
+    const count = () => db.prepare(`SELECT COUNT(*) AS n FROM activities WHERE project_id = ?`).get(p.id);
+    expect(count()).toEqual({ n: 3 });
+    await api.delete(`/api/trash/project/${p.id}`);
+    expect(count()).toEqual({ n: 0 });
   });
 });
 

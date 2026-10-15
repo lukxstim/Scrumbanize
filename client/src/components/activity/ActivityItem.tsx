@@ -16,10 +16,12 @@ const ACTION_STYLES: Record<ActivityAction, { dot: string; label: string }> = {
   create: { dot: 'bg-emerald-500', label: 'Erstellt' },
   update: { dot: 'bg-sky-500', label: 'Bearbeitet' },
   move: { dot: 'bg-violet-500', label: 'Verschoben' },
-  delete: { dot: 'bg-red-500', label: 'Gelöscht' },
+  delete: { dot: 'bg-red-500', label: 'In den Papierkorb verschoben' },
+  restore: { dot: 'bg-teal-500', label: 'Wiederhergestellt' },
+  purge: { dot: 'bg-red-800 dark:bg-red-400', label: 'Endgültig gelöscht' },
 };
 
-/** One log entry; links to its note or task while that still exists. */
+/** One log entry; links to its note or task while that still exists, or to the trash while it is there. */
 export default function ActivityItem({ activity, now }: { activity: Activity; now: Date }) {
   const link = activityLink(activity);
   const action = ACTION_STYLES[activity.actionType];
@@ -39,9 +41,10 @@ export default function ActivityItem({ activity, now }: { activity: Activity; no
         <span className={`block text-sm ${link ? 'text-fg group-hover:text-accent-text' : 'text-fg-muted'}`}>
           {activity.description}
         </span>
-        {gone && activity.actionType !== 'delete' && (
+        {gone && activity.actionType !== 'delete' && activity.actionType !== 'purge' && (
           <span className="mt-0.5 block text-xs text-fg-subtle">
-            {activity.entityType === 'note' ? 'Notiz' : 'Task'} wurde inzwischen gelöscht
+            {activity.entityType === 'note' ? 'Notiz' : 'Task'}{' '}
+            {activity.trashed ? 'liegt im Papierkorb' : 'wurde inzwischen endgültig gelöscht'}
           </span>
         )}
       </span>

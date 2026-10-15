@@ -153,7 +153,7 @@ describe('isolation', () => {
 });
 
 describe('deleting projects', () => {
-  it('deletes the project with its notes, tasks and unused tags', async () => {
+  it('moves the project to the trash, and purging deletes its notes, tasks and unused tags', async () => {
     const other = await createProject('Privat');
     const note = await createNote(other.id, 'Weg', ['only-here', 'shared']);
     await createNote(1, 'Bleibt', ['shared']);
@@ -164,6 +164,10 @@ describe('deleting projects', () => {
     expect((await api.get(`/api/notes/${note.id}`)).status).toBe(404);
     expect((await api.get(`/api/tasks/${task.id}`)).status).toBe(404);
     expect((await api.get(`/api/projects/${other.id}/notes`)).status).toBe(404);
+    expect((await api.get('/api/projects')).body.map((p: { name: string }) => p.name)).toEqual(['Allgemein']);
+    expect(db.prepare(`SELECT COUNT(*) AS n FROM notes WHERE project_id = ?`).get(other.id)).toEqual({ n: 1 });
+
+    expect((await api.delete(`/api/trash/project/${other.id}`)).status).toBe(204);
     expect(db.prepare(`SELECT name FROM tags ORDER BY name`).all()).toEqual([{ name: 'shared' }]);
     expect(db.prepare(`SELECT COUNT(*) AS n FROM board_columns WHERE project_id = ?`).get(other.id)).toEqual({ n: 0 });
   });

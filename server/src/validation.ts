@@ -128,6 +128,16 @@ export const activityQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(30),
 });
 
+/** What can be in the trash. */
+export const TRASH_TYPES = ['note', 'task', 'project'] as const;
+export type TrashType = (typeof TRASH_TYPES)[number];
+export const trashTypeSchema = z.enum(TRASH_TYPES);
+
+export const trashQuerySchema = z.object({
+  /** Only this project's notes and tasks; all projects if omitted. */
+  project: z.coerce.number().int().positive().optional(),
+});
+
 export const searchQuerySchema = z.object({
   q: z.string().trim().max(200).default(''),
   /** Hits of this project come first. */

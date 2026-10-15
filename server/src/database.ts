@@ -193,6 +193,54 @@ export const migrations: string[] = [
   ALTER TABLE tasks ADD COLUMN due_date TEXT CHECK (due_date IS NULL OR due_date IS date(due_date));
   CREATE INDEX idx_tasks_project_due ON tasks(project_id, due_date);
   `,
+  // Trash bin: notes, tasks and projects are soft-deleted via deleted_at. Project names only have to be unique
+  // among projects outside the trash, so the table is rebuilt with a partial unique index instead of UNIQUE.
+  // The activity log gets the actions "restore" and "purge". The live_* views hold what the app shows:
+  // rows outside the trash, and notes and tasks only while their project is outside the trash, too.
+  `
+  ALTER TABLE notes ADD COLUMN deleted_at TEXT;
+  ALTER TABLE tasks ADD COLUMN deleted_at TEXT;
+  CREATE INDEX idx_notes_trash ON notes(deleted_at) WHERE deleted_at IS NOT NULL;
+  CREATE INDEX idx_tasks_trash ON tasks(deleted_at) WHERE deleted_at IS NOT NULL;
+
+  CREATE TABLE projects_new (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL COLLATE NOCASE,
+    color      TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    deleted_at TEXT
+  );
+  INSERT INTO projects_new (id, name, color, created_at, updated_at)
+    SELECT id, name, color, created_at, updated_at FROM projects;
+  DROP TABLE projects;
+  ALTER TABLE projects_new RENAME TO projects;
+  CREATE UNIQUE INDEX idx_projects_live_name ON projects(name) WHERE deleted_at IS NULL;
+
+  CREATE TABLE activities_new (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id  INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    entity_type TEXT NOT NULL CHECK (entity_type IN ('note', 'task', 'board', 'project')),
+    entity_id   INTEGER,
+    action_type TEXT NOT NULL CHECK (action_type IN ('create', 'update', 'move', 'delete', 'restore', 'purge')),
+    description TEXT NOT NULL,
+    metadata    TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(metadata)),
+    created_at  TEXT NOT NULL
+  );
+  INSERT INTO activities_new SELECT id, project_id, entity_type, entity_id, action_type, description, metadata, created_at
+    FROM activities;
+  DROP TABLE activities;
+  ALTER TABLE activities_new RENAME TO activities;
+  CREATE INDEX idx_activities_project ON activities(project_id, id);
+  CREATE INDEX idx_activities_project_type ON activities(project_id, entity_type, id);
+  CREATE INDEX idx_activities_entity ON activities(entity_type, entity_id, id);
+
+  CREATE VIEW live_projects AS SELECT * FROM projects WHERE deleted_at IS NULL;
+  CREATE VIEW live_notes AS
+    SELECT n.* FROM notes n JOIN projects p ON p.id = n.project_id WHERE n.deleted_at IS NULL AND p.deleted_at IS NULL;
+  CREATE VIEW live_tasks AS
+    SELECT t.* FROM tasks t JOIN projects p ON p.id = t.project_id WHERE t.deleted_at IS NULL AND p.deleted_at IS NULL;
+  `,
 ];
 
 /** Opens (or creates) the database at `file` and brings its schema up to date. Pass ':memory:' for tests. */

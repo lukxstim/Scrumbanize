@@ -14,6 +14,7 @@ import { UNTITLED_NOTE } from '../utils/taskFromNote';
 import {
   BoardIcon,
   CalendarIcon,
+  TrashIcon,
   CheckIcon,
   ClockIcon,
   CompactIcon,
@@ -170,6 +171,13 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
           keywords: 'aktivität verlauf history protokoll log gehe zu',
           icon: <ClockIcon />,
           run: () => navigate(paths.activity(activeProject.id)),
+        },
+        {
+          id: 'go-trash',
+          label: `Papierkorb von „${activeProject.name}“`,
+          keywords: 'papierkorb gelöscht wiederherstellen trash mülleimer gehe zu',
+          icon: <TrashIcon />,
+          run: () => navigate(paths.trash(activeProject.id)),
         },
       ].filter((item) => matchesQuery(trimmed, item.label, item.keywords)),
     });

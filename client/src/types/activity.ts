@@ -1,5 +1,6 @@
 export type ActivityEntity = 'note' | 'task' | 'board' | 'project';
-export type ActivityAction = 'create' | 'update' | 'move' | 'delete';
+/** "delete" moved something to the trash, "purge" deleted it for good. */
+export type ActivityAction = 'create' | 'update' | 'move' | 'delete' | 'restore' | 'purge';
 
 export interface Activity {
   id: number;
@@ -12,8 +13,10 @@ export interface Activity {
   description: string;
   metadata: Record<string, unknown>;
   createdAt: string;
-  /** Whether the note or task still exists (always true for board and project entries). */
+  /** Whether the note or task can be opened (always true for board and project entries). */
   exists: boolean;
+  /** The note or task is in the trash. */
+  trashed: boolean;
 }
 
 export interface ActivityPage {

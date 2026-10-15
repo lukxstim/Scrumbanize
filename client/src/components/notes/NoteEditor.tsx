@@ -5,7 +5,6 @@ import { useToast } from '../../hooks/useToast';
 import type { Note, NoteInput } from '../../types/note';
 import type { Task } from '../../types/task';
 import { buildTaskDraft, UNTITLED_NOTE, type TaskDraft } from '../../utils/taskFromNote';
-import ConfirmDialog from '../ConfirmDialog';
 import { BoardIcon } from '../icons';
 import Button from '../ui/Button';
 import SegmentedControl from '../ui/SegmentedControl';
@@ -22,7 +21,8 @@ interface NoteEditorProps {
   onSave: (id: number, input: NoteInput) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
   onCreateTask: (noteId: number, draft: TaskDraft) => Promise<Task>;
-  onDeleteTask: (taskId: number) => Promise<void>;
+  /** Takes back a task just created from this note. */
+  onDiscardTask: (taskId: number) => Promise<void>;
 }
 
 export default function NoteEditor({
@@ -32,11 +32,10 @@ export default function NoteEditor({
   onSave,
   onDelete,
   onCreateTask,
-  onDeleteTask,
+  onDiscardTask,
 }: NoteEditorProps) {
   const [draft, setDraft] = useState<NoteInput>({ title: note.title, content: note.content, tags: note.tags });
   const [mode, setMode] = useState<'edit' | 'preview'>('edit');
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [conversion, setConversion] = useState<{ draft: TaskDraft; fromSelection: boolean } | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
@@ -49,8 +48,8 @@ export default function NoteEditor({
     schedule(next);
   }
 
-  async function confirmDelete() {
-    setConfirmingDelete(false);
+  // No confirmation: the note goes to the trash, and the toast offers "Rückgängig".
+  async function moveToTrash() {
     cancel();
     await flush(); // let a save that is already running finish before the note is gone
     try {
@@ -74,7 +73,7 @@ export default function NoteEditor({
         label: 'Rückgängig',
         onClick: async () => {
           try {
-            await onDeleteTask(task.id);
+            await onDiscardTask(task.id);
           } catch {
             toast({ message: 'Rückgängig machen fehlgeschlagen.', tone: 'error' });
           }
@@ -83,10 +82,6 @@ export default function NoteEditor({
     });
   }
 
-  const taskCount = note.tasks.length;
-  const deleteMessage =
-    `„${draft.title || UNTITLED_NOTE}“ wird dauerhaft gelöscht.` +
-    (taskCount === 1 ? ' 1 verknüpfter Task bleibt erhalten.' : taskCount > 1 ? ` ${taskCount} verknüpfte Tasks bleiben erhalten.` : '');
 
   return (
     <div
@@ -121,7 +116,7 @@ export default function NoteEditor({
         </Button>
         <div className="flex-1" />
         <SaveIndicator status={status} onRetry={() => void flush()} />
-        <Button variant="danger-ghost" size="sm" onClick={() => setConfirmingDelete(true)}>
+        <Button variant="danger-ghost" size="sm" onClick={() => void moveToTrash()}>
           Löschen
         </Button>
       </div>
@@ -157,14 +152,6 @@ export default function NoteEditor({
         </div>
       </div>
 
-      <ConfirmDialog
-        open={confirmingDelete}
-        title="Notiz löschen?"
-        message={deleteMessage}
-        confirmLabel="Löschen"
-        onConfirm={() => void confirmDelete()}
-        onCancel={() => setConfirmingDelete(false)}
-      />
 
       {conversion && (
         <ConvertToTaskDialog

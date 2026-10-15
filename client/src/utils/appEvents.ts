@@ -23,6 +23,18 @@ export function isCreateRequest(state: unknown): state is CreateRequest {
   return !!s && (s.create === 'note' || s.create === 'task') && typeof s.title === 'string';
 }
 
+const TRASH_CHANGED = 'scrumbanize:trash-changed';
+
+/** Something went into or out of the trash, so the trash tab updates its count. */
+export function notifyTrashChanged(): void {
+  window.dispatchEvent(new Event(TRASH_CHANGED));
+}
+
+export function onTrashChanged(handler: () => void): () => void {
+  window.addEventListener(TRASH_CHANGED, handler);
+  return () => window.removeEventListener(TRASH_CHANGED, handler);
+}
+
 const DIALOG_OPENED = 'scrumbanize:dialog-opened';
 
 /** Announces that a modal dialog opened, so the toasts can move above it (see useToast). */

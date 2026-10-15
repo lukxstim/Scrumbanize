@@ -57,22 +57,28 @@ export function createNotesRepository(db: Db) {
     `UPDATE notes SET title = ?, content = ?, updated_at = ? WHERE id = ? RETURNING *`,
   );
   const deleteNote = db.prepare<[number]>(`DELETE FROM notes WHERE id = ?`);
-  const selectNote = db.prepare<[number], NoteRow>(`SELECT * FROM notes WHERE id = ?`);
+  // Reads go through live_notes and live_tasks, which leave out the trash and the contents of trashed projects.
+  const selectNote = db.prepare<[number], NoteRow>(`SELECT * FROM live_notes WHERE id = ?`);
+  // A note in the trash of a project that is not itself in the trash: the ones that can be restored or purged.
+  const selectTrashedNote = db.prepare<[number], NoteRow>(
+    `SELECT n.* FROM notes n JOIN live_projects p ON p.id = n.project_id WHERE n.id = ? AND n.deleted_at IS NOT NULL`,
+  );
+  const setDeletedAt = db.prepare<[string | null, number]>(`UPDATE notes SET deleted_at = ? WHERE id = ?`);
   const selectTagsOfNote = db.prepare<[number], { name: string }>(
     `SELECT t.name FROM tags t JOIN note_tags nt ON nt.tag_id = t.id WHERE nt.note_id = ? ORDER BY t.name`,
   );
   const selectAllNoteTags = db.prepare<[number], { note_id: number; name: string }>(
-    `SELECT nt.note_id, t.name FROM note_tags nt JOIN tags t ON t.id = nt.tag_id JOIN notes n ON n.id = nt.note_id
+    `SELECT nt.note_id, t.name FROM note_tags nt JOIN tags t ON t.id = nt.tag_id JOIN live_notes n ON n.id = nt.note_id
      WHERE n.project_id = ? ORDER BY t.name`,
   );
   const selectTasksOfNote = db.prepare<[number], LinkedTaskRow>(
     `SELECT t.id, t.title, t.source_note_id, c.id AS column_id, c.name AS column_name
-     FROM tasks t JOIN board_columns c ON c.id = t.column_id
+     FROM live_tasks t JOIN board_columns c ON c.id = t.column_id
      WHERE t.source_note_id = ? ORDER BY t.id`,
   );
   const selectAllLinkedTasks = db.prepare<[number], LinkedTaskRow>(
     `SELECT t.id, t.title, t.source_note_id, c.id AS column_id, c.name AS column_name
-     FROM tasks t JOIN board_columns c ON c.id = t.column_id
+     FROM live_tasks t JOIN board_columns c ON c.id = t.column_id
      WHERE t.project_id = ? AND t.source_note_id IS NOT NULL ORDER BY t.id`,
   );
   const toLinkedTask = (row: LinkedTaskRow): LinkedTask => ({
@@ -88,7 +94,7 @@ export function createNotesRepository(db: Db) {
   const deleteUnusedTags = db.prepare(`DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM note_tags)`);
   const selectTagSummaries = db.prepare<[number], TagSummary>(
     `SELECT t.id, t.name, COUNT(nt.note_id) AS noteCount
-     FROM tags t JOIN note_tags nt ON nt.tag_id = t.id JOIN notes n ON n.id = nt.note_id
+     FROM tags t JOIN note_tags nt ON nt.tag_id = t.id JOIN live_notes n ON n.id = nt.note_id
      WHERE n.project_id = ?
      GROUP BY t.id ORDER BY t.name`,
   );
@@ -147,7 +153,7 @@ export function createNotesRepository(db: Db) {
 
       const rows = db
         .prepare<(string | number)[], NoteRow>(
-          `SELECT n.* FROM notes n WHERE ${where.join(' AND ')}
+          `SELECT n.* FROM live_notes n WHERE ${where.join(' AND ')}
            ORDER BY n.updated_at DESC, n.id DESC`,
         )
         .all(...params);
@@ -217,21 +223,58 @@ export function createNotesRepository(db: Db) {
       return withRelations(row);
     }),
 
-    /** Returns false if the note did not exist. */
+    /** Moves the note to the trash; its tags and task links stay for a restore. False if there is no such note. */
     remove: db.transaction((id: number): boolean => {
       const before = selectNote.get(id);
       if (!before) return false;
-      deleteNote.run(id);
-      deleteUnusedTags.run();
+      setDeletedAt.run(new Date().toISOString(), id);
       activities.record({
         projectId: before.project_id,
         entityType: 'note',
         entityId: id,
         actionType: 'delete',
-        description: text.noteDeleted(before.title),
+        description: text.noteTrashed(before.title),
         metadata: { title: before.title },
       });
       return true;
+    }),
+
+    /** Brings a note back from the trash, as it was. Undefined if it is not in the trash. */
+    restore: db.transaction((id: number): Note | undefined => {
+      const row = selectTrashedNote.get(id);
+      if (!row) return undefined;
+      setDeletedAt.run(null, id);
+      activities.record({
+        projectId: row.project_id,
+        entityType: 'note',
+        entityId: id,
+        actionType: 'restore',
+        description: text.noteRestored(row.title),
+        metadata: { title: row.title },
+      });
+      return withRelations(row);
+    }),
+
+    /**
+     * Deletes a note in the trash for good; tasks created from it lose the link. With `log: false` the caller
+     * records one entry for several notes (emptying the trash). Returns the deleted note's row, if there was one.
+     */
+    purge: db.transaction((id: number, log = true): NoteRow | undefined => {
+      const row = selectTrashedNote.get(id);
+      if (!row) return undefined;
+      deleteNote.run(id);
+      deleteUnusedTags.run();
+      if (log) {
+        activities.record({
+          projectId: row.project_id,
+          entityType: 'note',
+          entityId: id,
+          actionType: 'purge',
+          description: text.notePurged(row.title),
+          metadata: { title: row.title },
+        });
+      }
+      return row;
     }),
 
     /** Tags used by the project's notes, with how many of them use each. */
