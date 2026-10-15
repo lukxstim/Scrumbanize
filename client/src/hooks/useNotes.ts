@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Note, NoteInput } from '../types/note';
-import { notesApi } from '../utils/api';
+import type { Task } from '../types/task';
+import { notesApi, tasksApi } from '../utils/api';
+import type { TaskDraft } from '../utils/taskFromNote';
 
 export type LoadStatus = 'loading' | 'ready' | 'error';
 
@@ -31,7 +33,8 @@ export function useNotes() {
 
   const saveNote = useCallback(async (id: number, input: NoteInput): Promise<void> => {
     const saved = await notesApi.update(id, input);
-    setNotes((current) => current.map((note) => (note.id === id ? saved : note)));
+    // Keep the local task list: a save that was sent before a task was created would otherwise drop it.
+    setNotes((current) => current.map((note) => (note.id === id ? { ...saved, tasks: note.tasks } : note)));
   }, []);
 
   const deleteNote = useCallback(async (id: number): Promise<void> => {
@@ -39,5 +42,21 @@ export function useNotes() {
     setNotes((current) => current.filter((note) => note.id !== id));
   }, []);
 
-  return { notes, status, reload, createNote, saveNote, deleteNote };
+  const createTaskFromNote = useCallback(async (noteId: number, draft: TaskDraft): Promise<Task> => {
+    const task = await tasksApi.create({ ...draft, sourceNoteId: noteId });
+    const linked = { id: task.id, title: task.title, status: task.status };
+    setNotes((current) => current.map((note) => (note.id === noteId ? { ...note, tasks: [...note.tasks, linked] } : note)));
+    return task;
+  }, []);
+
+  const deleteTask = useCallback(async (taskId: number): Promise<void> => {
+    await tasksApi.remove(taskId);
+    setNotes((current) =>
+      current.map((note) =>
+        note.tasks.some((t) => t.id === taskId) ? { ...note, tasks: note.tasks.filter((t) => t.id !== taskId) } : note,
+      ),
+    );
+  }, []);
+
+  return { notes, status, reload, createNote, saveNote, deleteNote, createTaskFromNote, deleteTask };
 }

@@ -25,7 +25,15 @@ export const noteInputSchema = z.object({
 
 export type NoteInput = z.infer<typeof noteInputSchema>;
 
-export const idParamSchema = z.coerce.number().int().positive();
+export const taskInputSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  description: z.string().max(1_000_000),
+  sourceNoteId: z.number().int().positive().optional(),
+});
+
+export type TaskInput = z.infer<typeof taskInputSchema>;
+
+export const idParamSchema =z.coerce.number().int().positive();
 
 export const noteListQuerySchema = z.object({
   q: z.string().optional(),

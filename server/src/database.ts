@@ -6,7 +6,7 @@ export type Db = Database.Database;
 
 // Each entry upgrades the schema by one version; the resulting version is stored in PRAGMA user_version.
 // Append new migrations, never edit existing ones.
-const migrations: string[] = [
+export const migrations: string[] = [
   `
   CREATE TABLE notes (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,6 +29,22 @@ const migrations: string[] = [
 
   CREATE INDEX idx_note_tags_tag_id ON note_tags(tag_id);
   CREATE INDEX idx_notes_updated_at ON notes(updated_at);
+  `,
+  `
+  CREATE TABLE tasks (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    title          TEXT NOT NULL,
+    description    TEXT NOT NULL DEFAULT '',
+    status         TEXT NOT NULL DEFAULT 'backlog'
+                   CHECK (status IN ('backlog', 'todo', 'in_progress', 'review', 'done')),
+    position       REAL NOT NULL,
+    source_note_id INTEGER REFERENCES notes(id) ON DELETE SET NULL,
+    created_at     TEXT NOT NULL,
+    updated_at     TEXT NOT NULL
+  );
+
+  CREATE INDEX idx_tasks_source_note_id ON tasks(source_note_id);
+  CREATE INDEX idx_tasks_status_position ON tasks(status, position);
   `,
 ];
 

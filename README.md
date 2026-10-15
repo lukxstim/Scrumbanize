@@ -2,7 +2,7 @@
 
 Selbstgehostete Web-App, die Notizen und ein Scrumban-Board verbindet. Hintergrund und Ziele: [docs/vision.md](docs/vision.md), User Stories: [docs/stories](docs/stories).
 
-**Stand:** US-01 (Notizen-Management) ist umgesetzt: Notizen mit Titel, Markdown-Inhalt und Tags anlegen, bearbeiten (mit Auto-Save) und löschen, dazu Live-Suche und Tag-Filter. Die App ist für einen einzelnen Nutzer ohne Login gedacht – betreibe sie nur in einem vertrauenswürdigen Netz oder hinter einem Reverse-Proxy mit Authentifizierung.
+**Stand:** US-01 (Notizen-Management) und US-02 (Task-Umwandlung) sind umgesetzt: Notizen mit Titel, Markdown-Inhalt und Tags anlegen, bearbeiten (mit Auto-Save) und löschen, Live-Suche und Tag-Filter, sowie ganze Notizen oder markierte Textpassagen in Tasks im Backlog umwandeln. Das Scrumban-Board (US-03) folgt. Die App ist für einen einzelnen Nutzer ohne Login gedacht – betreibe sie nur in einem vertrauenswürdigen Netz oder hinter einem Reverse-Proxy mit Authentifizierung.
 
 ## Betrieb mit Docker
 
@@ -60,5 +60,9 @@ npm-Workspaces mit zwei Paketen:
 | PUT     | `/api/notes/:id`  | Notiz vollständig ersetzen (gleicher Body) |
 | DELETE  | `/api/notes/:id`  | Notiz löschen |
 | GET     | `/api/tags`       | Verwendete Tags mit Anzahl der Notizen |
+| GET     | `/api/tasks`      | Alle Tasks, sortiert nach Status und Position |
+| GET     | `/api/tasks/:id`  | Ein Task inkl. Quell-Notiz (`sourceNote`) |
+| POST    | `/api/tasks`      | Task im Backlog anlegen: `{ "title", "description", "sourceNoteId"? }` |
+| DELETE  | `/api/tasks/:id`  | Task löschen |
 
-Tags werden normalisiert (Kleinschreibung, ohne Kommas, max. 32 Zeichen). Tags, die keine Notiz mehr verwendet, werden automatisch entfernt. Fehler haben die Form `{ "error": { "code", "message" } }`.
+Tags werden normalisiert (Kleinschreibung, ohne Kommas, max. 32 Zeichen). Tags, die keine Notiz mehr verwendet, werden automatisch entfernt. Notizen enthalten ihre verknüpften Tasks (`tasks`). Tasks sind Kopien: spätere Änderungen an der Notiz werden nicht übernommen, und beim Löschen einer Notiz bleiben ihre Tasks erhalten. Fehler haben die Form `{ "error": { "code", "message" } }`.

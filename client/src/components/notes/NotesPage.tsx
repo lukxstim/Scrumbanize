@@ -8,7 +8,7 @@ import SearchBar from './SearchBar';
 import TagFilter from './TagFilter';
 
 export default function NotesPage() {
-  const { notes, status, reload, createNote, saveNote, deleteNote } = useNotes();
+  const { notes, status, reload, createNote, saveNote, deleteNote, createTaskFromNote, deleteTask } = useNotes();
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -103,6 +103,8 @@ export default function NotesPage() {
             autoFocusTitle={selectedNote.id === newNoteId}
             onSave={saveNote}
             onDelete={handleDelete}
+            onCreateTask={createTaskFromNote}
+            onDeleteTask={deleteTask}
           />
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-slate-400">

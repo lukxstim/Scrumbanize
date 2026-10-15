@@ -1,7 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAutosave, type SaveStatus } from '../../hooks/useAutosave';
+import { useTextSelection } from '../../hooks/useTextSelection';
 import type { Note, NoteInput } from '../../types/note';
+import type { Task } from '../../types/task';
+import { buildTaskDraft, UNTITLED_NOTE, type TaskDraft } from '../../utils/taskFromNote';
 import ConfirmDialog from '../ConfirmDialog';
+import ConvertToTaskDialog from './ConvertToTaskDialog';
+import LinkedTasks from './LinkedTasks';
 import MarkdownPreview from './MarkdownPreview';
 import TagInput from './TagInput';
 
@@ -12,14 +17,37 @@ interface NoteEditorProps {
   autoFocusTitle: boolean;
   onSave: (id: number, input: NoteInput) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
+  onCreateTask: (noteId: number, draft: TaskDraft) => Promise<Task>;
+  onDeleteTask: (taskId: number) => Promise<void>;
 }
 
-export default function NoteEditor({ note, tagSuggestions, autoFocusTitle, onSave, onDelete }: NoteEditorProps) {
+const UNDO_TIMEOUT_MS = 8000;
+
+export default function NoteEditor({
+  note,
+  tagSuggestions,
+  autoFocusTitle,
+  onSave,
+  onDelete,
+  onCreateTask,
+  onDeleteTask,
+}: NoteEditorProps) {
   const [draft, setDraft] = useState<NoteInput>({ title: note.title, content: note.content, tags: note.tags });
   const [mode, setMode] = useState<'edit' | 'preview'>('edit');
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteFailed, setDeleteFailed] = useState(false);
+  const [conversion, setConversion] = useState<{ draft: TaskDraft; fromSelection: boolean } | null>(null);
+  const [createdTask, setCreatedTask] = useState<Task | null>(null);
+  const [undoFailed, setUndoFailed] = useState(false);
+  const previewRef = useRef<HTMLDivElement>(null);
   const { status, schedule, flush, cancel } = useAutosave<NoteInput>((input) => onSave(note.id, input));
+  const { selection, textareaHandlers } = useTextSelection(mode, previewRef);
+
+  useEffect(() => {
+    if (!createdTask) return;
+    const timer = setTimeout(() => setCreatedTask(null), UNDO_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [createdTask]);
 
   function change(patch: Partial<NoteInput>) {
     const next = { ...draft, ...patch };
@@ -37,6 +65,32 @@ export default function NoteEditor({ note, tagSuggestions, autoFocusTitle, onSav
       setDeleteFailed(true);
     }
   }
+
+  function startConversion() {
+    setConversion({ draft: buildTaskDraft(draft, selection), fromSelection: selection !== '' });
+    void flush();
+  }
+
+  async function createTask(taskDraft: TaskDraft) {
+    const task = await onCreateTask(note.id, taskDraft);
+    setConversion(null);
+    setUndoFailed(false);
+    setCreatedTask(task);
+  }
+
+  async function undoTask(task: Task) {
+    try {
+      await onDeleteTask(task.id);
+      setCreatedTask(null);
+    } catch {
+      setUndoFailed(true);
+    }
+  }
+
+  const taskCount = note.tasks.length;
+  const deleteMessage =
+    `„${draft.title || UNTITLED_NOTE}“ wird dauerhaft gelöscht.` +
+    (taskCount === 1 ? ' 1 verknüpfter Task bleibt erhalten.' : taskCount > 1 ? ` ${taskCount} verknüpfte Tasks bleiben erhalten.` : '');
 
   return (
     <div
@@ -62,6 +116,15 @@ export default function NoteEditor({ note, tagSuggestions, autoFocusTitle, onSav
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          // Keep the text selection (and the textarea's focus) when the button is clicked.
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={startConversion}
+          className="rounded-md border border-indigo-200 px-3 py-1 text-sm font-medium text-indigo-700 hover:bg-indigo-50"
+        >
+          {selection ? 'Auswahl in Task umwandeln' : 'In Task umwandeln'}
+        </button>
         <div className="flex-1" />
         <SaveIndicator status={status} onRetry={() => void flush()} />
         <button
@@ -72,6 +135,18 @@ export default function NoteEditor({ note, tagSuggestions, autoFocusTitle, onSav
           Löschen
         </button>
       </div>
+
+      {createdTask && (
+        <div role="status" className="flex items-center gap-3 bg-emerald-50 px-6 py-2 text-sm text-emerald-800">
+          <span>
+            Task <span className="font-mono">#{createdTask.id}</span> im Backlog erstellt.
+          </span>
+          {undoFailed && <span className="text-red-600">Rückgängig machen fehlgeschlagen.</span>}
+          <button type="button" className="font-medium underline" onClick={() => void undoTask(createdTask)}>
+            Rückgängig
+          </button>
+        </div>
+      )}
 
       {deleteFailed && (
         <p role="alert" className="bg-red-50 px-6 py-2 text-sm text-red-700">
@@ -90,28 +165,41 @@ export default function NoteEditor({ note, tagSuggestions, autoFocusTitle, onSav
           className="bg-transparent text-2xl font-semibold placeholder:text-slate-300 focus:outline-none"
         />
         <TagInput tags={draft.tags} suggestions={tagSuggestions} onChange={(tags) => change({ tags })} />
+        <LinkedTasks tasks={note.tasks} />
         <hr className="border-slate-200" />
         {mode === 'edit' ? (
           <textarea
             value={draft.content}
             onChange={(event) => change({ content: event.target.value })}
+            {...textareaHandlers}
             placeholder="Schreibe deine Notiz in Markdown …"
             aria-label="Inhalt"
             className="min-h-64 flex-1 resize-none bg-transparent font-mono text-sm leading-relaxed placeholder:text-slate-400 focus:outline-none"
           />
         ) : (
-          <MarkdownPreview content={draft.content} />
+          <div ref={previewRef}>
+            <MarkdownPreview content={draft.content} />
+          </div>
         )}
       </div>
 
       <ConfirmDialog
         open={confirmingDelete}
         title="Notiz löschen?"
-        message={`„${draft.title || 'Unbenannte Notiz'}“ wird dauerhaft gelöscht.`}
+        message={deleteMessage}
         confirmLabel="Löschen"
         onConfirm={() => void confirmDelete()}
         onCancel={() => setConfirmingDelete(false)}
       />
+
+      {conversion && (
+        <ConvertToTaskDialog
+          initial={conversion.draft}
+          fromSelection={conversion.fromSelection}
+          onSubmit={createTask}
+          onCancel={() => setConversion(null)}
+        />
+      )}
     </div>
   );
 }

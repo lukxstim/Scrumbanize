@@ -1,11 +1,14 @@
 import type { Db } from '../database.js';
 import type { NoteInput } from '../validation.js';
+import type { LinkedTask } from './tasksRepository.js';
 
 export interface Note {
   id: number;
   title: string;
   content: string;
   tags: string[];
+  /** Tasks created from this note, oldest first. */
+  tasks: LinkedTask[];
   createdAt: string;
   updatedAt: string;
 }
@@ -48,7 +51,13 @@ export function createNotesRepository(db: Db) {
   const selectAllNoteTags = db.prepare<[], { note_id: number; name: string }>(
     `SELECT nt.note_id, t.name FROM note_tags nt JOIN tags t ON t.id = nt.tag_id ORDER BY t.name`,
   );
-  const clearNoteTags = db.prepare<[number]>(`DELETE FROM note_tags WHERE note_id = ?`);
+  const selectTasksOfNote = db.prepare<[number], LinkedTask>(
+    `SELECT id, title, status FROM tasks WHERE source_note_id = ? ORDER BY id`,
+  );
+  const selectAllLinkedTasks = db.prepare<[], LinkedTask & { source_note_id: number }>(
+    `SELECT id, title, status, source_note_id FROM tasks WHERE source_note_id IS NOT NULL ORDER BY id`,
+  );
+  const clearNoteTags =db.prepare<[number]>(`DELETE FROM note_tags WHERE note_id = ?`);
   const upsertTag = db.prepare<[string], { id: number }>(
     `INSERT INTO tags (name) VALUES (?) ON CONFLICT (name) DO UPDATE SET name = name RETURNING id`,
   );
@@ -68,21 +77,23 @@ export function createNotesRepository(db: Db) {
     deleteUnusedTags.run();
   }
 
-  function toNote(row: NoteRow, tags: string[]): Note {
+  function toNote(row: NoteRow, tags: string[], tasks: LinkedTask[]): Note {
     return {
       id: row.id,
       title: row.title,
       content: row.content,
       tags,
+      tasks,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
   }
 
-  function withTags(row: NoteRow): Note {
+  function withRelations(row: NoteRow): Note {
     return toNote(
       row,
       selectTagsOfNote.all(row.id).map((t) => t.name),
+      selectTasksOfNote.all(row.id),
     );
   }
 
@@ -123,19 +134,26 @@ export function createNotesRepository(db: Db) {
         tagsByNote.set(note_id, list);
       }
 
-      return rows.map((row) => toNote(row, tagsByNote.get(row.id) ?? []));
+      const tasksByNote = new Map<number, LinkedTask[]>();
+      for (const { source_note_id, ...task } of selectAllLinkedTasks.all()) {
+        const list = tasksByNote.get(source_note_id) ?? [];
+        list.push(task);
+        tasksByNote.set(source_note_id, list);
+      }
+
+      return rows.map((row) => toNote(row, tagsByNote.get(row.id) ?? [], tasksByNote.get(row.id) ?? []));
     },
 
     get(id: number): Note | undefined {
       const row = selectNote.get(id);
-      return row && withTags(row);
+      return row && withRelations(row);
     },
 
     create: db.transaction((input: NoteInput): Note => {
       const now = new Date().toISOString();
       const row = insertNote.get(input.title, input.content, now, now)!;
       setTags(row.id, input.tags);
-      return withTags(row);
+      return withRelations(row);
     }),
 
     /** Replaces title, content and tags. Returns undefined if the note does not exist. */
@@ -143,7 +161,7 @@ export function createNotesRepository(db: Db) {
       const row = updateNote.get(input.title, input.content, new Date().toISOString(), id);
       if (!row) return undefined;
       setTags(id, input.tags);
-      return withTags(row);
+      return withRelations(row);
     }),
 
     /** Returns false if the note did not exist. */

@@ -1,3 +1,5 @@
+import type { LinkedTask } from './task';
+
 export interface Note {
   id: number;
   title: string;
@@ -5,6 +7,8 @@ export interface Note {
   content: string;
   /** Normalized tag names, sorted alphabetically. */
   tags: string[];
+  /** Tasks created from this note, oldest first. */
+  tasks: LinkedTask[];
   /** ISO 8601 timestamps. */
   createdAt: string;
   updatedAt: string;
