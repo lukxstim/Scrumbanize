@@ -1,0 +1,13 @@
+services:
+  scrumbanize:
+    build: .
+    image: scrumbanize:latest
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${SCRUMBANIZE_PORT:-3000}:3000"
+    volumes:
+      - scrumbanize-data:/data
+
+volumes:
+  scrumbanize-data:

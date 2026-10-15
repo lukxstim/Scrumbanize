@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+*.log
+
+# Local SQLite database (DATA_DIR default)
+data/
+
+.env
+.DS_Store
+Thumbs.db
