@@ -31,9 +31,12 @@ import {
 } from '../../utils/board';
 import { isCreateRequest } from '../../utils/appEvents';
 import { columnDropIndex, dropPosition, type CellGeometry } from '../../utils/dropPosition';
+import { todayIso } from '../../utils/dates';
 import { paths } from '../../utils/paths';
+import { applyView, DEFAULT_VIEW, dropIndexInCell, isTaskView } from '../../utils/taskView';
 import AddItemButton from './AddItemButton';
 import BoardCell from './BoardCell';
+import BoardViewBar from './BoardViewBar';
 import ColumnHeader, { ColumnHeaderGhost } from './ColumnHeader';
 import DeleteBoardItemDialog from './DeleteBoardItemDialog';
 import LaneHeader from './LaneHeader';
@@ -61,6 +64,8 @@ export default function BoardPage() {
 
   const [compact, setCompact] = useStoredState('scrumbanize.boardCompact', false, isBoolean);
   const [collapsedLanes, setCollapsedLanes] = useStoredState<number[]>('scrumbanize.collapsedLanes', [], isIdList);
+  // Sorting and filters are remembered per project in this browser; they never change the saved order.
+  const [view, setView] = useStoredState(`scrumbanize.boardView.${projectId}`, DEFAULT_VIEW, isTaskView);
   const [deleting, setDeleting] = useState<{ kind: 'column' | 'lane'; id: number } | null>(null);
 
   // While dragging, the board shows preview copies, so cards (or columns) make room as the dragged one moves.
@@ -73,8 +78,12 @@ export default function BoardPage() {
   const [liveMessage, setLiveMessage] = useState('');
   const boardRef = useRef<HTMLDivElement>(null);
 
+  // `cells` holds every task (WIP limits and counts use it); `shown` is what the view lets through, in its order.
   const cells = dragCells ?? board.cells;
   const columns = dragColumns ?? board.columns;
+  const today = todayIso();
+  const doneColumnId = board.columns.at(-1)?.id;
+  const shown = applyView(cells, view, today, doneColumnId);
   const { lanes } = board;
   const showLanes = lanes.length > 1;
   const widthClass = compact ? 'w-56' : 'w-72';
@@ -238,12 +247,20 @@ export default function BoardPage() {
 
     const current = dragCellsRef.current;
     if (!current) return;
+    // Positions are measured on the shown cards and mapped to the full cell (see dropIndexInCell).
     const target = dropPosition(pointer.x, pointer.y, measureCells(dragging.id));
     const now = placementOf(current, dragging.id);
     if (!target || !now) return;
-    if (target.columnId === now.columnId && target.laneId === now.laneId && target.index === now.index) return;
+    const original = placementOf(board.cells, dragging.id);
+    const backHome = original && target.columnId === original.columnId && target.laneId === original.laneId;
+    const index =
+      view.sort !== 'manual' && backHome
+        ? original.index
+        : dropIndexInCell(current, applyView(current, view, today, doneColumnId), view, dragging.id, target);
+    if (index === undefined) return;
+    if (target.columnId === now.columnId && target.laneId === now.laneId && index === now.index) return;
 
-    showDragCells(applyMove(current, dragging.id, target.columnId, target.laneId, target.index));
+    showDragCells(applyMove(current, dragging.id, target.columnId, target.laneId, index));
     setLiveMessage(`${cellLabel(target.columnId, target.laneId)}, Position ${target.index + 1}.`);
   }
 
@@ -352,7 +369,13 @@ export default function BoardPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center justify-end gap-2 px-4 pt-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-3">
+        <BoardViewBar
+          view={view}
+          onChange={setView}
+          shown={Object.values(shown).reduce((sum, list) => sum + list.length, 0)}
+          total={Object.values(cells).reduce((sum, list) => sum + list.length, 0)}
+        />
         <button
           type="button"
           aria-pressed={compact}
@@ -438,10 +461,11 @@ export default function BoardPage() {
                             key={column.id}
                             column={column}
                             laneId={lane.id}
-                            tasks={cellTasks(cells, column.id, lane.id)}
+                            tasks={cellTasks(shown, column.id, lane.id)}
                             previous={previous}
                             next={next}
                             compact={compact}
+                            done={column.id === doneColumnId}
                             flashId={board.flashId}
                             widthClass={widthClass}
                             minHeightClass={showLanes ? 'min-h-28' : 'min-h-[calc(100vh-11rem)]'}
@@ -479,7 +503,7 @@ export default function BoardPage() {
         </div>
 
         <DragOverlay>
-          {activeTask && <TaskCardBody task={activeTask} compact={compact} lifted />}
+          {activeTask && <TaskCardBody task={activeTask} compact={compact} done={activeTask.columnId === doneColumnId} lifted />}
           {activeColumn && <ColumnHeaderGhost column={activeColumn} widthClass={widthClass} />}
         </DragOverlay>
       </DndContext>

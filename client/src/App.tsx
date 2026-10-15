@@ -4,7 +4,8 @@ import { Navigate, NavLink, Route, Routes, useMatch } from 'react-router';
 import BoardPage from './components/board/BoardPage';
 import CommandPalette from './components/CommandPalette';
 import ActivityPage from './components/activity/ActivityPage';
-import { BoardIcon, ClockIcon, NoteIcon, SearchIcon } from './components/icons';
+import CalendarPage from './components/calendar/CalendarPage';
+import { BoardIcon, CalendarIcon, ClockIcon, NoteIcon, SearchIcon } from './components/icons';
 import NotesPage from './components/notes/NotesPage';
 import ProjectLayout from './components/projects/ProjectLayout';
 import ProjectSwitcher from './components/projects/ProjectSwitcher';
@@ -29,7 +30,8 @@ export default function App() {
   const taskMatch = useMatch('/p/:projectId/tasks/:taskId');
   const onBoard = boardMatch !== null || taskMatch !== null;
   const onActivity = useMatch('/p/:projectId/activity') !== null;
-  const section = onActivity ? 'activity' : onBoard ? 'board' : 'notes';
+  const onCalendar = useMatch('/p/:projectId/calendar') !== null;
+  const section = onActivity ? 'activity' : onCalendar ? 'calendar' : onBoard ? 'board' : 'notes';
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   // ⌘K / Ctrl+K opens the command palette from anywhere, also while typing.
@@ -77,6 +79,10 @@ export default function App() {
                 <BoardIcon className="size-3.5" />
                 Board
               </NavLink>
+              <NavLink to={paths.calendar(activeProject.id)} className={({ isActive }) => tabClass(isActive)}>
+                <CalendarIcon className="size-3.5" />
+                Kalender
+              </NavLink>
               <NavLink to={paths.activity(activeProject.id)} className={({ isActive }) => tabClass(isActive)}>
                 <ClockIcon className="size-3.5" />
                 Aktivität
@@ -109,6 +115,7 @@ export default function App() {
             <Route path="board" element={null} />
             <Route path="tasks/:taskId" element={null} />
           </Route>
+          <Route path="calendar" element={<CalendarPage />} />
           <Route path="activity" element={<ActivityPage />} />
         </Route>
         {/* Addresses from before projects existed, and anything unknown, open the last project. */}

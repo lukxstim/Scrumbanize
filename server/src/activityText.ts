@@ -5,17 +5,46 @@ export const UNTITLED_NOTE = 'Unbenannte Notiz';
 const quote = (text: string) => `„${text}“`;
 const noteName = (title: string) => quote(title.trim() || UNTITLED_NOTE);
 
-/** "Titel", "Inhalt", "Tags +q4 −alt" for the changes of an aggregated edit. */
+export type EditField = 'title' | 'content' | 'description' | 'priority' | 'startDate' | 'dueDate';
+/** Fields whose new value is shown in the description ("Priorität: Hoch"). */
+export type ValueField = 'priority' | 'startDate' | 'dueDate';
+
+/** "Titel", "Inhalt", "Tags +q4 −alt", "Fällig: 17.10.2026" for the changes of an aggregated edit. */
 export interface EditSummary {
-  fields: ('title' | 'content' | 'description')[];
+  fields: EditField[];
   tagsAdded: string[];
   tagsRemoved: string[];
+  /** The latest value of changed value fields, already formatted ("Hoch", "17.10.2026", "entfernt"). */
+  values?: Partial<Record<ValueField, string>>;
 }
 
-const FIELD_LABELS = { title: 'Titel', content: 'Inhalt', description: 'Beschreibung' } as const;
+const FIELD_LABELS: Record<EditField, string> = {
+  title: 'Titel',
+  content: 'Inhalt',
+  description: 'Beschreibung',
+  priority: 'Priorität',
+  startDate: 'Start',
+  dueDate: 'Fällig',
+};
+
+export const PRIORITY_LABELS = { low: 'Niedrig', medium: 'Mittel', high: 'Hoch', urgent: 'Dringend' } as const;
+
+/** "2026-10-17" → "17.10.2026"; null → "entfernt". */
+export function formatDateValue(date: string | null): string {
+  if (!date) return 'entfernt';
+  const [year, month, day] = date.split('-');
+  return `${day}.${month}.${year}`;
+}
+
+export function formatPriorityValue(priority: keyof typeof PRIORITY_LABELS | null): string {
+  return priority ? PRIORITY_LABELS[priority] : 'keine';
+}
 
 export function describeChanges(changes: EditSummary): string {
-  const parts: string[] = changes.fields.map((field) => FIELD_LABELS[field]);
+  const parts: string[] = changes.fields.map((field) => {
+    const value = changes.values?.[field as ValueField];
+    return value === undefined ? FIELD_LABELS[field] : `${FIELD_LABELS[field]}: ${value}`;
+  });
   const tagParts = [...changes.tagsAdded.map((t) => `+${t}`), ...changes.tagsRemoved.map((t) => `−${t}`)];
   if (tagParts.length > 0) parts.push(`Tags ${tagParts.join(' ')}`);
   return parts.join(', ');

@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import type { TaskPriority } from '../../types/task';
 import type { TaskDraft } from '../../utils/taskFromNote';
+import { DateField, PriorityPicker } from '../tasks/ScheduleFields';
 import Button from '../ui/Button';
 import Dialog from '../ui/Dialog';
 import { fieldClass, labelClass } from '../ui/styles';
@@ -15,6 +17,8 @@ interface ConvertToTaskDialogProps {
 export default function ConvertToTaskDialog({ initial, fromSelection, onSubmit, onCancel }: ConvertToTaskDialogProps) {
   const [title, setTitle] = useState(initial.title);
   const [description, setDescription] = useState(initial.description);
+  const [priority, setPriority] = useState<TaskPriority | null>(initial.priority ?? null);
+  const [dueDate, setDueDate] = useState<string | null>(initial.dueDate ?? null);
   const [submitting, setSubmitting] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -22,7 +26,7 @@ export default function ConvertToTaskDialog({ initial, fromSelection, onSubmit, 
     setSubmitting(true);
     setFailed(false);
     try {
-      await onSubmit({ title: title.trim(), description });
+      await onSubmit({ title: title.trim(), description, priority, dueDate });
     } catch {
       setFailed(true);
       setSubmitting(false);
@@ -66,6 +70,16 @@ export default function ConvertToTaskDialog({ initial, fromSelection, onSubmit, 
             className={`mt-1 resize-y font-mono font-normal leading-relaxed ${fieldClass}`}
           />
         </label>
+
+        <div className="mt-4 flex flex-wrap items-start gap-x-6 gap-y-3">
+          <div className="flex flex-col gap-1">
+            <span className={labelClass}>
+              Priorität <span className="font-normal text-fg-subtle">(optional)</span>
+            </span>
+            <PriorityPicker value={priority} onChange={setPriority} />
+          </div>
+          <DateField label="Fällig (optional)" value={dueDate} onChange={setDueDate} />
+        </div>
 
         {failed && (
           <p role="alert" className="mt-3 text-sm text-danger-text">

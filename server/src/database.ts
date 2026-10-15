@@ -184,6 +184,15 @@ export const migrations: string[] = [
   CREATE INDEX idx_activities_project_type ON activities(project_id, entity_type, id);
   CREATE INDEX idx_activities_entity ON activities(entity_type, entity_id, id);
   `,
+  // Task priority and dates. Dates are calendar dates (YYYY-MM-DD) without time or time zone; "start ≤ due"
+  // and "start needs due" are checked by the server, since ADD COLUMN cannot add table constraints.
+  `
+  ALTER TABLE tasks ADD COLUMN priority TEXT CHECK (priority IN ('low', 'medium', 'high', 'urgent'));
+  -- date() returns NULL for invalid dates, so IS (not =) makes the check fail instead of passing as unknown.
+  ALTER TABLE tasks ADD COLUMN start_date TEXT CHECK (start_date IS NULL OR start_date IS date(start_date));
+  ALTER TABLE tasks ADD COLUMN due_date TEXT CHECK (due_date IS NULL OR due_date IS date(due_date));
+  CREATE INDEX idx_tasks_project_due ON tasks(project_id, due_date);
+  `,
 ];
 
 /** Opens (or creates) the database at `file` and brings its schema up to date. Pass ':memory:' for tests. */

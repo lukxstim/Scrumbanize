@@ -13,6 +13,7 @@ import { colorDot } from '../utils/projects';
 import { UNTITLED_NOTE } from '../utils/taskFromNote';
 import {
   BoardIcon,
+  CalendarIcon,
   CheckIcon,
   ClockIcon,
   CompactIcon,
@@ -155,6 +156,13 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
           keywords: 'board öffnen gehe zu',
           icon: <BoardIcon />,
           run: () => navigate(paths.board(activeProject.id)),
+        },
+        {
+          id: 'go-calendar',
+          label: `Kalender von „${activeProject.name}“`,
+          keywords: 'kalender termine fällig deadlines monat woche gehe zu',
+          icon: <CalendarIcon />,
+          run: () => navigate(paths.calendar(activeProject.id)),
         },
         {
           id: 'go-activity',

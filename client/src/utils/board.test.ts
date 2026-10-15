@@ -26,6 +26,9 @@ function task(id: number, columnId: number, laneId: number, position: number): T
     description: '',
     position,
     sourceNote: null,
+    priority: null,
+    startDate: null,
+    dueDate: null,
     createdAt: '',
     updatedAt: '',
   };

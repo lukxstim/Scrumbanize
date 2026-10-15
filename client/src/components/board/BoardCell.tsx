@@ -9,6 +9,8 @@ interface BoardCellProps {
   previous?: BoardColumn;
   next?: BoardColumn;
   compact: boolean;
+  /** The rightmost column: its tasks are never overdue. */
+  done: boolean;
   /** The task to highlight briefly after a move. */
   flashId: number | null;
   widthClass: string;
@@ -29,6 +31,7 @@ export default function BoardCell({
   previous,
   next,
   compact,
+  done,
   flashId,
   widthClass,
   minHeightClass,
@@ -53,6 +56,7 @@ export default function BoardCell({
           previous={previous}
           next={next}
           compact={compact}
+          done={done}
           flash={task.id === flashId}
           onOpen={onOpenTask}
           onMoveTo={onMoveTask}

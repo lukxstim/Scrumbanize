@@ -38,19 +38,54 @@ export const noteInputSchema = z.object({
 
 export type NoteInput = z.infer<typeof noteInputSchema>;
 
-export const taskInputSchema = z.object({
-  title: z.string().trim().min(1).max(200),
-  description: z.string().max(1_000_000),
-  sourceNoteId: z.number().int().positive().optional(),
-  /** The lane to create the task in; the first lane if omitted. */
-  laneId: z.number().int().positive().optional(),
-});
+export const TASK_PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const;
+export type TaskPriority = (typeof TASK_PRIORITIES)[number];
+
+/** A calendar date YYYY-MM-DD that exists (no 2026-02-30). */
+const dateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'expected a date YYYY-MM-DD')
+  // Zod runs this even when the regex failed, so an unparsable string must not reach toISOString().
+  .refine((value) => {
+    const date = new Date(`${value}T00:00:00Z`);
+    return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value);
+  }, 'not a valid date');
+
+/** Priority and dates of a task; null removes a value, undefined keeps it. */
+const scheduleFields = {
+  priority: z.enum(TASK_PRIORITIES).nullable().optional(),
+  startDate: dateSchema.nullable().optional(),
+  dueDate: dateSchema.nullable().optional(),
+};
+
+/** Why a start/due combination is not allowed, or undefined if it is fine. */
+export function scheduleProblem(startDate: string | null, dueDate: string | null): string | undefined {
+  if (startDate && !dueDate) return 'startDate requires a dueDate';
+  if (startDate && dueDate && startDate > dueDate) return 'startDate must not be after dueDate';
+  return undefined;
+}
+
+export const taskInputSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200),
+    description: z.string().max(1_000_000),
+    sourceNoteId: z.number().int().positive().optional(),
+    /** The lane to create the task in; the first lane if omitted. */
+    laneId: z.number().int().positive().optional(),
+    ...scheduleFields,
+  })
+  .superRefine((input, ctx) => {
+    const problem = scheduleProblem(input.startDate ?? null, input.dueDate ?? null);
+    if (problem) ctx.addIssue({ code: 'custom', path: ['startDate'], message: problem });
+  });
 
 export type TaskInput = z.infer<typeof taskInputSchema>;
 
+/** The start/due rule is checked against the stored values in the repository. */
 export const taskPatchSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   description: z.string().max(1_000_000).optional(),
+  ...scheduleFields,
 });
 
 export type TaskPatch = z.infer<typeof taskPatchSchema>;

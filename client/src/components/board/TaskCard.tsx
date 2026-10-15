@@ -2,9 +2,12 @@ import { useDraggable } from '@dnd-kit/core';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { Link } from 'react-router';
 import type { BoardColumn, Task } from '../../types/task';
+import { todayIso } from '../../utils/dates';
 import { paths } from '../../utils/paths';
+import { PRIORITY_LABELS, PRIORITY_STYLES } from '../../utils/priority';
 import { UNTITLED_NOTE } from '../../utils/taskFromNote';
 import { ChevronLeftIcon, ChevronRightIcon, NoteIcon } from '../icons';
+import { DueBadge, PriorityBadge } from '../tasks/TaskBadges';
 import { isolate } from './isolate';
 
 interface TaskCardProps {
@@ -13,6 +16,8 @@ interface TaskCardProps {
   previous?: BoardColumn;
   next?: BoardColumn;
   compact: boolean;
+  /** The task is in the rightmost (done) column, so it is never overdue. */
+  done?: boolean;
   /** Briefly highlighted after it was moved. */
   flash?: boolean;
   onOpen: (id: number) => void;
@@ -21,7 +26,7 @@ interface TaskCardProps {
 }
 
 /** A draggable card: Space picks it up with the keyboard, Enter or a click opens the details. */
-export function DraggableTaskCard({ task, previous, next, compact, flash = false, onOpen, onMoveTo }: TaskCardProps) {
+export function DraggableTaskCard({ task, previous, next, compact, done = false, flash = false, onOpen, onMoveTo }: TaskCardProps) {
   // The card stays in place as a placeholder; the DragOverlay follows the pointer.
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id, data: { type: 'task' } });
 
@@ -39,7 +44,7 @@ export function DraggableTaskCard({ task, previous, next, compact, flash = false
       }}
       className="group touch-manipulation select-none rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
-      <TaskCardBody task={task} compact={compact} placeholder={isDragging} flash={flash}>
+      <TaskCardBody task={task} compact={compact} done={done} placeholder={isDragging} flash={flash}>
         <div className="flex gap-0.5">
           {previous && (
             <QuickMoveButton label={previous.name} onClick={() => onMoveTo(task.id, previous.id)}>
@@ -78,6 +83,7 @@ function QuickMoveButton({ label, onClick, children }: { label: string; onClick:
 interface TaskCardBodyProps {
   task: Task;
   compact?: boolean;
+  done?: boolean;
   /** Controls that take the place of the task number while the card is hovered or focused. */
   children?: ReactNode;
   /** The card follows the pointer while dragging. */
@@ -92,6 +98,7 @@ interface TaskCardBodyProps {
 export function TaskCardBody({
   task,
   compact = false,
+  done = false,
   children,
   lifted = false,
   placeholder = false,
@@ -106,10 +113,17 @@ export function TaskCardBody({
 
   return (
     <article
-      className={`rounded-lg border bg-surface text-left transition-[transform,box-shadow,border-color] duration-150 ${
+      className={`relative overflow-hidden rounded-lg border bg-surface text-left transition-[transform,box-shadow,border-color] duration-150 ${
         compact ? 'px-2.5 py-1.5' : 'px-3 py-2.5'
       } ${look} ${flash ? 'animate-flash' : ''}`}
     >
+      {task.priority && (
+        <span
+          aria-hidden="true"
+          title={PRIORITY_LABELS[task.priority]}
+          className={`absolute inset-y-0 left-0 w-1 ${PRIORITY_STYLES[task.priority].stripe}`}
+        />
+      )}
       <div className="flex items-start gap-2">
         <h3
           className={`min-w-0 flex-1 break-words py-0.5 leading-snug font-medium text-fg ${compact ? 'text-xs' : 'text-sm'}`}
@@ -131,6 +145,12 @@ export function TaskCardBody({
           )}
         </div>
       </div>
+      {(task.dueDate || (task.priority && !compact)) && (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {task.priority && !compact && <PriorityBadge priority={task.priority} />}
+          {task.dueDate && <DueBadge startDate={task.startDate} dueDate={task.dueDate} today={todayIso()} done={done} />}
+        </div>
+      )}
       {tags.length > 0 && (
         <div className="mt-1.5 flex flex-wrap gap-1" title="Tags der verknüpften Notiz">
           {tags.slice(0, 3).map((tag) => (

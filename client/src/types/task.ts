@@ -1,3 +1,6 @@
+export const TASK_PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const;
+export type TaskPriority = (typeof TASK_PRIORITIES)[number];
+
 export interface Task {
   id: number;
   projectId: number;
@@ -10,6 +13,10 @@ export interface Task {
   position: number;
   /** The note the task was created from, with its tags; null if it was created elsewhere or the note was deleted. */
   sourceNote: { id: number; title: string; tags: string[] } | null;
+  priority: TaskPriority | null;
+  /** Calendar dates YYYY-MM-DD; a start date always comes with a due date on or after it. */
+  startDate: string | null;
+  dueDate: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -20,9 +27,13 @@ export interface TaskInput {
   sourceNoteId?: number;
   /** The lane to create the task in; the first lane if omitted. New tasks always start in the first column. */
   laneId?: number;
+  priority?: TaskPriority | null;
+  startDate?: string | null;
+  dueDate?: string | null;
 }
 
-export type TaskPatch = Partial<Pick<Task, 'title' | 'description'>>;
+/** Undefined keeps a value, null removes priority or a date. */
+export type TaskPatch = Partial<Pick<Task, 'title' | 'description' | 'priority' | 'startDate' | 'dueDate'>>;
 
 export interface BoardColumn {
   id: number;

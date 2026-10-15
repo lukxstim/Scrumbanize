@@ -1,9 +1,13 @@
+import type { TaskPriority } from '../types/task';
+
 export const UNTITLED_NOTE = 'Unbenannte Notiz';
 const MAX_TITLE_LENGTH = 120;
 
 export interface TaskDraft {
   title: string;
   description: string;
+  priority?: TaskPriority | null;
+  dueDate?: string | null;
 }
 
 /**

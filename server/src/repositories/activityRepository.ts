@@ -70,7 +70,9 @@ export function mergeChanges(earlier: EditSummary, later: EditSummary): EditSumm
     if (added.has(tag)) added.delete(tag);
     else removed.add(tag);
   }
-  return { fields, tagsAdded: [...added], tagsRemoved: [...removed] };
+  // The later value of a field wins ("Fällig" moved twice shows the final date).
+  const values = { ...earlier.values, ...later.values };
+  return { fields, tagsAdded: [...added], tagsRemoved: [...removed], ...(Object.keys(values).length ? { values } : {}) };
 }
 
 export type ActivityRepository = ReturnType<typeof createActivityRepository>;

@@ -122,3 +122,16 @@ export const TaskIcon = (props: SVGProps<SVGSVGElement>) => (
     <path d="m5.5 8 1.75 1.75L10.5 6.5" />
   </Icon>
 );
+
+export const CalendarIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <rect x="2.5" y="3.5" width="11" height="10" rx="1.75" />
+    <path d="M2.5 6.75h11M5.5 2v3M10.5 2v3" />
+  </Icon>
+);
+
+export const FlagIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="M3.5 14V2.5M3.5 3h8l-1.75 3 1.75 3h-8" />
+  </Icon>
+);

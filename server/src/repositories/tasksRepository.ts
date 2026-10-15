@@ -1,7 +1,7 @@
-import { text } from '../activityText.js';
+import { type EditField, type ValueField, formatDateValue, formatPriorityValue, text } from '../activityText.js';
 import type { Db } from '../database.js';
 import { positionForIndex } from '../positions.js';
-import type { TaskInput, TaskPatch } from '../validation.js';
+import { type TaskInput, type TaskPatch, type TaskPriority, scheduleProblem } from '../validation.js';
 import { createActivityRepository } from './activityRepository.js';
 
 export interface Task {
@@ -15,6 +15,10 @@ export interface Task {
   position: number;
   /** The note the task was created from, with its current tags; null if created elsewhere or the note was deleted. */
   sourceNote: { id: number; title: string; tags: string[] } | null;
+  priority: TaskPriority | null;
+  /** Calendar dates YYYY-MM-DD; a start date always comes with a due date on or after it. */
+  startDate: string | null;
+  dueDate: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -36,6 +40,9 @@ interface TaskRow {
   position: number;
   source_note_id: number | null;
   source_note_title: string | null;
+  priority: TaskPriority | null;
+  start_date: string | null;
+  due_date: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -45,6 +52,7 @@ const selectTaskSql = `
   FROM tasks t LEFT JOIN notes n ON n.id = t.source_note_id`;
 
 export type MoveResult = { ok: true; task: Task } | { ok: false; reason: 'not_found' | 'invalid_target' };
+export type UpdateResult = { ok: true; task: Task } | { ok: false; reason: 'not_found' } | { ok: false; reason: 'invalid_schedule'; message: string };
 
 export type TasksRepository = ReturnType<typeof createTasksRepository>;
 
@@ -69,11 +77,15 @@ export function createTasksRepository(db: Db) {
     `SELECT COALESCE(MAX(position), 0) + 1 AS position FROM tasks WHERE column_id = ? AND lane_id = ?`,
   );
   const insertTask = db.prepare<
-    [number, number, number, string, string, number, number | null, string, string],
+    [
+      number, number, number, string, string, number, number | null,
+      TaskPriority | null, string | null, string | null, string, string,
+    ],
     { id: number }
   >(
-    `INSERT INTO tasks (project_id, column_id, lane_id, title, description, position, source_note_id, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+    `INSERT INTO tasks (project_id, column_id, lane_id, title, description, position, source_note_id,
+                        priority, start_date, due_date, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
   );
   const selectTask = db.prepare<[number], TaskRow>(`${selectTaskSql} WHERE t.id = ?`);
   const selectProjectTasks = db.prepare<[number], TaskRow>(
@@ -87,8 +99,9 @@ export function createTasksRepository(db: Db) {
   const selectNoteTags = db.prepare<[number], { name: string }>(
     `SELECT t.name FROM note_tags nt JOIN tags t ON t.id = nt.tag_id WHERE nt.note_id = ? ORDER BY t.name`,
   );
-  const updateTask = db.prepare<[string | null, string | null, string, number]>(
-    `UPDATE tasks SET title = COALESCE(?, title), description = COALESCE(?, description), updated_at = ? WHERE id = ?`,
+  // The new values are always complete: the repository merges the patch with the stored row first.
+  const updateTask = db.prepare<[string, string, TaskPriority | null, string | null, string | null, string, number]>(
+    `UPDATE tasks SET title = ?, description = ?, priority = ?, start_date = ?, due_date = ?, updated_at = ? WHERE id = ?`,
   );
   const selectCellSiblings = db.prepare<[number, number, number], { id: number; position: number }>(
     `SELECT id, position FROM tasks WHERE column_id = ? AND lane_id = ? AND id != ? ORDER BY position, id`,
@@ -115,6 +128,9 @@ export function createTasksRepository(db: Db) {
               title: row.source_note_title ?? '',
               tags: selectNoteTags.all(row.source_note_id).map((t) => t.name),
             },
+      priority: row.priority,
+      startDate: row.start_date,
+      dueDate: row.due_date,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -154,6 +170,9 @@ export function createTasksRepository(db: Db) {
         input.description,
         position,
         sourceNoteId,
+        input.priority ?? null,
+        input.startDate ?? null,
+        input.dueDate ?? null,
         now,
         now,
       )!;
@@ -176,32 +195,57 @@ export function createTasksRepository(db: Db) {
       return toTask(row);
     }),
 
-    /** Changes title and/or description. Returns undefined if the task does not exist. */
-    update: db.transaction((id: number, patch: TaskPatch): Task | undefined => {
+    /**
+     * Changes the given fields; undefined keeps a value, null removes priority or a date.
+     * The start/due rule is checked against the merged values, so "set only the start" works when a due date exists.
+     */
+    update: db.transaction((id: number, patch: TaskPatch): UpdateResult => {
       const before = selectTask.get(id);
-      if (!before) return undefined;
-      updateTask.run(patch.title ?? null, patch.description ?? null, new Date().toISOString(), id);
+      if (!before) return { ok: false, reason: 'not_found' };
+      const startDate = patch.startDate === undefined ? before.start_date : patch.startDate;
+      const dueDate = patch.dueDate === undefined ? before.due_date : patch.dueDate;
+      const problem = scheduleProblem(startDate, dueDate);
+      if (problem) return { ok: false, reason: 'invalid_schedule', message: problem };
+      updateTask.run(
+        patch.title ?? before.title,
+        patch.description ?? before.description,
+        patch.priority === undefined ? before.priority : patch.priority,
+        startDate,
+        dueDate,
+        new Date().toISOString(),
+        id,
+      );
       const row = selectTask.get(id)!;
+
+      const fields: EditField[] = [];
+      const values: Partial<Record<ValueField, string>> = {};
+      if (before.title !== row.title) fields.push('title');
+      if (before.description !== row.description) fields.push('description');
+      if (before.priority !== row.priority) {
+        fields.push('priority');
+        values.priority = formatPriorityValue(row.priority);
+      }
+      if (before.start_date !== row.start_date) {
+        fields.push('startDate');
+        values.startDate = formatDateValue(row.start_date);
+      }
+      if (before.due_date !== row.due_date) {
+        fields.push('dueDate');
+        values.dueDate = formatDateValue(row.due_date);
+      }
       activities.recordEdit({
         projectId: row.project_id,
         entityType: 'task',
         entityId: id,
         title: row.title,
-        changes: {
-          fields: [
-            ...(before.title !== row.title ? (['title'] as const) : []),
-            ...(before.description !== row.description ? (['description'] as const) : []),
-          ],
-          tagsAdded: [],
-          tagsRemoved: [],
-        },
+        changes: { fields, tagsAdded: [], tagsRemoved: [], ...(Object.keys(values).length ? { values } : {}) },
         describeUpdate: text.taskUpdated,
         describeCreate: (title, metadata) => {
           const source = metadata.sourceNote as { title: string } | undefined;
           return text.taskCreated(title, (metadata.column as { name: string }).name, source?.title);
         },
       });
-      return toTask(row);
+      return { ok: true, task: toTask(row) };
     }),
 
     /**

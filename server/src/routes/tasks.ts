@@ -14,9 +14,13 @@ export function tasksRouter(tasks: TasksRepository): Router {
   });
 
   router.patch('/:id', (req, res) => {
-    const task = tasks.update(idParamSchema.parse(req.params.id), taskPatchSchema.parse(req.body));
-    if (!task) throw notFound('Task not found');
-    res.json(task);
+    const result = tasks.update(idParamSchema.parse(req.params.id), taskPatchSchema.parse(req.body));
+    if (result.ok) {
+      res.json(result.task);
+      return;
+    }
+    if (result.reason === 'not_found') throw notFound('Task not found');
+    throw new HttpError(400, 'invalid_schedule', result.message);
   });
 
   // Moves stay inside the task's own project.

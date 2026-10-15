@@ -4,8 +4,10 @@ import { useAutosave, type SaveStatus } from '../../hooks/useAutosave';
 import type { BoardColumn, Lane, Task, TaskPatch } from '../../types/task';
 import { formatDate } from '../../utils/format';
 import { paths } from '../../utils/paths';
+import type { Schedule } from '../../utils/schedule';
 import { UNTITLED_NOTE } from '../../utils/taskFromNote';
 import ConfirmDialog from '../ConfirmDialog';
+import ScheduleFields from '../tasks/ScheduleFields';
 import MarkdownPreview from '../notes/LazyMarkdownPreview';
 import Button from '../ui/Button';
 import Dialog from '../ui/Dialog';
@@ -32,6 +34,9 @@ export default function TaskDetailDialog({ task, columns, lanes, onClose, onSave
   const [mode, setMode] = useState<'edit' | 'preview'>(task.description ? 'preview' : 'edit');
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteFailed, setDeleteFailed] = useState(false);
+  // Priority and dates are saved right away (no typing involved); a failed save puts the old values back.
+  const [dates, setDates] = useState<Schedule>({ priority: task.priority, startDate: task.startDate, dueDate: task.dueDate });
+  const [scheduleFailed, setScheduleFailed] = useState(false);
   const { status, schedule, flush, cancel } = useAutosave<TaskPatch>((patch) => onSave(task.id, patch));
 
   function change(next: { title?: string; description?: string }) {
@@ -42,6 +47,18 @@ export default function TaskDetailDialog({ task, columns, lanes, onClose, onSave
     // A task needs a title; keep editing locally until there is one again.
     if (nextTitle.trim()) schedule({ title: nextTitle, description: nextDescription });
     else cancel();
+  }
+
+  async function changeSchedule(next: Schedule) {
+    const previous = dates;
+    setDates(next);
+    setScheduleFailed(false);
+    try {
+      await onSave(task.id, next);
+    } catch {
+      setDates(previous);
+      setScheduleFailed(true);
+    }
   }
 
   async function confirmDelete() {
@@ -128,6 +145,15 @@ export default function TaskDetailDialog({ task, columns, lanes, onClose, onSave
             </Link>
           </p>
         )}
+
+        <section aria-label="Priorität und Termine" className="rounded-lg border border-line bg-surface-muted/50 px-4 py-3">
+          <ScheduleFields value={dates} onChange={(next) => void changeSchedule(next)} />
+          {scheduleFailed && (
+            <p role="alert" className="mt-2 text-sm text-danger-text">
+              Priorität oder Termin konnten nicht gespeichert werden.
+            </p>
+          )}
+        </section>
 
         <div>
           <div className="mb-2 flex items-center justify-between">

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { BoardColumn, Lane, Task, TaskPatch } from '../types/task';
+import type { BoardColumn, Lane, Task, TaskInput, TaskPatch } from '../types/task';
 import { ApiError, boardApi, columnsApi, lanesApi, tasksApi } from '../utils/api';
 import { addTask, applyMove, groupByCell, removeTask, reorder, replaceTask, type Cells } from '../utils/board';
 import type { LoadStatus } from './useNotes';
@@ -100,10 +100,10 @@ export function useBoard(projectId: number) {
     [failed, flashTask],
   );
 
-  /** New tasks start at the end of the first column, in the given lane. */
+  /** New tasks start at the end of the first column, in the given lane, optionally with priority and dates. */
   const createTask = useCallback(
-    async (title: string, laneId: number): Promise<Task> => {
-      const task = await tasksApi.create(projectId, { title, description: '', laneId });
+    async (title: string, laneId: number, schedule?: Pick<TaskInput, 'priority' | 'startDate' | 'dueDate'>): Promise<Task> => {
+      const task = await tasksApi.create(projectId, { title, description: '', laneId, ...schedule });
       setCells((current) => addTask(current, task));
       return task;
     },
@@ -114,6 +114,23 @@ export function useBoard(projectId: number) {
     const saved = await tasksApi.update(id, patch);
     setCells((current) => replaceTask(current, saved));
   }, []);
+
+  /** Changes dates right away (e.g. dragged in the calendar) and then saves; a failed save reloads the board. */
+  const rescheduleTask = useCallback(
+    async (id: number, patch: Pick<TaskPatch, 'startDate' | 'dueDate'>) => {
+      setCells((current) => {
+        const task = Object.values(current).flat().find((t) => t.id === id);
+        return task ? replaceTask(current, { ...task, ...patch }) : current;
+      });
+      try {
+        const saved = await tasksApi.update(id, patch);
+        setCells((current) => replaceTask(current, saved));
+      } catch {
+        failed('Der Termin konnte nicht gespeichert werden. Die Daten wurden neu geladen.');
+      }
+    },
+    [failed],
+  );
 
   const deleteTask = useCallback(async (id: number): Promise<void> => {
     await tasksApi.remove(id);
@@ -156,6 +173,7 @@ export function useBoard(projectId: number) {
     moveTask,
     createTask,
     updateTask,
+    rescheduleTask,
     deleteTask,
     moveColumn,
     moveLane,
