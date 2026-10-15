@@ -6,7 +6,9 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY client/package.json client/
 COPY server/package.json server/
-RUN npm ci
+# The desktop workspace must exist for npm, but its packages (Electron …) are not installed.
+COPY desktop/package.json desktop/
+RUN npm ci --workspace client --workspace server
 COPY client client
 COPY server server
 RUN npm run build
@@ -17,6 +19,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY client/package.json client/
 COPY server/package.json server/
+COPY desktop/package.json desktop/
 RUN npm ci --omit=dev --workspace server && npm cache clean --force
 
 # ---- runtime ----

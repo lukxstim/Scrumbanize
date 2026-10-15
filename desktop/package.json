@@ -1,0 +1,25 @@
+{
+  "name": "@scrumbanize/desktop",
+  "version": "1.0.0",
+  "private": true,
+  "productName": "Scrumbanize",
+  "description": "Scrumbanize – Notizen und Scrumban-Board als Windows-Desktop-App",
+  "author": "Scrumbanize",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "npm run build && electron .",
+    "dist": "npm run build && electron-builder --win --x64",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "electron": "^44.7.2",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
+  }
+}

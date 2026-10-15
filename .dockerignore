@@ -8,3 +8,5 @@ docs
 *.log
 .env
 **/*.tsbuildinfo
+desktop/release
+desktop/build

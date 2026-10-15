@@ -4,7 +4,7 @@
 
 Selbstgehostete Web-App, die Notizen und ein Scrumban-Board verbindet. Hintergrund und Ziele: [docs/vision.md](docs/vision.md), User Stories: [docs/stories](docs/stories).
 
-**Stand:** US-01 bis US-07 sind umgesetzt:
+**Stand:** US-01 bis US-08 sind umgesetzt:
 
 - **Projekte:** Notizen und Board sind nach Projekten getrennt (z. B. „Privat“, „Studium“). Projekte werden im Header gewechselt, angelegt, umbenannt, eingefärbt und gelöscht (Bestätigung durch Eintippen des Namens; das letzte Projekt bleibt erhalten). Beim ersten Start gibt es das Projekt „Allgemein“; das zuletzt geöffnete Projekt merkt sich der Browser.
 - **Notizen** (`/p/:projectId/notes`): Titel, Markdown-Inhalt und Tags, Auto-Save, Live-Suche und Tag-Filter.
@@ -21,6 +21,53 @@ Selbstgehostete Web-App, die Notizen und ein Scrumban-Board verbindet. Hintergru
 - **Design:** helles und dunkles Farbschema (Hell / Dunkel / System, Standard: System; merkt sich der Browser), Schrift Inter (lokal eingebunden, kein externes CDN), dezente Animationen (respektieren „Bewegung reduzieren“) und Toast-Meldungen. Optimiert für Bildschirme ab 1024 px Breite.
 
 Die App ist für einen einzelnen Nutzer ohne Login gedacht – betreibe sie nur in einem vertrauenswürdigen Netz oder hinter einem Reverse-Proxy mit Authentifizierung.
+
+Außerdem gibt es Scrumbanize als **Windows-Desktop-App** (US-08), die ohne installiertes Node.js läuft – siehe [Desktop-App](#desktop-app-windows).
+
+## Desktop-App (Windows)
+
+Die Desktop-App bündelt Frontend, Server und SQLite in einem Electron-Programm. Jede Person hat ihre eigenen, lokalen Daten; es gibt keine Synchronisation.
+
+### Installieren und starten
+
+Zwei Varianten (Windows 10/11, 64 Bit):
+
+- **`Scrumbanize-Setup-1.0.0.exe`** – Installer. Installiert ohne Administratorrechte für den aktuellen Benutzer (nach `%LOCALAPPDATA%\Programs\scrumbanize`) und legt Verknüpfungen auf dem Desktop und im Startmenü an. Deinstallation über „Apps & Features“.
+- **`Scrumbanize-1.0.0-portable.exe`** – ohne Installation, z. B. vom USB-Stick. Startet etwas langsamer, weil sie sich bei jedem Start entpackt.
+
+**Windows-SmartScreen:** Die Programme sind nicht signiert. Beim ersten Start zeigt Windows deshalb „Der Computer wurde durch Windows geschützt“. Auf **„Weitere Informationen“** klicken und dann **„Trotzdem ausführen“**.
+
+### Daten
+
+Notizen, Tasks und Einstellungen liegen in **`%APPDATA%\Scrumbanize\`** (z. B. `C:\Users\<Name>\AppData\Roaming\Scrumbanize\`):
+
+| Datei | Inhalt |
+|---|---|
+| `scrumbanize.db` | Die Datenbank – dieselbe Art Datei wie bei Docker und in der Entwicklung |
+| `window-state.json` | Fenstergröße und -position |
+| `logs\main.log` | Protokoll für die Fehlersuche |
+
+- **Backup:** Scrumbanize beenden und `scrumbanize.db` kopieren.
+- **Daten übernehmen** (z. B. von Docker oder aus der Entwicklung): Scrumbanize beenden und die vorhandene `scrumbanize.db` in diesen Ordner kopieren (bestehende Datei vorher sichern). Die Datenbank wird beim nächsten Start automatisch auf den aktuellen Stand gebracht.
+- **Update:** neue Version einfach installieren bzw. die neue portable Datei verwenden – die Daten bleiben erhalten, auch beim Deinstallieren.
+
+### Technik
+
+- Der Server läuft im Electron-Hauptprozess und lauscht nur auf `127.0.0.1:41723` (ist der Port belegt, auf einem freien Port). Er nimmt nur Anfragen des App-Fensters an (Prüfung von `Host`- und `Origin`-Header), sodass Webseiten im Browser die lokale API nicht erreichen.
+- Beim Beenden werden Server und Datenbank sauber geschlossen; es bleiben keine Prozesse im Hintergrund.
+- Eine Instanz pro Benutzer: Ein zweiter Start holt das vorhandene Fenster nach vorn. Links zu anderen Seiten öffnen sich im Standardbrowser.
+
+### Selbst bauen
+
+Voraussetzungen: Windows, Node.js 24, Internetzugang beim ersten Build (`electron-builder` lädt Electron und NSIS herunter). Kein Python und keine Visual-Studio-Build-Tools nötig – `better-sqlite3` ist ein Node-API-Modul, dessen fertige Binärdatei auch in Electron läuft.
+
+```sh
+npm install
+npm run desktop        # baut Client und Desktop-App und startet sie (Daten in "%APPDATA%\Scrumbanize (Dev)")
+npm run desktop:dist   # erzeugt die .exe-Dateien in desktop/release/
+```
+
+Im Desktop-Fenster öffnet `F12` die Entwicklertools, nur beim ungepackten Start (`npm run desktop`). Die Umgebungsvariable `SCRUMBANIZE_USER_DATA` legt für Tests einen anderen Datenordner fest.
 
 ## Betrieb mit Docker
 
@@ -57,14 +104,16 @@ Lokal liegt die Datenbank unter `data/scrumbanize.db` (per `.gitignore` ausgesch
 | Variable      | Standard                 | Bedeutung                               |
 |---------------|--------------------------|-----------------------------------------|
 | `PORT`        | `3000`                   | Port des Servers                        |
+| `HOST`        | alle Netzwerkschnittstellen | Adresse, an die der Server bindet (z. B. `127.0.0.1`) |
 | `DATA_DIR`    | `<repo>/data`, Docker: `/data` | Verzeichnis der SQLite-Datenbank   |
 | `CLIENT_DIST` | `<repo>/client/dist`     | Gebauter Client, der mit ausgeliefert wird |
 
 ## Projektstruktur
 
-npm-Workspaces mit zwei Paketen:
+npm-Workspaces mit drei Paketen:
 
-- `server/` – Express-REST-API mit SQLite (`better-sqlite3`). Einstieg `src/index.ts`, App-Aufbau `src/app.ts`, Schema und Migrationen `src/database.ts`.
+- `server/` – Express-REST-API mit SQLite (`better-sqlite3`). Start `src/start.ts` (`startServer()`, genutzt von `src/index.ts` und der Desktop-App), App-Aufbau `src/app.ts`, Schema und Migrationen `src/database.ts`.
+- `desktop/` – Electron-Hauptprozess (`src/main.ts`), mit esbuild zu `dist/main.cjs` gebündelt; Paketierung mit `electron-builder.yml`.
 - `client/` – React-SPA mit TypeScript, Vite und Tailwind CSS. Farben kommen aus semantischen Design-Tokens (`bg-surface`, `text-fg-muted`, `border-line`, `bg-accent` …), definiert in `src/index.css` für hell und dunkel; wiederverwendbare Bausteine liegen in `src/components/ui/`.
 
 ## REST-API

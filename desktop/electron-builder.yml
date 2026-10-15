@@ -1,0 +1,53 @@
+# Packages the desktop app: `npm run desktop:dist` (from the repository root) writes the .exe files to desktop/release.
+appId: de.scrumbanize.app
+productName: Scrumbanize
+copyright: Scrumbanize
+# Keep in sync with the installed electron package (desktop/package.json).
+electronVersion: 44.7.2
+# The package name of the workspace (@scrumbanize/desktop) would become the install folder name.
+extraMetadata:
+  name: scrumbanize
+
+directories:
+  output: release
+  buildResources: build
+
+# better-sqlite3 is a Node-API module; its prebuilt binary works in Electron as-is, so no native rebuild
+# (and no Python / Visual Studio build tools) is needed.
+npmRebuild: false
+
+files:
+  - dist/**
+  - package.json
+  # Only the Windows binary and the JavaScript of better-sqlite3, not its sources or other platforms.
+  - "!**/node_modules/better-sqlite3/{src,deps,docs,benchmark}/**"
+  - "!**/node_modules/better-sqlite3/prebuilds/!(win32-x64.node)"
+asarUnpack:
+  - "**/*.node"
+
+# The built React app, served by the bundled server.
+extraResources:
+  - from: ../client/dist
+    to: client
+
+win:
+  target:
+    - target: nsis
+      arch: x64
+    - target: portable
+      arch: x64
+  icon: build/icon.png
+
+# Installer: per user, without admin rights, with desktop and start menu shortcuts.
+# Uninstalling keeps the data in %APPDATA%\Scrumbanize.
+nsis:
+  oneClick: true
+  perMachine: false
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Scrumbanize
+  deleteAppDataOnUninstall: false
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+portable:
+  artifactName: ${productName}-${version}-portable.${ext}

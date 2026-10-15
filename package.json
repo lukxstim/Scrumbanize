@@ -3,16 +3,20 @@
   "private": true,
   "workspaces": [
     "server",
-    "client"
+    "client",
+    "desktop"
   ],
   "scripts": {
     "dev": "concurrently -n server,client -c blue,magenta \"npm run dev -w server\" \"npm run dev -w client\"",
     "build": "npm run build -w client && npm run build -w server",
     "start": "npm run start -w server",
     "test": "npm run test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "desktop": "npm run build -w client && npm run start -w desktop",
+    "desktop:dist": "npm run build -w client && npm run dist -w desktop"
   },
   "devDependencies": {
     "concurrently": "^10.0.6"
-  }
+  },
+  "version": "1.0.0"
 }

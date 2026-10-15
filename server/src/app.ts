@@ -3,6 +3,7 @@ import path from 'node:path';
 import express from 'express';
 import type { Db } from './database.js';
 import { apiNotFoundHandler, errorHandler } from './errors.js';
+import { hostGuard } from './hostGuard.js';
 import { createActivityRepository } from './repositories/activityRepository.js';
 import { createBoardRepository } from './repositories/boardRepository.js';
 import { createNotesRepository } from './repositories/notesRepository.js';
@@ -19,6 +20,8 @@ import { tasksRouter } from './routes/tasks.js';
 export interface AppOptions {
   /** Directory with the built client. When it contains an index.html, the server also serves the app. */
   clientDist?: string;
+  /** If given, only requests for these host:port values from the same origin are accepted (desktop app). */
+  trustedHosts?: () => readonly string[];
 }
 
 export function createApp(db: Db, options: AppOptions = {}): express.Express {
@@ -31,6 +34,8 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   const activities = createActivityRepository(db);
 
   app.disable('x-powered-by');
+  // Before everything else, so rejected requests reach neither the API nor the static files.
+  if (options.trustedHosts) app.use(hostGuard(options.trustedHosts));
   app.use(express.json({ limit: '2mb' }));
 
   const api = express.Router();
