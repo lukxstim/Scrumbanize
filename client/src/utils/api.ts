@@ -1,7 +1,7 @@
 import type { ActivityEntity, ActivityPage } from '../types/activity';
 import type { Note, NoteInput } from '../types/note';
 import type { Project, ProjectInput } from '../types/project';
-import type { BoardColumn, Lane, Task, TaskInput, TaskPatch } from '../types/task';
+import type { BoardColumn, Lane, LinkKind, Task, TaskInput, TaskPatch } from '../types/task';
 import type { EmptyResult, RestoreResult, TrashItem, TrashType } from '../types/trash';
 import { notifyTrashChanged } from './appEvents';
 
@@ -66,6 +66,11 @@ export const tasksApi = {
     request<Task>(`/tasks/${id}/move`, { method: 'POST', body: JSON.stringify({ columnId, laneId, index }) }),
   /** Moves the task to the trash. */
   remove: (id: number) => trashRequest<void>(`/tasks/${id}`, { method: 'DELETE' }),
+  /** Both tasks come back, since a link shows on both. */
+  addLink: (id: number, targetId: number, kind: LinkKind) =>
+    request<{ task: Task; target: Task }>(`/tasks/${id}/links`, { method: 'POST', body: JSON.stringify({ targetId, kind }) }),
+  removeLink: (id: number, linkId: number) =>
+    request<{ task: Task; target: Task }>(`/tasks/${id}/links/${linkId}`, { method: 'DELETE' }),
 };
 
 export const boardApi = {

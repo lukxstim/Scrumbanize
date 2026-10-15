@@ -13,6 +13,8 @@ interface DialogProps {
   closeOnBackdrop?: boolean;
   /** False while something is saving, so Escape does not close it halfway. */
   dismissible?: boolean;
+  /** "drawer" slides in from the right edge at full height (see index.css) instead of popping up centered. */
+  placement?: 'center' | 'drawer';
   children: ReactNode;
 }
 
@@ -27,6 +29,7 @@ export default function Dialog({
   className = '',
   closeOnBackdrop = false,
   dismissible = true,
+  placement = 'center',
   children,
 }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -49,7 +52,12 @@ export default function Dialog({
     <dialog
       ref={ref}
       aria-labelledby={labelledBy}
-      className={`m-auto w-full rounded-xl border border-line bg-surface text-fg shadow-dialog ${className}`}
+      data-placement={placement}
+      className={`${
+        placement === 'drawer'
+          ? 'm-0 ml-auto h-dvh max-h-none w-[26rem] max-w-full border-l border-line'
+          : 'm-auto w-full rounded-xl border border-line'
+      } bg-surface text-fg shadow-dialog ${className}`}
       onCancel={(event) => {
         event.preventDefault();
         if (dismissible) onClose();

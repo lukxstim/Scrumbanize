@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { Navigate, NavLink, Route, Routes, useMatch } from 'react-router';
+import { Link, Navigate, NavLink, Route, Routes, useLocation, useMatch, useNavigate, useParams, useSearchParams } from 'react-router';
 import BoardPage from './components/board/BoardPage';
 import CommandPalette from './components/CommandPalette';
-import ActivityPage from './components/activity/ActivityPage';
+import ActivityDrawer from './components/activity/ActivityDrawer';
 import CalendarPage from './components/calendar/CalendarPage';
 import TrashPage from './components/trash/TrashPage';
-import { BoardIcon, CalendarIcon, ClockIcon, NoteIcon, SearchIcon, TrashIcon } from './components/icons';
+import { BoardIcon, CalendarIcon, HistoryIcon, NoteIcon, SearchIcon, TrashIcon } from './components/icons';
 import NotesPage from './components/notes/NotesPage';
 import ProjectLayout from './components/projects/ProjectLayout';
 import ProjectSwitcher from './components/projects/ProjectSwitcher';
@@ -15,8 +15,19 @@ import ThemeSwitcher from './components/ThemeSwitcher';
 import Kbd, { modKey } from './components/ui/Kbd';
 import { useProjects } from './hooks/useProjects';
 import { useTrashCount } from './hooks/useTrash';
-import { paths } from './utils/paths';
+import { ACTIVITY_PARAM, paths, withActivityDrawer } from './utils/paths';
 
+
+/** Round icon buttons at the right of the header (activity, trash). */
+const headerIconClass = (active: boolean) =>
+  `relative grid size-8 shrink-0 place-items-center rounded-md transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-accent ${
+    active ? 'bg-surface-strong text-fg' : 'text-fg-subtle hover:bg-surface-hover hover:text-fg'
+  }`;
+
+/** Old address of the activity page: the project's notes with the activity drawer open. */
+function ActivityRedirect() {
+  return <Navigate to={withActivityDrawer(paths.notes(Number(useParams().projectId)))} replace />;
+}
 
 const tabClass = (active: boolean) =>
   `flex h-7 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 focus-visible:outline-2 focus-visible:outline-accent ${
@@ -31,10 +42,20 @@ export default function App() {
   const boardMatch = useMatch('/p/:projectId/board');
   const taskMatch = useMatch('/p/:projectId/tasks/:taskId');
   const onBoard = boardMatch !== null || taskMatch !== null;
-  const onActivity = useMatch('/p/:projectId/activity') !== null;
   const onCalendar = useMatch('/p/:projectId/calendar') !== null;
   const onTrash = useMatch('/p/:projectId/trash') !== null;
-  const section = onTrash ? 'trash' : onActivity ? 'activity' : onCalendar ? 'calendar' : onBoard ? 'board' : 'notes';
+  const section = onTrash ? 'trash' : onCalendar ? 'calendar' : onBoard ? 'board' : 'notes';
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const activityOpen = searchParams.get(ACTIVITY_PARAM) === '1' && activeProject !== undefined;
+
+  function closeActivity() {
+    const params = new URLSearchParams(location.search);
+    params.delete(ACTIVITY_PARAM);
+    const search = params.toString();
+    navigate(`${location.pathname}${search ? `?${search}` : ''}`, { replace: true });
+  }
   const trashCount = useTrashCount(activeProject?.id);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
@@ -87,23 +108,6 @@ export default function App() {
                 <CalendarIcon className="size-3.5" />
                 Kalender
               </NavLink>
-              <NavLink to={paths.activity(activeProject.id)} className={({ isActive }) => tabClass(isActive)}>
-                <ClockIcon className="size-3.5" />
-                Aktivität
-              </NavLink>
-              <NavLink
-                to={paths.trash(activeProject.id)}
-                className={({ isActive }) => tabClass(isActive)}
-                aria-label={`Papierkorb${trashCount > 0 ? `, ${trashCount} ${trashCount === 1 ? 'Eintrag' : 'Einträge'}` : ''}`}
-                title="Papierkorb"
-              >
-                <TrashIcon className="size-3.5" />
-                {trashCount > 0 && (
-                  <span aria-hidden="true" className="min-w-4 rounded-full bg-surface-strong px-1 text-center text-[11px] leading-4 tabular-nums">
-                    {trashCount}
-                  </span>
-                )}
-              </NavLink>
             </nav>
           </>
         )}
@@ -121,6 +125,35 @@ export default function App() {
           </span>
         </button>
         <ThemeSwitcher />
+        {activeProject && (
+          <div className="flex items-center gap-1">
+            <Link
+              to={paths.trash(activeProject.id)}
+              className={headerIconClass(onTrash)}
+              aria-current={onTrash ? 'page' : undefined}
+              aria-label={`Papierkorb${trashCount > 0 ? `, ${trashCount} ${trashCount === 1 ? 'Eintrag' : 'Einträge'}` : ''}`}
+              title="Papierkorb"
+            >
+              <TrashIcon />
+              {trashCount > 0 && (
+                <span
+                  aria-hidden="true"
+                  className="absolute -top-0.5 -right-0.5 min-w-4 rounded-full bg-accent px-1 text-center text-[10px] leading-4 font-semibold text-accent-fg tabular-nums"
+                >
+                  {trashCount > 99 ? '99+' : trashCount}
+                </span>
+              )}
+            </Link>
+            <Link
+              to={withActivityDrawer(location.pathname, location.search)}
+              className={headerIconClass(activityOpen)}
+              aria-label="Aktivität"
+              title="Aktivität"
+            >
+              <HistoryIcon />
+            </Link>
+          </div>
+        )}
       </header>
 
       <Routes>
@@ -133,13 +166,17 @@ export default function App() {
             <Route path="tasks/:taskId" element={null} />
           </Route>
           <Route path="calendar" element={<CalendarPage />} />
-          <Route path="activity" element={<ActivityPage />} />
+          <Route path="activity" element={<ActivityRedirect />} />
           <Route path="trash" element={<TrashPage />} />
         </Route>
         {/* Addresses from before projects existed, and anything unknown, open the last project. */}
         <Route path="/board" element={<RedirectToProject section="board" />} />
         <Route path="*" element={<RedirectToProject />} />
       </Routes>
+
+      {activityOpen && activeProject && (
+        <ActivityDrawer key={activeProject.id} projectId={activeProject.id} projectName={activeProject.name} onClose={closeActivity} />
+      )}
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} activeProject={activeProject} />
     </div>

@@ -139,6 +139,20 @@ dialog[open] {
     transform: translateY(6px) scale(0.98);
   }
 }
+/* Drawers slide in from the right instead. */
+dialog[data-placement='drawer'] {
+  transform: translateX(100%);
+  opacity: 1;
+}
+dialog[data-placement='drawer'][open] {
+  transform: none;
+}
+@starting-style {
+  dialog[data-placement='drawer'][open] {
+    transform: translateX(100%);
+    opacity: 1;
+  }
+}
 dialog::backdrop {
   background-color: rgb(9 9 11 / 0);
   backdrop-filter: blur(0);

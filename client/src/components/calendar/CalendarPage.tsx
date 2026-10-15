@@ -315,6 +315,10 @@ export default function CalendarPage() {
           lanes={board.lanes}
           onClose={() => setOpenTaskId(null)}
           onSave={board.updateTask}
+          allTasks={tasks}
+          onAddLink={board.addLink}
+          onRemoveLink={board.removeLink}
+          onOpenTask={setOpenTaskId}
           onMove={(id, columnId, laneId) =>
             void board.moveTask(id, columnId, laneId, cellTasks(board.cells, columnId, laneId).filter((t) => t.id !== id).length)
           }

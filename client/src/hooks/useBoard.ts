@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { BoardColumn, Lane, Task, TaskInput, TaskPatch } from '../types/task';
+import type { BoardColumn, Lane, LinkKind, Task, TaskInput, TaskPatch } from '../types/task';
 import { ApiError, boardApi, columnsApi, lanesApi, tasksApi } from '../utils/api';
 import { addTask, applyMove, groupByCell, removeTask, reorder, replaceTask, type Cells } from '../utils/board';
+import { dropLinksTo, refreshLinkedTask } from '../utils/links';
 import type { LoadStatus } from './useNotes';
 
 type ItemKind = 'column' | 'lane';
@@ -91,13 +92,14 @@ export function useBoard(projectId: number) {
       setCells((current) => applyMove(current, id, columnId, laneId, index));
       try {
         const saved = await tasksApi.move(id, columnId, laneId, index);
-        setCells((current) => replaceTask(current, saved));
+        // Tasks linked to this one show its column, so they change too.
+        setCells((current) => refreshLinkedTask(replaceTask(current, saved), saved, columns));
         flashTask(id);
       } catch {
         failed('Der Task konnte nicht verschoben werden. Das Board wurde neu geladen.');
       }
     },
-    [failed, flashTask],
+    [failed, flashTask, columns],
   );
 
   /** New tasks start at the end of the first column, in the given lane, optionally with priority and dates. */
@@ -110,9 +112,23 @@ export function useBoard(projectId: number) {
     [projectId],
   );
 
-  const updateTask = useCallback(async (id: number, patch: TaskPatch): Promise<void> => {
-    const saved = await tasksApi.update(id, patch);
-    setCells((current) => replaceTask(current, saved));
+  const updateTask = useCallback(
+    async (id: number, patch: TaskPatch): Promise<void> => {
+      const saved = await tasksApi.update(id, patch);
+      setCells((current) => refreshLinkedTask(replaceTask(current, saved), saved, columns));
+    },
+    [columns],
+  );
+
+  /** Links show on both tasks, so both are replaced with the server's versions. */
+  const addLink = useCallback(async (id: number, targetId: number, kind: LinkKind): Promise<void> => {
+    const { task, target } = await tasksApi.addLink(id, targetId, kind);
+    setCells((current) => replaceTask(replaceTask(current, task), target));
+  }, []);
+
+  const removeLink = useCallback(async (id: number, linkId: number): Promise<void> => {
+    const { task, target } = await tasksApi.removeLink(id, linkId);
+    setCells((current) => replaceTask(replaceTask(current, task), target));
   }, []);
 
   /** Changes dates right away (e.g. dragged in the calendar) and then saves; a failed save reloads the board. */
@@ -134,7 +150,7 @@ export function useBoard(projectId: number) {
 
   const deleteTask = useCallback(async (id: number): Promise<void> => {
     await tasksApi.remove(id);
-    setCells((current) => removeTask(current, id));
+    setCells((current) => dropLinksTo(removeTask(current, id), id));
   }, []);
 
   const moveColumn = useCallback(
@@ -173,6 +189,8 @@ export function useBoard(projectId: number) {
     moveTask,
     createTask,
     updateTask,
+    addLink,
+    removeLink,
     rescheduleTask,
     deleteTask,
     moveColumn,

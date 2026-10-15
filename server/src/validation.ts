@@ -90,6 +90,12 @@ export const taskPatchSchema = z.object({
 
 export type TaskPatch = z.infer<typeof taskPatchSchema>;
 
+/** A link from the task in the URL to `targetId`, as seen from the former. */
+export const taskLinkInputSchema = z.object({
+  targetId: z.number().int().positive(),
+  kind: z.enum(['relates', 'blocks', 'blocked_by']),
+});
+
 export const moveTaskSchema = z.object({
   columnId: z.number().int().positive(),
   laneId: z.number().int().positive(),

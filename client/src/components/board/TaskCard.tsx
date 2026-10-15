@@ -4,9 +4,10 @@ import { Link } from 'react-router';
 import type { BoardColumn, Task } from '../../types/task';
 import { todayIso } from '../../utils/dates';
 import { paths } from '../../utils/paths';
+import { linkSummary, openBlockers } from '../../utils/links';
 import { PRIORITY_LABELS, PRIORITY_STYLES } from '../../utils/priority';
 import { UNTITLED_NOTE } from '../../utils/taskFromNote';
-import { ChevronLeftIcon, ChevronRightIcon, NoteIcon } from '../icons';
+import { ChevronLeftIcon, ChevronRightIcon, LinkIcon, NoteIcon } from '../icons';
 import { DueBadge, PriorityBadge } from '../tasks/TaskBadges';
 import { isolate } from './isolate';
 
@@ -110,6 +111,8 @@ export function TaskCardBody({
       ? 'border-dashed border-accent-line bg-accent-muted [&>*]:invisible'
       : 'cursor-grab border-line shadow-card hover:-translate-y-px hover:border-line-strong hover:shadow-card-hover';
   const tags = task.sourceNote?.tags ?? [];
+  const blockers = openBlockers(task);
+  const hasBadges = task.dueDate || (task.priority && !compact) || task.links.length > 0;
 
   return (
     <article
@@ -145,10 +148,28 @@ export function TaskCardBody({
           )}
         </div>
       </div>
-      {(task.dueDate || (task.priority && !compact)) && (
+      {hasBadges && (
         <div className="mt-1.5 flex flex-wrap gap-1">
+          {blockers.length > 0 && (
+            <span
+              className="inline-flex items-center rounded bg-danger-muted px-1.5 py-px text-[11px] font-medium text-danger-text ring-1 ring-danger-line ring-inset"
+              title={blockers.map((l) => `Wird blockiert von #${l.task.id} ${l.task.title}`).join('\n')}
+            >
+              Blockiert
+            </span>
+          )}
           {task.priority && !compact && <PriorityBadge priority={task.priority} />}
           {task.dueDate && <DueBadge startDate={task.startDate} dueDate={task.dueDate} today={todayIso()} done={done} />}
+          {task.links.length > 0 && (
+            <span
+              className="inline-flex items-center gap-0.5 rounded bg-surface-muted px-1.5 py-px text-[11px] font-medium text-fg-subtle ring-1 ring-line ring-inset"
+              title={linkSummary(task)}
+            >
+              <LinkIcon className="size-3" />
+              {task.links.length}
+              <span className="sr-only">{task.links.length === 1 ? ' Verknüpfung' : ' Verknüpfungen'}</span>
+            </span>
+          )}
         </div>
       )}
       {tags.length > 0 && (

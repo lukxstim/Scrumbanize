@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useAutosave, type SaveStatus } from '../../hooks/useAutosave';
-import type { BoardColumn, Lane, Task, TaskPatch } from '../../types/task';
+import type { BoardColumn, Lane, LinkKind, Task, TaskPatch } from '../../types/task';
 import { formatDate } from '../../utils/format';
 import { paths } from '../../utils/paths';
 import type { Schedule } from '../../utils/schedule';
 import { UNTITLED_NOTE } from '../../utils/taskFromNote';
 import ScheduleFields from '../tasks/ScheduleFields';
+import TaskLinks from '../tasks/TaskLinks';
+import { linkCandidates } from '../../utils/links';
 import MarkdownPreview from '../notes/LazyMarkdownPreview';
 import Button from '../ui/Button';
 import Dialog from '../ui/Dialog';
@@ -23,11 +25,29 @@ interface TaskDetailDialogProps {
   /** Moves the task to the end of the given cell. */
   onMove: (id: number, columnId: number, laneId: number) => void;
   onDelete: (id: number) => Promise<void>;
+  /** The project's tasks, to pick links from. */
+  allTasks: Task[];
+  onAddLink: (id: number, targetId: number, kind: LinkKind) => Promise<void>;
+  onRemoveLink: (id: number, linkId: number) => Promise<void>;
+  /** Shows another task's details, e.g. a linked one. */
+  onOpenTask: (id: number) => void;
 }
 
 const selectClass = `!w-auto !py-1 ${fieldClass}`;
 
-export default function TaskDetailDialog({ task, columns, lanes, onClose, onSave, onMove, onDelete }: TaskDetailDialogProps) {
+export default function TaskDetailDialog({
+  task,
+  columns,
+  lanes,
+  onClose,
+  onSave,
+  onMove,
+  onDelete,
+  allTasks,
+  onAddLink,
+  onRemoveLink,
+  onOpenTask,
+}: TaskDetailDialogProps) {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
   const [mode, setMode] = useState<'edit' | 'preview'>(task.description ? 'preview' : 'edit');
@@ -151,6 +171,14 @@ export default function TaskDetailDialog({ task, columns, lanes, onClose, onSave
             </p>
           )}
         </section>
+
+        <TaskLinks
+          task={task}
+          candidates={linkCandidates(task, allTasks)}
+          onAdd={(kind, targetId) => onAddLink(task.id, targetId, kind)}
+          onRemove={(linkId) => onRemoveLink(task.id, linkId)}
+          onOpen={onOpenTask}
+        />
 
         <div>
           <div className="mb-2 flex items-center justify-between">

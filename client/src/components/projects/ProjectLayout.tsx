@@ -11,7 +11,6 @@ export default function ProjectLayout() {
   const project = projects.find((p) => p.id === projectId);
   const boardMatch = useMatch('/p/:projectId/board');
   const taskMatch = useMatch('/p/:projectId/tasks/:taskId');
-  const activityMatch = useMatch('/p/:projectId/activity');
   const calendarMatch = useMatch('/p/:projectId/calendar');
   const trashMatch = useMatch('/p/:projectId/trash');
 
@@ -24,7 +23,7 @@ export default function ProjectLayout() {
   if (!project) {
     return <RedirectToProject
         section={
-          trashMatch ? 'trash' : activityMatch ? 'activity' : calendarMatch ? 'calendar' : boardMatch || taskMatch ? 'board' : 'notes'
+          trashMatch ? 'trash' : calendarMatch ? 'calendar' : boardMatch || taskMatch ? 'board' : 'notes'
         }
       />;
   }

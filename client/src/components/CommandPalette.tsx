@@ -1,6 +1,6 @@
 import { Command } from 'cmdk';
 import { useEffect, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { useProjects } from '../hooks/useProjects';
 import { useStoredState } from '../hooks/useStoredState';
 import { useTheme, type ThemeSetting } from '../hooks/useTheme';
@@ -8,7 +8,7 @@ import type { Project } from '../types/project';
 import { searchApi, type SearchResults } from '../utils/api';
 import { requestNewProject, type CreateRequest } from '../utils/appEvents';
 import { matchesQuery } from '../utils/matchQuery';
-import { paths } from '../utils/paths';
+import { paths, withActivityDrawer } from '../utils/paths';
 import { colorDot } from '../utils/projects';
 import { UNTITLED_NOTE } from '../utils/taskFromNote';
 import {
@@ -16,7 +16,7 @@ import {
   CalendarIcon,
   TrashIcon,
   CheckIcon,
-  ClockIcon,
+  HistoryIcon,
   CompactIcon,
   FolderIcon,
   MonitorIcon,
@@ -53,6 +53,7 @@ const isBoolean = (value: unknown): value is boolean => typeof value === 'boolea
 /** ⌘K / Ctrl+K: jump to projects, notes, tasks and views, and run actions. */
 export default function CommandPalette({ open, onClose, activeProject }: CommandPaletteProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { projects } = useProjects();
   const { setting: themeSetting, setTheme } = useTheme();
   const [compact, setCompact] = useStoredState('scrumbanize.boardCompact', false, isBoolean);
@@ -169,8 +170,8 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
           id: 'go-activity',
           label: `Aktivität von „${activeProject.name}“`,
           keywords: 'aktivität verlauf history protokoll log gehe zu',
-          icon: <ClockIcon />,
-          run: () => navigate(paths.activity(activeProject.id)),
+          icon: <HistoryIcon />,
+          run: () => navigate(withActivityDrawer(location.pathname, location.search)),
         },
         {
           id: 'go-trash',

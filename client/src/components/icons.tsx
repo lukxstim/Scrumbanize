@@ -147,3 +147,18 @@ export const RestoreIcon = (props: SVGProps<SVGSVGElement>) => (
     <path d="M3 8a5 5 0 1 0 1.5-3.55M3 2.75v2.5h2.5" />
   </Icon>
 );
+
+/** A clock with a turning arrow: the history (activity log). */
+export const HistoryIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="M2.75 8a5.25 5.25 0 1 0 1.54-3.71M2.75 2.5v2.25H5" />
+    <path d="M8 5.25V8l2 1.25" />
+  </Icon>
+);
+
+export const LinkIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="M6.75 9.25a2.75 2.75 0 0 0 3.9.1l1.75-1.75a2.75 2.75 0 0 0-3.9-3.9l-.75.75" />
+    <path d="M9.25 6.75a2.75 2.75 0 0 0-3.9-.1L3.6 8.4a2.75 2.75 0 0 0 3.9 3.9l.75-.75" />
+  </Icon>
+);

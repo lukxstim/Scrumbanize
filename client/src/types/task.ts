@@ -1,6 +1,16 @@
 export const TASK_PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const;
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
 
+/** A link as seen from the task carrying it: it relates to, blocks, or is blocked by the other task. */
+export type LinkKind = 'relates' | 'blocks' | 'blocked_by';
+
+export interface TaskLink {
+  id: number;
+  kind: LinkKind;
+  /** `done`: the other task is in the project's last column. */
+  task: { id: number; title: string; columnId: number; columnName: string; done: boolean };
+}
+
 export interface Task {
   id: number;
   projectId: number;
@@ -14,6 +24,8 @@ export interface Task {
   /** The note the task was created from, with its tags; null if it was created elsewhere or the note was deleted. */
   sourceNote: { id: number; title: string; tags: string[] } | null;
   priority: TaskPriority | null;
+  /** Links to other tasks of the project, oldest first. */
+  links: TaskLink[];
   /** Calendar dates YYYY-MM-DD; a start date always comes with a due date on or after it. */
   startDate: string | null;
   dueDate: string | null;

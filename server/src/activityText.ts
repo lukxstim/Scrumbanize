@@ -76,6 +76,13 @@ export const text = {
     return `Task ${quote(title)} ${parts.join(' ')} verschoben`;
   },
   taskDeleted: (title: string) => `Task ${quote(title)} gelöscht`,
+  taskLinked: (title: string, kind: LinkKind, other: string) =>
+    kind === 'blocks'
+      ? `Task ${quote(title)} blockiert jetzt ${quote(other)}`
+      : kind === 'blocked_by'
+        ? `Task ${quote(title)} wird jetzt von ${quote(other)} blockiert`
+        : `Task ${quote(title)} mit ${quote(other)} verknüpft`,
+  taskUnlinked: (title: string, other: string) => `Verknüpfung von ${quote(title)} mit ${quote(other)} entfernt`,
   taskTrashed: (title: string) => `Task ${quote(title)} in den Papierkorb verschoben`,
   taskRestored: (title: string, column: string) => `Task ${quote(title)} wiederhergestellt (in ${quote(column)})`,
   taskPurged: (title: string) => `Task ${quote(title)} endgültig gelöscht`,
@@ -106,4 +113,6 @@ export const text = {
 };
 
 export type BoardKind = 'column' | 'lane';
+/** A link as seen from one task: it relates to, blocks, or is blocked by the other. */
+export type LinkKind = 'relates' | 'blocks' | 'blocked_by';
 const KIND_LABELS: Record<BoardKind, string> = { column: 'Spalte', lane: 'Swimlane' };

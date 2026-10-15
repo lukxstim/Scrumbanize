@@ -1,4 +1,4 @@
-import { type EditField, type ValueField, formatDateValue, formatPriorityValue, text } from '../activityText.js';
+import { type EditField, type LinkKind, type ValueField, formatDateValue, formatPriorityValue, text } from '../activityText.js';
 import type { Db } from '../database.js';
 import { positionForIndex } from '../positions.js';
 import { type TaskInput, type TaskPatch, type TaskPriority, scheduleProblem } from '../validation.js';
@@ -16,11 +16,32 @@ export interface Task {
   /** The note the task was created from, with its current tags; null if created elsewhere or the note was deleted. */
   sourceNote: { id: number; title: string; tags: string[] } | null;
   priority: TaskPriority | null;
+  /** Links to other tasks of the project, oldest first; tasks in the trash are left out. */
+  links: TaskLink[];
   /** Calendar dates YYYY-MM-DD; a start date always comes with a due date on or after it. */
   startDate: string | null;
   dueDate: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface TaskLink {
+  id: number;
+  /** As seen from the task carrying the link. */
+  kind: LinkKind;
+  /** `done`: the other task is in the project's last column. */
+  task: { id: number; title: string; columnId: number; columnName: string; done: boolean };
+}
+
+interface LinkRow {
+  id: number;
+  type: 'relates' | 'blocks';
+  source_task_id: number;
+  other_id: number;
+  other_title: string;
+  column_id: number;
+  column_name: string;
+  done: number;
 }
 
 /** The short form of a task that notes carry. */
@@ -55,6 +76,10 @@ const selectTaskSql = `
   FROM live_tasks t LEFT JOIN live_notes n ON n.id = t.source_note_id`;
 
 export type MoveResult = { ok: true; task: Task } | { ok: false; reason: 'not_found' | 'invalid_target' };
+export type LinkResult =
+  | { ok: true; task: Task; target: Task }
+  | { ok: false; reason: 'not_found' | 'target_not_found' | 'self' | 'other_project' | 'exists' };
+
 export type UpdateResult = { ok: true; task: Task } | { ok: false; reason: 'not_found' } | { ok: false; reason: 'invalid_schedule'; message: string };
 
 export type TasksRepository = ReturnType<typeof createTasksRepository>;
@@ -120,6 +145,35 @@ export function createTasksRepository(db: Db) {
   );
   const updatePosition = db.prepare<[number, number]>(`UPDATE tasks SET position = ? WHERE id = ?`);
 
+  // The other end of each link of a task, with its column and whether that is the last ("done") column.
+  const selectLinks = db.prepare<{ id: number }, LinkRow>(
+    `SELECT l.id, l.type, l.source_task_id, o.id AS other_id, o.title AS other_title, o.column_id, c.name AS column_name,
+       o.column_id = (SELECT id FROM board_columns WHERE project_id = o.project_id ORDER BY position DESC, id DESC LIMIT 1) AS done
+     FROM task_links l
+     JOIN live_tasks o ON o.id = CASE WHEN l.source_task_id = @id THEN l.target_task_id ELSE l.source_task_id END
+     JOIN board_columns c ON c.id = o.column_id
+     WHERE l.source_task_id = @id OR l.target_task_id = @id
+     ORDER BY l.id`,
+  );
+  const selectPairLink = db.prepare<[number, number, number, number], { id: number }>(
+    `SELECT id FROM task_links WHERE (source_task_id = ? AND target_task_id = ?) OR (source_task_id = ? AND target_task_id = ?)`,
+  );
+  const selectLink = db.prepare<[number], { id: number; source_task_id: number; target_task_id: number }>(
+    `SELECT id, source_task_id, target_task_id FROM task_links WHERE id = ?`,
+  );
+  const insertLink = db.prepare<[number, number, 'relates' | 'blocks', string]>(
+    `INSERT INTO task_links (source_task_id, target_task_id, type, created_at) VALUES (?, ?, ?, ?)`,
+  );
+  const deleteLink = db.prepare<[number]>(`DELETE FROM task_links WHERE id = ?`);
+
+  function linksOf(id: number): TaskLink[] {
+    return selectLinks.all({ id }).map((row) => ({
+      id: row.id,
+      kind: row.type === 'relates' ? 'relates' : row.source_task_id === id ? 'blocks' : 'blocked_by',
+      task: { id: row.other_id, title: row.other_title, columnId: row.column_id, columnName: row.column_name, done: row.done === 1 },
+    }));
+  }
+
   function toTask(row: TaskRow): Task {
     return {
       id: row.id,
@@ -138,6 +192,7 @@ export function createTasksRepository(db: Db) {
               tags: selectNoteTags.all(row.source_note_id).map((t) => t.name),
             },
       priority: row.priority,
+      links: linksOf(row.id),
       startDate: row.start_date,
       dueDate: row.due_date,
       createdAt: row.created_at,
@@ -293,6 +348,52 @@ export function createTasksRepository(db: Db) {
         });
       }
       return { ok: true, task: toTask(selectTask.get(id)!) };
+    }),
+
+    /**
+     * Links the task to another task of the same project. "blocked_by" is stored as the other task blocking this
+     * one, so a pair is never linked twice. Returns both tasks with their updated links.
+     */
+    addLink: db.transaction((id: number, targetId: number, kind: LinkKind): LinkResult => {
+      const task = selectTask.get(id);
+      if (!task) return { ok: false, reason: 'not_found' };
+      if (targetId === id) return { ok: false, reason: 'self' };
+      const target = selectTask.get(targetId);
+      if (!target) return { ok: false, reason: 'target_not_found' };
+      if (target.project_id !== task.project_id) return { ok: false, reason: 'other_project' };
+      if (selectPairLink.get(id, targetId, targetId, id)) return { ok: false, reason: 'exists' };
+
+      const [source, dest] = kind === 'blocked_by' ? [targetId, id] : [id, targetId];
+      insertLink.run(source, dest, kind === 'relates' ? 'relates' : 'blocks', new Date().toISOString());
+      activities.record({
+        projectId: task.project_id,
+        entityType: 'task',
+        entityId: id,
+        actionType: 'update',
+        description: text.taskLinked(task.title, kind, target.title),
+        metadata: { title: task.title, link: { kind, taskId: targetId, title: target.title } },
+      });
+      return { ok: true, task: toTask(selectTask.get(id)!), target: toTask(selectTask.get(targetId)!) };
+    }),
+
+    /** Removes one of the task's links. Returns both tasks with their updated links. */
+    removeLink: db.transaction((id: number, linkId: number): LinkResult => {
+      const task = selectTask.get(id);
+      const link = selectLink.get(linkId);
+      if (!task || !link || (link.source_task_id !== id && link.target_task_id !== id)) return { ok: false, reason: 'not_found' };
+      const otherId = link.source_task_id === id ? link.target_task_id : link.source_task_id;
+      const other = selectTask.get(otherId);
+      if (!other) return { ok: false, reason: 'not_found' }; // the other task is in the trash
+      deleteLink.run(linkId);
+      activities.record({
+        projectId: task.project_id,
+        entityType: 'task',
+        entityId: id,
+        actionType: 'update',
+        description: text.taskUnlinked(task.title, other.title),
+        metadata: { title: task.title, unlinked: { taskId: otherId, title: other.title } },
+      });
+      return { ok: true, task: toTask(selectTask.get(id)!), target: toTask(other) };
     }),
 
     /** Moves the task to the trash, keeping its cell and position for a restore. False if there is no such task. */

@@ -241,6 +241,22 @@ export const migrations: string[] = [
   CREATE VIEW live_tasks AS
     SELECT t.* FROM tasks t JOIN projects p ON p.id = t.project_id WHERE t.deleted_at IS NULL AND p.deleted_at IS NULL;
   `,
+  // Links between tasks of a project. "blocks" points from the blocking to the blocked task; "relates" has no
+  // direction. A pair of tasks has at most one link, whichever way round it was set. Links of a trashed task
+  // stay (hidden through live_tasks) and go when it is purged.
+  `
+  CREATE TABLE task_links (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    target_task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    type           TEXT NOT NULL CHECK (type IN ('relates', 'blocks')),
+    created_at     TEXT NOT NULL,
+    CHECK (source_task_id <> target_task_id)
+  );
+  CREATE UNIQUE INDEX idx_task_links_pair
+    ON task_links(min(source_task_id, target_task_id), max(source_task_id, target_task_id));
+  CREATE INDEX idx_task_links_target ON task_links(target_task_id);
+  `,
 ];
 
 /** Opens (or creates) the database at `file` and brings its schema up to date. Pass ':memory:' for tests. */

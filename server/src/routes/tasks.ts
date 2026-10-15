@@ -1,7 +1,23 @@
 import { Router } from 'express';
 import { HttpError, notFound } from '../errors.js';
-import type { TasksRepository } from '../repositories/tasksRepository.js';
-import { idParamSchema, moveTaskSchema, taskPatchSchema } from '../validation.js';
+import type { LinkResult, TasksRepository } from '../repositories/tasksRepository.js';
+import { idParamSchema, moveTaskSchema, taskLinkInputSchema, taskPatchSchema } from '../validation.js';
+
+function unwrapLink(result: LinkResult) {
+  if (result.ok) return { task: result.task, target: result.target };
+  switch (result.reason) {
+    case 'not_found':
+      throw notFound('Task or link not found');
+    case 'target_not_found':
+      throw notFound('Linked task not found');
+    case 'self':
+      throw new HttpError(400, 'invalid_link', 'A task cannot be linked to itself');
+    case 'other_project':
+      throw new HttpError(400, 'invalid_link', 'Linked tasks must belong to the same project');
+    case 'exists':
+      throw new HttpError(409, 'link_exists', 'These tasks are already linked');
+  }
+}
 
 /** Single tasks by id; listing and creating are project-scoped (see projectScoped.ts). */
 export function tasksRouter(tasks: TasksRepository): Router {
@@ -33,6 +49,16 @@ export function tasksRouter(tasks: TasksRepository): Router {
     }
     if (result.reason === 'not_found') throw notFound('Task not found');
     throw new HttpError(400, 'invalid_target', "Column and lane must belong to the task's project");
+  });
+
+  // Changing a link changes both tasks, so both come back.
+  router.post('/:id/links', (req, res) => {
+    const { targetId, kind } = taskLinkInputSchema.parse(req.body);
+    res.status(201).json(unwrapLink(tasks.addLink(idParamSchema.parse(req.params.id), targetId, kind)));
+  });
+
+  router.delete('/:id/links/:linkId', (req, res) => {
+    res.json(unwrapLink(tasks.removeLink(idParamSchema.parse(req.params.id), idParamSchema.parse(req.params.linkId))));
   });
 
   router.delete('/:id', (req, res) => {
