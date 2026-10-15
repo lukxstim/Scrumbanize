@@ -1,5 +1,7 @@
+import { text } from '../activityText.js';
 import type { Db } from '../database.js';
 import type { ProjectInput, ProjectPatch } from '../validation.js';
+import { createActivityRepository } from './activityRepository.js';
 import { createBoardRepository } from './boardRepository.js';
 
 /** Preset colors a project can have; the client maps them to Tailwind colors. */
@@ -47,6 +49,7 @@ export function createProjectsRepository(db: Db) {
     `INSERT INTO projects (name, color, created_at, updated_at) VALUES (?, ?, ?, ?) RETURNING id`,
   );
   const board = createBoardRepository(db);
+  const activities = createActivityRepository(db);
   const updateProject = db.prepare<[string | null, string | null, string, number]>(
     `UPDATE projects SET name = COALESCE(?, name), color = COALESCE(?, color), updated_at = ? WHERE id = ?`,
   );
@@ -93,13 +96,31 @@ export function createProjectsRepository(db: Db) {
       const now = new Date().toISOString();
       const { id } = insertProject.get(input.name, input.color, now, now)!;
       board.createDefaults(id);
+      activities.record({
+        projectId: id,
+        entityType: 'project',
+        entityId: id,
+        actionType: 'create',
+        description: text.projectCreated(input.name),
+        metadata: { name: input.name, color: input.color },
+      });
       return { ok: true, project: list().find((p) => p.id === id)! };
     }),
 
     update: db.transaction((id: number, patch: ProjectPatch): ProjectResult => {
-      if (!projectExists.get(id)) return { ok: false, reason: 'not_found' };
+      const before = list().find((p) => p.id === id);
+      if (!before) return { ok: false, reason: 'not_found' };
       if (patch.name !== undefined && nameTaken(patch.name, id)) return { ok: false, reason: 'name_taken' };
       updateProject.run(patch.name ?? null, patch.color ?? null, new Date().toISOString(), id);
+
+      const log = (description: string, metadata: Record<string, unknown>) =>
+        activities.record({ projectId: id, entityType: 'project', entityId: id, actionType: 'update', description, metadata });
+      if (patch.name !== undefined && patch.name !== before.name) {
+        log(text.projectRenamed(before.name, patch.name), { name: { from: before.name, to: patch.name } });
+      }
+      if (patch.color !== undefined && patch.color !== before.color) {
+        log(text.projectRecolored(patch.name ?? before.name), { color: { from: before.color, to: patch.color } });
+      }
       return { ok: true, project: list().find((p) => p.id === id)! };
     }),
 

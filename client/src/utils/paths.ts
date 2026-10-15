@@ -3,6 +3,13 @@ export const paths = {
   notes: (projectId: number, noteId?: number) => `/p/${projectId}/notes${noteId === undefined ? '' : `/${noteId}`}`,
   board: (projectId: number) => `/p/${projectId}/board`,
   task: (projectId: number, taskId: number) => `/p/${projectId}/tasks/${taskId}`,
+  activity: (projectId: number) => `/p/${projectId}/activity`,
 };
 
-export type Section = 'notes' | 'board';
+/** The top-level pages of a project (the header tabs). */
+export type Section = 'notes' | 'board' | 'activity';
+
+/** The start page of a section, e.g. to keep the section when switching projects. */
+export function sectionPath(projectId: number, section: Section): string {
+  return section === 'board' ? paths.board(projectId) : section === 'activity' ? paths.activity(projectId) : paths.notes(projectId);
+}

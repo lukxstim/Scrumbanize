@@ -168,6 +168,22 @@ export const migrations: string[] = [
   CREATE INDEX idx_tasks_project ON tasks(project_id);
   CREATE INDEX idx_tasks_cell ON tasks(column_id, lane_id, position);
   `,
+  // Activity log per project. The log starts empty; existing notes and tasks get no entries.
+  `
+  CREATE TABLE activities (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id  INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    entity_type TEXT NOT NULL CHECK (entity_type IN ('note', 'task', 'board', 'project')),
+    entity_id   INTEGER,
+    action_type TEXT NOT NULL CHECK (action_type IN ('create', 'update', 'move', 'delete')),
+    description TEXT NOT NULL,
+    metadata    TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(metadata)),
+    created_at  TEXT NOT NULL
+  );
+  CREATE INDEX idx_activities_project ON activities(project_id, id);
+  CREATE INDEX idx_activities_project_type ON activities(project_id, entity_type, id);
+  CREATE INDEX idx_activities_entity ON activities(entity_type, entity_id, id);
+  `,
 ];
 
 /** Opens (or creates) the database at `file` and brings its schema up to date. Pass ':memory:' for tests. */

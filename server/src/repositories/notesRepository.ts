@@ -1,5 +1,7 @@
+import { text } from '../activityText.js';
 import type { Db } from '../database.js';
 import type { NoteInput } from '../validation.js';
+import { createActivityRepository } from './activityRepository.js';
 import type { LinkedTask } from './tasksRepository.js';
 
 export interface Note {
@@ -47,6 +49,7 @@ interface NoteRow {
 export type NotesRepository = ReturnType<typeof createNotesRepository>;
 
 export function createNotesRepository(db: Db) {
+  const activities = createActivityRepository(db);
   const insertNote = db.prepare<[number, string, string, string, string], NoteRow>(
     `INSERT INTO notes (project_id, title, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?) RETURNING *`,
   );
@@ -175,22 +178,60 @@ export function createNotesRepository(db: Db) {
       const now = new Date().toISOString();
       const row = insertNote.get(projectId, input.title, input.content, now, now)!;
       setTags(row.id, input.tags);
+      activities.record({
+        projectId,
+        entityType: 'note',
+        entityId: row.id,
+        actionType: 'create',
+        description: text.noteCreated(input.title),
+        metadata: { title: input.title },
+      });
       return withRelations(row);
     }),
 
     /** Replaces title, content and tags. Returns undefined if the note does not exist. */
     update: db.transaction((id: number, input: NoteInput): Note | undefined => {
-      const row = updateNote.get(input.title, input.content, new Date().toISOString(), id);
-      if (!row) return undefined;
+      const before = selectNote.get(id);
+      if (!before) return undefined;
+      const tagsBefore = selectTagsOfNote.all(id).map((t) => t.name);
+
+      const row = updateNote.get(input.title, input.content, new Date().toISOString(), id)!;
       setTags(id, input.tags);
+
+      activities.recordEdit({
+        projectId: row.project_id,
+        entityType: 'note',
+        entityId: id,
+        title: input.title,
+        changes: {
+          fields: [
+            ...(before.title !== input.title ? (['title'] as const) : []),
+            ...(before.content !== input.content ? (['content'] as const) : []),
+          ],
+          tagsAdded: input.tags.filter((t) => !tagsBefore.includes(t)),
+          tagsRemoved: tagsBefore.filter((t) => !input.tags.includes(t)),
+        },
+        describeUpdate: text.noteUpdated,
+        describeCreate: (title) => text.noteCreated(title),
+      });
       return withRelations(row);
     }),
 
     /** Returns false if the note did not exist. */
     remove: db.transaction((id: number): boolean => {
-      const { changes } = deleteNote.run(id);
+      const before = selectNote.get(id);
+      if (!before) return false;
+      deleteNote.run(id);
       deleteUnusedTags.run();
-      return changes > 0;
+      activities.record({
+        projectId: before.project_id,
+        entityType: 'note',
+        entityId: id,
+        actionType: 'delete',
+        description: text.noteDeleted(before.title),
+        metadata: { title: before.title },
+      });
+      return true;
     }),
 
     /** Tags used by the project's notes, with how many of them use each. */

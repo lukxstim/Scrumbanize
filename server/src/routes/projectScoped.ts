@@ -1,10 +1,12 @@
 import { Router, type Response } from 'express';
 import { HttpError, notFound } from '../errors.js';
+import type { ActivityRepository } from '../repositories/activityRepository.js';
 import type { BoardRepository } from '../repositories/boardRepository.js';
 import type { NotesRepository } from '../repositories/notesRepository.js';
 import type { ProjectsRepository } from '../repositories/projectsRepository.js';
 import type { TasksRepository } from '../repositories/tasksRepository.js';
 import {
+  activityQuerySchema,
   columnInputSchema,
   idParamSchema,
   laneInputSchema,
@@ -15,6 +17,7 @@ import {
 import { unwrapBoard } from './board.js';
 
 interface Repositories {
+  activities: ActivityRepository;
   projects: ProjectsRepository;
   notes: NotesRepository;
   tasks: TasksRepository;
@@ -24,7 +27,7 @@ interface Repositories {
 const projectIdOf = (res: Response) => res.locals.projectId as number;
 
 /** Lists and creation inside one project, mounted at /api/projects/:projectId. */
-export function projectScopedRouter({ projects, notes, tasks, board }: Repositories): Router {
+export function projectScopedRouter({ activities, projects, notes, tasks, board }: Repositories): Router {
   const router = Router({ mergeParams: true });
 
   router.use((req, res, next) => {
@@ -41,6 +44,11 @@ export function projectScopedRouter({ projects, notes, tasks, board }: Repositor
 
   router.post('/notes', (req, res) => {
     res.status(201).json(notes.create(projectIdOf(res), noteInputSchema.parse(req.body)));
+  });
+
+  router.get('/activities', (req, res) => {
+    const { type, before, limit } = activityQuerySchema.parse(req.query);
+    res.json(activities.list(projectIdOf(res), { type, before, limit }));
   });
 
   router.get('/tags', (_req, res) => {

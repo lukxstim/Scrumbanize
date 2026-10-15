@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router';
 import { useProjects } from '../../hooks/useProjects';
-import { paths, type Section } from '../../utils/paths';
+import { sectionPath, type Section } from '../../utils/paths';
 import { defaultProject } from '../../utils/projects';
 import Skeleton from '../ui/Skeleton';
 
@@ -33,5 +33,5 @@ export default function RedirectToProject({ section = 'notes' }: { section?: Sec
   const target = defaultProject(projects);
 
   if (status !== 'ready' || !target) return <ProjectsLoading />;
-  return <Navigate to={section === 'board' ? paths.board(target.id) : paths.notes(target.id)} replace />;
+  return <Navigate to={sectionPath(target.id, section)} replace />;
 }

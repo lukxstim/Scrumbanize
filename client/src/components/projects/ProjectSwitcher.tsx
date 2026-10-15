@@ -4,7 +4,7 @@ import { useProjects } from '../../hooks/useProjects';
 import { useToast } from '../../hooks/useToast';
 import type { Project, ProjectInput } from '../../types/project';
 import { onNewProjectRequest } from '../../utils/appEvents';
-import { paths, type Section } from '../../utils/paths';
+import { paths, sectionPath, type Section } from '../../utils/paths';
 import { colorDot, countLabel, PROJECT_COLORS } from '../../utils/projects';
 import { CheckIcon, ChevronDownIcon, PencilIcon, PlusIcon } from '../icons';
 import { menuItemClass, popoverClass } from '../ui/styles';
@@ -86,7 +86,7 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
 
   function switchTo(project: Project) {
     closeMenu();
-    if (project.id !== active.id) navigate(section === 'board' ? paths.board(project.id) : paths.notes(project.id));
+    if (project.id !== active.id) navigate(sectionPath(project.id, section));
   }
 
   function openDialog(which: OpenDialog) {

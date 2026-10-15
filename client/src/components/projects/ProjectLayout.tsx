@@ -11,6 +11,7 @@ export default function ProjectLayout() {
   const project = projects.find((p) => p.id === projectId);
   const boardMatch = useMatch('/p/:projectId/board');
   const taskMatch = useMatch('/p/:projectId/tasks/:taskId');
+  const activityMatch = useMatch('/p/:projectId/activity');
 
   useEffect(() => {
     if (project) setLastProjectId(project.id);
@@ -18,7 +19,9 @@ export default function ProjectLayout() {
 
   if (status !== 'ready') return <ProjectsLoading />;
   // Keep the requested page when falling back to another project.
-  if (!project) return <RedirectToProject section={boardMatch || taskMatch ? 'board' : 'notes'} />;
+  if (!project) {
+    return <RedirectToProject section={activityMatch ? 'activity' : boardMatch || taskMatch ? 'board' : 'notes'} />;
+  }
 
   // A new key per project resets search, filters and loaded data when switching projects.
   return (

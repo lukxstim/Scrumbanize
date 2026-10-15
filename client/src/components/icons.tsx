@@ -108,3 +108,17 @@ export const CompactIcon = (props: SVGProps<SVGSVGElement>) => (
     <path d="M3 4h10M3 8h10M3 12h10" />
   </Icon>
 );
+
+export const ClockIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <circle cx="8" cy="8" r="5.75" />
+    <path d="M8 5v3.25l2 1.25" />
+  </Icon>
+);
+
+export const TaskIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <rect x="2.5" y="2.5" width="11" height="11" rx="2" />
+    <path d="m5.5 8 1.75 1.75L10.5 6.5" />
+  </Icon>
+);

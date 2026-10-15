@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ENTITY_TYPES } from './repositories/activityRepository.js';
 import { PROJECT_COLORS } from './repositories/projectsRepository.js';
 
 export const MAX_TAG_LENGTH = 32;
@@ -82,6 +83,14 @@ export const noteListQuerySchema = z.object({
     .union([z.string(), z.array(z.string())])
     .optional()
     .transform((value) => (value === undefined ? [] : [value].flat().map(normalizeTag).filter(Boolean))),
+});
+
+export const activityQuerySchema = z.object({
+  /** Only entries of this area; all if omitted. */
+  type: z.enum(ENTITY_TYPES).optional(),
+  /** Id of the last entry of the previous page. */
+  before: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(30),
 });
 
 export const searchQuerySchema = z.object({

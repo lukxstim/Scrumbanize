@@ -1,6 +1,8 @@
+import { text } from '../activityText.js';
 import type { Db } from '../database.js';
 import { positionForIndex } from '../positions.js';
 import type { TaskInput, TaskPatch } from '../validation.js';
+import { createActivityRepository } from './activityRepository.js';
 
 export interface Task {
   id: number;
@@ -47,6 +49,11 @@ export type MoveResult = { ok: true; task: Task } | { ok: false; reason: 'not_fo
 export type TasksRepository = ReturnType<typeof createTasksRepository>;
 
 export function createTasksRepository(db: Db) {
+  const activities = createActivityRepository(db);
+  const selectColumnName = db.prepare<[number], { name: string }>(`SELECT name FROM board_columns WHERE id = ?`);
+  const selectLaneName = db.prepare<[number], { name: string }>(`SELECT name FROM lanes WHERE id = ?`);
+  const columnName = (id: number) => selectColumnName.get(id)?.name ?? '';
+  const laneName = (id: number) => selectLaneName.get(id)?.name ?? '';
   const selectNoteProject = db.prepare<[number], { project_id: number }>(`SELECT project_id FROM notes WHERE id = ?`);
   const selectFirstColumn = db.prepare<[number], { id: number }>(
     `SELECT id FROM board_columns WHERE project_id = ? ORDER BY position, id LIMIT 1`,
@@ -150,14 +157,51 @@ export function createTasksRepository(db: Db) {
         now,
         now,
       )!;
-      return toTask(selectTask.get(id)!);
+      const row = selectTask.get(id)!;
+      const column = columnName(columnId);
+      // A task converted from a note is a "create" with the source note in the metadata.
+      const sourceNote = row.source_note_id === null ? undefined : (row.source_note_title ?? '');
+      activities.record({
+        projectId,
+        entityType: 'task',
+        entityId: id,
+        actionType: 'create',
+        description: text.taskCreated(input.title, column, sourceNote),
+        metadata: {
+          title: input.title,
+          column: { id: columnId, name: column },
+          ...(sourceNote === undefined ? {} : { sourceNote: { id: row.source_note_id, title: sourceNote } }),
+        },
+      });
+      return toTask(row);
     }),
 
     /** Changes title and/or description. Returns undefined if the task does not exist. */
     update: db.transaction((id: number, patch: TaskPatch): Task | undefined => {
+      const before = selectTask.get(id);
+      if (!before) return undefined;
       updateTask.run(patch.title ?? null, patch.description ?? null, new Date().toISOString(), id);
-      const row = selectTask.get(id);
-      return row && toTask(row);
+      const row = selectTask.get(id)!;
+      activities.recordEdit({
+        projectId: row.project_id,
+        entityType: 'task',
+        entityId: id,
+        title: row.title,
+        changes: {
+          fields: [
+            ...(before.title !== row.title ? (['title'] as const) : []),
+            ...(before.description !== row.description ? (['description'] as const) : []),
+          ],
+          tagsAdded: [],
+          tagsRemoved: [],
+        },
+        describeUpdate: text.taskUpdated,
+        describeCreate: (title, metadata) => {
+          const source = metadata.sourceNote as { title: string } | undefined;
+          return text.taskCreated(title, (metadata.column as { name: string }).name, source?.title);
+        },
+      });
+      return toTask(row);
     }),
 
     /**
@@ -177,12 +221,41 @@ export function createTasksRepository(db: Db) {
       const { position, renumbered } = positionForIndex(selectCellSiblings.all(columnId, laneId, id), index);
       for (const sibling of renumbered) updatePosition.run(sibling.position, sibling.id);
       updatePlacement.run(columnId, laneId, position, new Date().toISOString(), id);
+
+      // Reordering within the same cell is not logged; changing column or lane is.
+      if (columnId !== task.column_id || laneId !== task.lane_id) {
+        const from = { column: columnName(task.column_id), lane: laneName(task.lane_id) };
+        const to = { column: columnName(columnId), lane: laneName(laneId) };
+        activities.record({
+          projectId: task.project_id,
+          entityType: 'task',
+          entityId: id,
+          actionType: 'move',
+          description: text.taskMoved(task.title, from, to),
+          metadata: {
+            title: task.title,
+            from: { columnId: task.column_id, column: from.column, laneId: task.lane_id, lane: from.lane },
+            to: { columnId, column: to.column, laneId, lane: to.lane },
+          },
+        });
+      }
       return { ok: true, task: toTask(selectTask.get(id)!) };
     }),
 
     /** Returns false if the task did not exist. */
-    remove(id: number): boolean {
-      return deleteTask.run(id).changes > 0;
-    },
+    remove: db.transaction((id: number): boolean => {
+      const before = selectTask.get(id);
+      if (!before) return false;
+      deleteTask.run(id);
+      activities.record({
+        projectId: before.project_id,
+        entityType: 'task',
+        entityId: id,
+        actionType: 'delete',
+        description: text.taskDeleted(before.title),
+        metadata: { title: before.title, column: columnName(before.column_id) },
+      });
+      return true;
+    }),
   };
 }

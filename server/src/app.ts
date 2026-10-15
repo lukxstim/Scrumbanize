@@ -3,6 +3,7 @@ import path from 'node:path';
 import express from 'express';
 import type { Db } from './database.js';
 import { apiNotFoundHandler, errorHandler } from './errors.js';
+import { createActivityRepository } from './repositories/activityRepository.js';
 import { createBoardRepository } from './repositories/boardRepository.js';
 import { createNotesRepository } from './repositories/notesRepository.js';
 import { createProjectsRepository } from './repositories/projectsRepository.js';
@@ -27,6 +28,7 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   const board = createBoardRepository(db);
   const projects = createProjectsRepository(db);
   const search = createSearchRepository(db);
+  const activities = createActivityRepository(db);
 
   app.disable('x-powered-by');
   app.use(express.json({ limit: '2mb' }));
@@ -36,7 +38,7 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
     res.json({ status: 'ok' });
   });
   api.use('/projects', projectsRouter(projects));
-  api.use('/projects/:projectId', projectScopedRouter({ projects, notes, tasks, board }));
+  api.use('/projects/:projectId', projectScopedRouter({ activities, projects, notes, tasks, board }));
   api.use('/notes', notesRouter(notes));
   api.use('/tasks', tasksRouter(tasks));
   api.use('/columns', columnsRouter(board));

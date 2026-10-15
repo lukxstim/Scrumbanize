@@ -14,6 +14,7 @@ import { UNTITLED_NOTE } from '../utils/taskFromNote';
 import {
   BoardIcon,
   CheckIcon,
+  ClockIcon,
   CompactIcon,
   FolderIcon,
   MonitorIcon,
@@ -154,6 +155,13 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
           keywords: 'board öffnen gehe zu',
           icon: <BoardIcon />,
           run: () => navigate(paths.board(activeProject.id)),
+        },
+        {
+          id: 'go-activity',
+          label: `Aktivität von „${activeProject.name}“`,
+          keywords: 'aktivität verlauf history protokoll log gehe zu',
+          icon: <ClockIcon />,
+          run: () => navigate(paths.activity(activeProject.id)),
         },
       ].filter((item) => matchesQuery(trimmed, item.label, item.keywords)),
     });

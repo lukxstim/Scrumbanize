@@ -3,7 +3,8 @@ import { flushSync } from 'react-dom';
 import { Navigate, NavLink, Route, Routes, useMatch } from 'react-router';
 import BoardPage from './components/board/BoardPage';
 import CommandPalette from './components/CommandPalette';
-import { BoardIcon, NoteIcon, SearchIcon } from './components/icons';
+import ActivityPage from './components/activity/ActivityPage';
+import { BoardIcon, ClockIcon, NoteIcon, SearchIcon } from './components/icons';
 import NotesPage from './components/notes/NotesPage';
 import ProjectLayout from './components/projects/ProjectLayout';
 import ProjectSwitcher from './components/projects/ProjectSwitcher';
@@ -27,6 +28,8 @@ export default function App() {
   const boardMatch = useMatch('/p/:projectId/board');
   const taskMatch = useMatch('/p/:projectId/tasks/:taskId');
   const onBoard = boardMatch !== null || taskMatch !== null;
+  const onActivity = useMatch('/p/:projectId/activity') !== null;
+  const section = onActivity ? 'activity' : onBoard ? 'board' : 'notes';
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   // ⌘K / Ctrl+K opens the command palette from anywhere, also while typing.
@@ -61,7 +64,7 @@ export default function App() {
             <span className="text-fg-faint" aria-hidden="true">
               /
             </span>
-            <ProjectSwitcher active={activeProject} section={onBoard ? 'board' : 'notes'} />
+            <ProjectSwitcher active={activeProject} section={section} />
             <nav
               className="ml-2 inline-flex rounded-lg bg-surface-muted p-0.5 ring-1 ring-line ring-inset"
               aria-label="Hauptnavigation"
@@ -73,6 +76,10 @@ export default function App() {
               <NavLink to={paths.board(activeProject.id)} className={() => tabClass(onBoard)}>
                 <BoardIcon className="size-3.5" />
                 Board
+              </NavLink>
+              <NavLink to={paths.activity(activeProject.id)} className={({ isActive }) => tabClass(isActive)}>
+                <ClockIcon className="size-3.5" />
+                Aktivität
               </NavLink>
             </nav>
           </>
@@ -102,6 +109,7 @@ export default function App() {
             <Route path="board" element={null} />
             <Route path="tasks/:taskId" element={null} />
           </Route>
+          <Route path="activity" element={<ActivityPage />} />
         </Route>
         {/* Addresses from before projects existed, and anything unknown, open the last project. */}
         <Route path="/board" element={<RedirectToProject section="board" />} />

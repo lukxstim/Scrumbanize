@@ -1,3 +1,4 @@
+import type { ActivityEntity, ActivityPage } from '../types/activity';
 import type { Note, NoteInput } from '../types/note';
 import type { Project, ProjectInput } from '../types/project';
 import type { BoardColumn, Lane, Task, TaskInput, TaskPatch } from '../types/task';
@@ -95,4 +96,16 @@ export const searchApi = {
   /** Notes and tasks of all projects; hits of `projectId` come first. */
   search: (query: string, projectId: number, signal?: AbortSignal) =>
     request<SearchResults>(`/search?q=${encodeURIComponent(query)}&project=${projectId}&limit=8`, { signal }),
+};
+
+export const activitiesApi = {
+  /** Newest first; `before` is the `nextCursor` of the previous page. */
+  list: (projectId: number, options: { type?: ActivityEntity; before?: number; limit?: number } = {}) => {
+    const params = new URLSearchParams();
+    if (options.type) params.set('type', options.type);
+    if (options.before) params.set('before', String(options.before));
+    if (options.limit) params.set('limit', String(options.limit));
+    const query = params.toString();
+    return request<ActivityPage>(`/projects/${projectId}/activities${query ? `?${query}` : ''}`);
+  },
 };
