@@ -12,11 +12,12 @@ import {
   type KeyboardCoordinateGetter,
 } from '@dnd-kit/core';
 import { useEffect, useRef, useState } from 'react';
-import { useMatch, useNavigate } from 'react-router';
+import { useMatch, useNavigate, useParams } from 'react-router';
 import { useBoard } from '../../hooks/useBoard';
 import type { TaskStatus } from '../../types/task';
 import { applyMove, findTask, type Columns } from '../../utils/board';
 import { dropPosition, type ColumnGeometry } from '../../utils/dropPosition';
+import { paths } from '../../utils/paths';
 import { TASK_STATUSES, TASK_STATUS_LABELS } from '../../utils/taskStatus';
 import BoardColumn from './BoardColumn';
 import NewTaskForm from './NewTaskForm';
@@ -31,11 +32,12 @@ function placementOf(columns: Columns, id: number): { status: TaskStatus; index:
   return task && { status: task.status, index: columns[task.status].findIndex((t) => t.id === id) };
 }
 
-/** The board at /board; /tasks/:taskId shows it with that task's details open. */
+/** The board at /p/:projectId/board; /p/:projectId/tasks/:taskId shows it with that task's details open. */
 export default function BoardPage() {
-  const board = useBoard();
+  const projectId = Number(useParams().projectId);
+  const board = useBoard(projectId);
   const navigate = useNavigate();
-  const taskMatch = useMatch('/tasks/:taskId');
+  const taskMatch = useMatch('/p/:projectId/tasks/:taskId');
   const openTaskId = taskMatch ? Number(taskMatch.params.taskId) : null;
 
   // While dragging, the board shows this preview copy, so cards make room as the dragged card moves.
@@ -106,7 +108,7 @@ export default function BoardPage() {
   const openTask = openTaskId === null ? undefined : findTask(board.columns, openTaskId);
 
   useEffect(() => {
-    if (board.status === 'ready' && openTaskId !== null && !openTask) navigate('/board', { replace: true });
+    if (board.status === 'ready' && openTaskId !== null && !openTask) navigate(paths.board(projectId), { replace: true });
   }, [board.status, openTaskId, openTask, navigate]);
 
   function handleDragStart({ active }: DragStartEvent) {
@@ -227,7 +229,7 @@ export default function BoardPage() {
               wipLimit={board.wipLimits[status] ?? null}
               isDropTarget={dropStatus === status}
               onWipLimitChange={(limit) => void board.setWipLimit(status, limit)}
-              onOpenTask={(id) => navigate(`/tasks/${id}`)}
+              onOpenTask={(id) => navigate(paths.task(projectId, id))}
               onMoveTask={moveToColumnEnd}
               footer={status === 'backlog' ? <NewTaskForm onCreate={board.createTask} /> : undefined}
             />
@@ -245,12 +247,12 @@ export default function BoardPage() {
         <TaskDetailDialog
           key={openTask.id}
           task={openTask}
-          onClose={() => navigate('/board')}
+          onClose={() => navigate(paths.board(projectId))}
           onSave={board.updateTask}
           onChangeStatus={moveToColumnEnd}
           onDelete={async (id) => {
             await board.deleteTask(id);
-            navigate('/board', { replace: true });
+            navigate(paths.board(projectId), { replace: true });
           }}
         />
       )}

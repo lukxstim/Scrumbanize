@@ -5,10 +5,11 @@ import type { Db } from './database.js';
 import { apiNotFoundHandler, errorHandler } from './errors.js';
 import { createBoardRepository } from './repositories/boardRepository.js';
 import { createNotesRepository } from './repositories/notesRepository.js';
+import { createProjectsRepository } from './repositories/projectsRepository.js';
 import { createTasksRepository } from './repositories/tasksRepository.js';
-import { boardRouter } from './routes/board.js';
 import { notesRouter } from './routes/notes.js';
-import { tagsRouter } from './routes/tags.js';
+import { projectScopedRouter } from './routes/projectScoped.js';
+import { projectsRouter } from './routes/projects.js';
 import { tasksRouter } from './routes/tasks.js';
 
 export interface AppOptions {
@@ -21,6 +22,7 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   const notes = createNotesRepository(db);
   const tasks = createTasksRepository(db);
   const board = createBoardRepository(db);
+  const projects = createProjectsRepository(db);
 
   app.disable('x-powered-by');
   app.use(express.json({ limit: '2mb' }));
@@ -29,10 +31,10 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   api.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
+  api.use('/projects', projectsRouter(projects));
+  api.use('/projects/:projectId', projectScopedRouter({ projects, notes, tasks, board }));
   api.use('/notes', notesRouter(notes));
-  api.use('/tags', tagsRouter(notes));
   api.use('/tasks', tasksRouter(tasks));
-  api.use('/board', boardRouter(board, tasks));
   api.use(apiNotFoundHandler);
   app.use('/api', api);
 

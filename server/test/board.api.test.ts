@@ -18,7 +18,7 @@ afterEach(() => {
 async function createTasks(...titles: string[]): Promise<Record<string, number>> {
   const ids: Record<string, number> = {};
   for (const title of titles) {
-    ids[title] = (await api.post('/api/tasks').send({ title, description: '' })).body.id;
+    ids[title] = (await api.post('/api/projects/1/tasks').send({ title, description: '' })).body.id;
   }
   return ids;
 }
@@ -31,16 +31,16 @@ async function move(id: number, status: string, index: number) {
 
 /** Task titles per column, in board order. */
 async function columns(): Promise<Record<string, string[]>> {
-  const { tasks } = (await api.get('/api/board')).body;
+  const { tasks } = (await api.get('/api/projects/1/board')).body;
   const result: Record<string, string[]> = {};
   for (const task of tasks) (result[task.status] ??= []).push(task.title);
   return result;
 }
 
-describe('GET /api/board', () => {
+describe('GET /api/projects/:id/board', () => {
   it('returns all five columns with default WIP limits, and the tasks', async () => {
     await createTasks('A');
-    const board = (await api.get('/api/board')).body;
+    const board = (await api.get('/api/projects/1/board')).body;
 
     expect(board.columns).toEqual([
       { status: 'backlog', wipLimit: null },
@@ -102,7 +102,7 @@ describe('moving tasks', () => {
     const { A, B } = await createTasks('A', 'B');
     await move(B!, 'backlog', 0);
     const fresh = request(createApp(db));
-    const tasks = (await fresh.get('/api/board')).body.tasks;
+    const tasks = (await fresh.get('/api/projects/1/board')).body.tasks;
     expect(tasks.map((t: { id: number }) => t.id)).toEqual([B, A]);
   });
 
@@ -115,8 +115,8 @@ describe('moving tasks', () => {
   });
 
   it('shows the new status on the source note', async () => {
-    const note = (await api.post('/api/notes').send({ title: 'N', content: '', tags: [] })).body;
-    const task = (await api.post('/api/tasks').send({ title: 'A', description: '', sourceNoteId: note.id })).body;
+    const note = (await api.post('/api/projects/1/notes').send({ title: 'N', content: '', tags: [] })).body;
+    const task = (await api.post('/api/projects/1/tasks').send({ title: 'A', description: '', sourceNoteId: note.id })).body;
     await move(task.id, 'review', 0);
     expect((await api.get(`/api/notes/${note.id}`)).body.tasks[0].status).toBe('review');
   });
@@ -142,27 +142,27 @@ describe('PATCH /api/tasks/:id', () => {
 
 describe('WIP limits', () => {
   it('sets and clears the limit of an active column', async () => {
-    expect((await api.patch('/api/board/columns/review').send({ wipLimit: 2 })).body).toEqual({ status: 'review', wipLimit: 2 });
-    expect((await api.patch('/api/board/columns/in_progress').send({ wipLimit: null })).body).toEqual({
+    expect((await api.patch('/api/projects/1/board/columns/review').send({ wipLimit: 2 })).body).toEqual({ status: 'review', wipLimit: 2 });
+    expect((await api.patch('/api/projects/1/board/columns/in_progress').send({ wipLimit: null })).body).toEqual({
       status: 'in_progress',
       wipLimit: null,
     });
 
-    const { columns } = (await api.get('/api/board')).body;
+    const { columns } = (await api.get('/api/projects/1/board')).body;
     expect(columns.find((c: { status: string }) => c.status === 'review').wipLimit).toBe(2);
     expect(columns.find((c: { status: string }) => c.status === 'in_progress').wipLimit).toBeNull();
   });
 
   it('does not allow limits on Backlog and Done, or invalid values', async () => {
-    expect((await api.patch('/api/board/columns/backlog').send({ wipLimit: 2 })).status).toBe(400);
-    expect((await api.patch('/api/board/columns/done').send({ wipLimit: 2 })).status).toBe(400);
-    expect((await api.patch('/api/board/columns/todo').send({ wipLimit: 0 })).status).toBe(400);
-    expect((await api.patch('/api/board/columns/todo').send({})).status).toBe(400);
+    expect((await api.patch('/api/projects/1/board/columns/backlog').send({ wipLimit: 2 })).status).toBe(400);
+    expect((await api.patch('/api/projects/1/board/columns/done').send({ wipLimit: 2 })).status).toBe(400);
+    expect((await api.patch('/api/projects/1/board/columns/todo').send({ wipLimit: 0 })).status).toBe(400);
+    expect((await api.patch('/api/projects/1/board/columns/todo').send({})).status).toBe(400);
   });
 
   it('does not block moves into a full column', async () => {
     const { A, B } = await createTasks('A', 'B');
-    await api.patch('/api/board/columns/todo').send({ wipLimit: 1 });
+    await api.patch('/api/projects/1/board/columns/todo').send({ wipLimit: 1 });
     await move(A!, 'todo', 0);
     await move(B!, 'todo', 1);
     expect((await columns()).todo).toEqual(['A', 'B']);

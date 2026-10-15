@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PROJECT_COLORS } from './repositories/projectsRepository.js';
 import { TASK_STATUSES, WIP_LIMITED_STATUSES } from './repositories/tasksRepository.js';
 
 export const MAX_TAG_LENGTH = 32;
@@ -14,6 +15,17 @@ export function normalizeTag(raw: string): string {
     .slice(0, MAX_TAG_LENGTH)
     .trim();
 }
+
+export const projectInputSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  color: z.enum(PROJECT_COLORS),
+});
+
+export type ProjectInput = z.infer<typeof projectInputSchema>;
+
+export const projectPatchSchema = projectInputSchema.partial();
+
+export type ProjectPatch = z.infer<typeof projectPatchSchema>;
 
 export const noteInputSchema = z.object({
   title: z.string().trim().max(200),
@@ -53,7 +65,7 @@ export const wipLimitSchema = z.object({
   wipLimit: z.number().int().min(1).max(999).nullable(),
 });
 
-export const idParamSchema =z.coerce.number().int().positive();
+export const idParamSchema = z.coerce.number().int().positive();
 
 export const noteListQuerySchema = z.object({
   q: z.string().optional(),

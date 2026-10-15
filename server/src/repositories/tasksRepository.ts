@@ -13,6 +13,7 @@ const MIN_POSITION_GAP = 1e-6;
 
 export interface Task {
   id: number;
+  projectId: number;
   title: string;
   description: string;
   status: TaskStatus;
@@ -33,6 +34,7 @@ export interface LinkedTask {
 
 interface TaskRow {
   id: number;
+  project_id: number;
   title: string;
   description: string;
   status: TaskStatus;
@@ -52,22 +54,24 @@ const statusOrderSql = `CASE t.status ${TASK_STATUSES.map((s, i) => `WHEN '${s}'
 export type TasksRepository = ReturnType<typeof createTasksRepository>;
 
 export function createTasksRepository(db: Db) {
-  const noteExists = db.prepare<[number], { found: 1 }>(`SELECT 1 AS found FROM notes WHERE id = ?`);
-  const nextBacklogPosition = db.prepare<[], { position: number }>(
-    `SELECT COALESCE(MAX(position), 0) + 1 AS position FROM tasks WHERE status = 'backlog'`,
+  const selectNoteProject = db.prepare<[number], { project_id: number }>(`SELECT project_id FROM notes WHERE id = ?`);
+  const nextBacklogPosition = db.prepare<[number], { position: number }>(
+    `SELECT COALESCE(MAX(position), 0) + 1 AS position FROM tasks WHERE project_id = ? AND status = 'backlog'`,
   );
-  const insertTask = db.prepare<[string, string, number, number | null, string, string], { id: number }>(
-    `INSERT INTO tasks (title, description, status, position, source_note_id, created_at, updated_at)
-     VALUES (?, ?, 'backlog', ?, ?, ?, ?) RETURNING id`,
+  const insertTask = db.prepare<[number, string, string, number, number | null, string, string], { id: number }>(
+    `INSERT INTO tasks (project_id, title, description, status, position, source_note_id, created_at, updated_at)
+     VALUES (?, ?, ?, 'backlog', ?, ?, ?, ?) RETURNING id`,
   );
   const selectTask = db.prepare<[number], TaskRow>(`${selectTaskSql} WHERE t.id = ?`);
-  const selectAllTasks = db.prepare<[], TaskRow>(`${selectTaskSql} ORDER BY ${statusOrderSql}, t.position, t.id`);
+  const selectProjectTasks = db.prepare<[number], TaskRow>(
+    `${selectTaskSql} WHERE t.project_id = ? ORDER BY ${statusOrderSql}, t.position, t.id`,
+  );
   const deleteTask = db.prepare<[number]>(`DELETE FROM tasks WHERE id = ?`);
   const updateTask = db.prepare<[string | null, string | null, string, number]>(
     `UPDATE tasks SET title = COALESCE(?, title), description = COALESCE(?, description), updated_at = ? WHERE id = ?`,
   );
-  const selectColumnSiblings = db.prepare<[TaskStatus, number], { id: number; position: number }>(
-    `SELECT id, position FROM tasks WHERE status = ? AND id != ? ORDER BY position, id`,
+  const selectColumnSiblings = db.prepare<[number, TaskStatus, number], { id: number; position: number }>(
+    `SELECT id, position FROM tasks WHERE project_id = ? AND status = ? AND id != ? ORDER BY position, id`,
   );
   const updatePlacement = db.prepare<[TaskStatus, number, string, number]>(
     `UPDATE tasks SET status = ?, position = ?, updated_at = ? WHERE id = ?`,
@@ -77,6 +81,7 @@ export function createTasksRepository(db: Db) {
   function toTask(row: TaskRow): Task {
     return {
       id: row.id,
+      projectId: row.project_id,
       title: row.title,
       description: row.description,
       status: row.status,
@@ -89,12 +94,14 @@ export function createTasksRepository(db: Db) {
   }
 
   return {
-    noteExists(id: number): boolean {
-      return noteExists.get(id) !== undefined;
+    /** The project a note belongs to, or undefined if the note does not exist. */
+    noteProjectId(noteId: number): number | undefined {
+      return selectNoteProject.get(noteId)?.project_id;
     },
 
-    list(): Task[] {
-      return selectAllTasks.all().map(toTask);
+    /** The project's tasks in board order: by column, then position. */
+    list(projectId: number): Task[] {
+      return selectProjectTasks.all(projectId).map(toTask);
     },
 
     get(id: number): Task | undefined {
@@ -103,10 +110,11 @@ export function createTasksRepository(db: Db) {
     },
 
     /** New tasks always start at the end of the backlog. */
-    create: db.transaction((input: TaskInput): Task => {
+    create: db.transaction((projectId: number, input: TaskInput): Task => {
       const now = new Date().toISOString();
-      const { position } = nextBacklogPosition.get()!;
-      const { id } = insertTask.get(input.title, input.description, position, input.sourceNoteId ?? null, now, now)!;
+      const { position } = nextBacklogPosition.get(projectId)!;
+      const sourceNoteId = input.sourceNoteId ?? null;
+      const { id } = insertTask.get(projectId, input.title, input.description, position, sourceNoteId, now, now)!;
       return toTask(selectTask.get(id)!);
     }),
 
@@ -118,14 +126,15 @@ export function createTasksRepository(db: Db) {
     }),
 
     /**
-     * Places the task at `index` among the other tasks of column `status` (clamped to the end).
+     * Places the task at `index` among the other tasks of column `status` in its project (clamped to the end).
      * Only the moved task's position changes, unless its neighbours are too close and the column is renumbered.
      * Returns undefined if the task does not exist.
      */
     move: db.transaction((id: number, status: TaskStatus, index: number): Task | undefined => {
-      if (!selectTask.get(id)) return undefined;
+      const task = selectTask.get(id);
+      if (!task) return undefined;
 
-      const siblings = selectColumnSiblings.all(status, id);
+      const siblings = selectColumnSiblings.all(task.project_id, status, id);
       const at = Math.min(index, siblings.length);
       const prev = siblings[at - 1];
       const next = siblings[at];

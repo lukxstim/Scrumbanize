@@ -10,7 +10,7 @@ type WipLimits = Record<TaskStatus, number | null>;
  * Board state. Moves and WIP limit changes are shown immediately and then saved;
  * if saving fails, the board reloads from the server and `actionError` explains what happened.
  */
-export function useBoard() {
+export function useBoard(projectId: number) {
   const [columns, setColumns] = useState<Columns>(emptyColumns);
   const [wipLimits, setWipLimits] = useState<WipLimits>({} as WipLimits);
   const [status, setStatus] = useState<LoadStatus>('loading');
@@ -18,14 +18,14 @@ export function useBoard() {
 
   const reload = useCallback(async () => {
     try {
-      const board = await boardApi.get();
+      const board = await boardApi.get(projectId);
       setColumns(groupByStatus(board.tasks));
       setWipLimits(Object.fromEntries(board.columns.map((c) => [c.status, c.wipLimit])) as WipLimits);
       setStatus('ready');
     } catch {
       setStatus('error');
     }
-  }, []);
+  }, [projectId]);
 
   useEffect(() => {
     void reload();
@@ -57,19 +57,19 @@ export function useBoard() {
     async (columnStatus: TaskStatus, limit: number | null) => {
       setWipLimits((current) => ({ ...current, [columnStatus]: limit }));
       try {
-        await boardApi.setWipLimit(columnStatus, limit);
+        await boardApi.setWipLimit(projectId, columnStatus, limit);
       } catch {
         failed('Das WIP-Limit konnte nicht gespeichert werden.');
       }
     },
-    [failed],
+    [failed, projectId],
   );
 
   const createTask = useCallback(async (title: string): Promise<Task> => {
-    const task = await tasksApi.create({ title, description: '' });
+    const task = await tasksApi.create(projectId, { title, description: '' });
     setColumns((current) => ({ ...current, backlog: [...current.backlog, task] }));
     return task;
-  }, []);
+  }, [projectId]);
 
   const updateTask = useCallback(async (id: number, patch: TaskPatch): Promise<void> => {
     const saved = await tasksApi.update(id, patch);

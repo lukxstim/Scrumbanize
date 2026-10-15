@@ -3,7 +3,7 @@ import type { Task, TaskStatus } from '../types/task';
 import { applyMove, groupByStatus, removeTask, replaceTask, wipState } from './board';
 
 function task(id: number, status: TaskStatus, position: number): Task {
-  return { id, title: `T${id}`, description: '', status, position, sourceNote: null, createdAt: '', updatedAt: '' };
+  return { id, projectId: 1, title: `T${id}`, description: '', status, position, sourceNote: null, createdAt: '', updatedAt: '' };
 }
 
 const ids = (tasks: Task[]) => tasks.map((t) => t.id);

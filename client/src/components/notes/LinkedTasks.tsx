@@ -1,8 +1,10 @@
 import { Link } from 'react-router';
 import type { LinkedTask } from '../../types/task';
+import { paths } from '../../utils/paths';
 import { TASK_STATUS_LABELS } from '../../utils/taskStatus';
 
-export default function LinkedTasks({ tasks }: { tasks: LinkedTask[] }) {
+/** Tasks share their note's project. */
+export default function LinkedTasks({ projectId, tasks }: { projectId: number; tasks: LinkedTask[] }) {
   if (tasks.length === 0) return null;
 
   return (
@@ -11,7 +13,7 @@ export default function LinkedTasks({ tasks }: { tasks: LinkedTask[] }) {
       {tasks.map((task) => (
         <Link
           key={task.id}
-          to={`/tasks/${task.id}`}
+          to={paths.task(projectId, task.id)}
           title="Task auf dem Board öffnen"
           className="flex max-w-72 items-center gap-1.5 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-xs text-emerald-800 hover:border-emerald-400 hover:bg-emerald-100"
         >

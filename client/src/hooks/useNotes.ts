@@ -6,30 +6,30 @@ import type { TaskDraft } from '../utils/taskFromNote';
 
 export type LoadStatus = 'loading' | 'ready' | 'error';
 
-/** Loads all notes once and keeps the local list in sync with every successful API call. */
-export function useNotes() {
+/** Loads the project's notes once and keeps the local list in sync with every successful API call. */
+export function useNotes(projectId: number) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [status, setStatus] = useState<LoadStatus>('loading');
 
   const reload = useCallback(async () => {
     setStatus('loading');
     try {
-      setNotes(await notesApi.list());
+      setNotes(await notesApi.list(projectId));
       setStatus('ready');
     } catch {
       setStatus('error');
     }
-  }, []);
+  }, [projectId]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
 
   const createNote = useCallback(async (): Promise<Note> => {
-    const note = await notesApi.create({ title: '', content: '', tags: [] });
+    const note = await notesApi.create(projectId, { title: '', content: '', tags: [] });
     setNotes((current) => [note, ...current]);
     return note;
-  }, []);
+  }, [projectId]);
 
   const saveNote = useCallback(async (id: number, input: NoteInput): Promise<void> => {
     const saved = await notesApi.update(id, input);
@@ -43,11 +43,11 @@ export function useNotes() {
   }, []);
 
   const createTaskFromNote = useCallback(async (noteId: number, draft: TaskDraft): Promise<Task> => {
-    const task = await tasksApi.create({ ...draft, sourceNoteId: noteId });
+    const task = await tasksApi.create(projectId, { ...draft, sourceNoteId: noteId });
     const linked = { id: task.id, title: task.title, status: task.status };
     setNotes((current) => current.map((note) => (note.id === noteId ? { ...note, tasks: [...note.tasks, linked] } : note)));
     return task;
-  }, []);
+  }, [projectId]);
 
   const deleteTask = useCallback(async (taskId: number): Promise<void> => {
     await tasksApi.remove(taskId);

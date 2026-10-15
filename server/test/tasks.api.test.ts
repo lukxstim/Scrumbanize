@@ -20,11 +20,11 @@ afterEach(() => {
 });
 
 async function createNote(title = 'Meeting') {
-  return (await api.post('/api/notes').send({ title, content: '- Angebot schreiben', tags: [] })).body;
+  return (await api.post('/api/projects/1/notes').send({ title, content: '- Angebot schreiben', tags: [] })).body;
 }
 
 async function createTask(body: { title: string; description?: string; sourceNoteId?: number }) {
-  const res = await api.post('/api/tasks').send({ description: '', ...body });
+  const res = await api.post('/api/projects/1/tasks').send({ description: '', ...body });
   expect(res.status).toBe(201);
   return res.body;
 }
@@ -53,7 +53,7 @@ describe('tasks', () => {
     await createTask({ title: 'first' });
     await createTask({ title: 'second' });
 
-    const tasks = (await api.get('/api/tasks')).body;
+    const tasks = (await api.get('/api/projects/1/board')).body.tasks;
     expect(tasks.map((t: { title: string; position: number }) => [t.title, t.position])).toEqual([
       ['first', 1],
       ['second', 2],
@@ -68,8 +68,8 @@ describe('tasks', () => {
   });
 
   it('rejects an empty title and unknown source notes', async () => {
-    expect((await api.post('/api/tasks').send({ title: '  ', description: '' })).status).toBe(400);
-    expect((await api.post('/api/tasks').send({ title: 'x', description: '', sourceNoteId: 999 })).status).toBe(404);
+    expect((await api.post('/api/projects/1/tasks').send({ title: '  ', description: '' })).status).toBe(400);
+    expect((await api.post('/api/projects/1/tasks').send({ title: 'x', description: '', sourceNoteId: 999 })).status).toBe(404);
   });
 });
 
@@ -84,7 +84,7 @@ describe('note-task link', () => {
     ];
 
     expect((await api.get(`/api/notes/${note.id}`)).body.tasks).toEqual(expected);
-    expect((await api.get('/api/notes')).body[0].tasks).toEqual(expected);
+    expect((await api.get('/api/projects/1/notes')).body[0].tasks).toEqual(expected);
 
     const updated = await api.put(`/api/notes/${note.id}`).send({ title: 'Edited', content: '', tags: [] });
     expect(updated.body.tasks).toEqual(expected);

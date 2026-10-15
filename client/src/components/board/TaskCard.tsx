@@ -2,6 +2,7 @@ import { useDraggable } from '@dnd-kit/core';
 import type { KeyboardEvent, ReactNode, SyntheticEvent } from 'react';
 import { Link } from 'react-router';
 import type { Task, TaskStatus } from '../../types/task';
+import { paths } from '../../utils/paths';
 import { UNTITLED_NOTE } from '../../utils/taskFromNote';
 import { TASK_STATUSES, TASK_STATUS_LABELS } from '../../utils/taskStatus';
 import { ChevronLeftIcon, ChevronRightIcon, NoteIcon } from '../icons';
@@ -118,7 +119,7 @@ export function TaskCardBody({ task, children, lifted = false, placeholder = fal
       </div>
       {task.sourceNote && (
         <Link
-          to={`/notes/${task.sourceNote.id}`}
+          to={paths.notes(task.projectId, task.sourceNote.id)}
           {...isolate}
           title="Zur Notiz"
           className="mt-1.5 flex w-fit max-w-full items-center gap-1 text-xs text-slate-500 hover:text-indigo-600"

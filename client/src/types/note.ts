@@ -2,6 +2,7 @@ import type { LinkedTask } from './task';
 
 export interface Note {
   id: number;
+  projectId: number;
   title: string;
   /** Markdown source. */
   content: string;

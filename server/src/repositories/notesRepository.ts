@@ -4,6 +4,7 @@ import type { LinkedTask } from './tasksRepository.js';
 
 export interface Note {
   id: number;
+  projectId: number;
   title: string;
   content: string;
   tags: string[];
@@ -28,6 +29,7 @@ export interface NoteFilter {
 
 interface NoteRow {
   id: number;
+  project_id: number;
   title: string;
   content: string;
   created_at: string;
@@ -37,8 +39,8 @@ interface NoteRow {
 export type NotesRepository = ReturnType<typeof createNotesRepository>;
 
 export function createNotesRepository(db: Db) {
-  const insertNote = db.prepare<[string, string, string, string], NoteRow>(
-    `INSERT INTO notes (title, content, created_at, updated_at) VALUES (?, ?, ?, ?) RETURNING *`,
+  const insertNote = db.prepare<[number, string, string, string, string], NoteRow>(
+    `INSERT INTO notes (project_id, title, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?) RETURNING *`,
   );
   const updateNote = db.prepare<[string, string, string, number], NoteRow>(
     `UPDATE notes SET title = ?, content = ?, updated_at = ? WHERE id = ? RETURNING *`,
@@ -48,24 +50,26 @@ export function createNotesRepository(db: Db) {
   const selectTagsOfNote = db.prepare<[number], { name: string }>(
     `SELECT t.name FROM tags t JOIN note_tags nt ON nt.tag_id = t.id WHERE nt.note_id = ? ORDER BY t.name`,
   );
-  const selectAllNoteTags = db.prepare<[], { note_id: number; name: string }>(
-    `SELECT nt.note_id, t.name FROM note_tags nt JOIN tags t ON t.id = nt.tag_id ORDER BY t.name`,
+  const selectAllNoteTags = db.prepare<[number], { note_id: number; name: string }>(
+    `SELECT nt.note_id, t.name FROM note_tags nt JOIN tags t ON t.id = nt.tag_id JOIN notes n ON n.id = nt.note_id
+     WHERE n.project_id = ? ORDER BY t.name`,
   );
   const selectTasksOfNote = db.prepare<[number], LinkedTask>(
     `SELECT id, title, status FROM tasks WHERE source_note_id = ? ORDER BY id`,
   );
-  const selectAllLinkedTasks = db.prepare<[], LinkedTask & { source_note_id: number }>(
-    `SELECT id, title, status, source_note_id FROM tasks WHERE source_note_id IS NOT NULL ORDER BY id`,
+  const selectAllLinkedTasks = db.prepare<[number], LinkedTask & { source_note_id: number }>(
+    `SELECT id, title, status, source_note_id FROM tasks WHERE project_id = ? AND source_note_id IS NOT NULL ORDER BY id`,
   );
-  const clearNoteTags =db.prepare<[number]>(`DELETE FROM note_tags WHERE note_id = ?`);
+  const clearNoteTags = db.prepare<[number]>(`DELETE FROM note_tags WHERE note_id = ?`);
   const upsertTag = db.prepare<[string], { id: number }>(
     `INSERT INTO tags (name) VALUES (?) ON CONFLICT (name) DO UPDATE SET name = name RETURNING id`,
   );
   const linkTag = db.prepare<[number, number]>(`INSERT INTO note_tags (note_id, tag_id) VALUES (?, ?)`);
   const deleteUnusedTags = db.prepare(`DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM note_tags)`);
-  const selectTagSummaries = db.prepare<[], TagSummary>(
+  const selectTagSummaries = db.prepare<[number], TagSummary>(
     `SELECT t.id, t.name, COUNT(nt.note_id) AS noteCount
-     FROM tags t JOIN note_tags nt ON nt.tag_id = t.id
+     FROM tags t JOIN note_tags nt ON nt.tag_id = t.id JOIN notes n ON n.id = nt.note_id
+     WHERE n.project_id = ?
      GROUP BY t.id ORDER BY t.name`,
   );
 
@@ -80,6 +84,7 @@ export function createNotesRepository(db: Db) {
   function toNote(row: NoteRow, tags: string[], tasks: LinkedTask[]): Note {
     return {
       id: row.id,
+      projectId: row.project_id,
       title: row.title,
       content: row.content,
       tags,
@@ -98,9 +103,9 @@ export function createNotesRepository(db: Db) {
   }
 
   return {
-    list(filter: NoteFilter = {}): Note[] {
-      const where: string[] = [];
-      const params: (string | number)[] = [];
+    list(projectId: number, filter: NoteFilter = {}): Note[] {
+      const where: string[] = ['n.project_id = ?'];
+      const params: (string | number)[] = [projectId];
 
       const q = filter.q?.trim();
       if (q) {
@@ -122,20 +127,20 @@ export function createNotesRepository(db: Db) {
 
       const rows = db
         .prepare<(string | number)[], NoteRow>(
-          `SELECT n.* FROM notes n ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+          `SELECT n.* FROM notes n WHERE ${where.join(' AND ')}
            ORDER BY n.updated_at DESC, n.id DESC`,
         )
         .all(...params);
 
       const tagsByNote = new Map<number, string[]>();
-      for (const { note_id, name } of selectAllNoteTags.all()) {
+      for (const { note_id, name } of selectAllNoteTags.all(projectId)) {
         const list = tagsByNote.get(note_id) ?? [];
         list.push(name);
         tagsByNote.set(note_id, list);
       }
 
       const tasksByNote = new Map<number, LinkedTask[]>();
-      for (const { source_note_id, ...task } of selectAllLinkedTasks.all()) {
+      for (const { source_note_id, ...task } of selectAllLinkedTasks.all(projectId)) {
         const list = tasksByNote.get(source_note_id) ?? [];
         list.push(task);
         tasksByNote.set(source_note_id, list);
@@ -149,9 +154,9 @@ export function createNotesRepository(db: Db) {
       return row && withRelations(row);
     },
 
-    create: db.transaction((input: NoteInput): Note => {
+    create: db.transaction((projectId: number, input: NoteInput): Note => {
       const now = new Date().toISOString();
-      const row = insertNote.get(input.title, input.content, now, now)!;
+      const row = insertNote.get(projectId, input.title, input.content, now, now)!;
       setTags(row.id, input.tags);
       return withRelations(row);
     }),
@@ -171,8 +176,9 @@ export function createNotesRepository(db: Db) {
       return changes > 0;
     }),
 
-    listTags(): TagSummary[] {
-      return selectTagSummaries.all();
+    /** Tags used by the project's notes, with how many of them use each. */
+    listTags(projectId: number): TagSummary[] {
+      return selectTagSummaries.all(projectId);
     },
   };
 }

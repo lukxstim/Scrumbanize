@@ -1,0 +1,73 @@
+import { Router, type Response } from 'express';
+import { HttpError, notFound } from '../errors.js';
+import type { BoardRepository } from '../repositories/boardRepository.js';
+import type { NotesRepository } from '../repositories/notesRepository.js';
+import type { ProjectsRepository } from '../repositories/projectsRepository.js';
+import type { TasksRepository } from '../repositories/tasksRepository.js';
+import {
+  idParamSchema,
+  noteInputSchema,
+  noteListQuerySchema,
+  taskInputSchema,
+  wipLimitSchema,
+  wipLimitStatusSchema,
+} from '../validation.js';
+
+interface Repositories {
+  projects: ProjectsRepository;
+  notes: NotesRepository;
+  tasks: TasksRepository;
+  board: BoardRepository;
+}
+
+const projectIdOf = (res: Response) => res.locals.projectId as number;
+
+/** Lists and creation inside one project, mounted at /api/projects/:projectId. */
+export function projectScopedRouter({ projects, notes, tasks, board }: Repositories): Router {
+  const router = Router({ mergeParams: true });
+
+  router.use((req, res, next) => {
+    const projectId = idParamSchema.parse((req.params as { projectId?: string }).projectId);
+    if (!projects.exists(projectId)) throw notFound('Project not found');
+    res.locals.projectId = projectId;
+    next();
+  });
+
+  router.get('/notes', (req, res) => {
+    const { q, tag } = noteListQuerySchema.parse(req.query);
+    res.json(notes.list(projectIdOf(res), { q, tags: tag }));
+  });
+
+  router.post('/notes', (req, res) => {
+    res.status(201).json(notes.create(projectIdOf(res), noteInputSchema.parse(req.body)));
+  });
+
+  router.get('/tags', (_req, res) => {
+    res.json(notes.listTags(projectIdOf(res)));
+  });
+
+  // A task converted from a note always lands in that note's project.
+  router.post('/tasks', (req, res) => {
+    const input = taskInputSchema.parse(req.body);
+    if (input.sourceNoteId !== undefined) {
+      const noteProjectId = tasks.noteProjectId(input.sourceNoteId);
+      if (noteProjectId === undefined) throw notFound('Source note not found');
+      if (noteProjectId !== projectIdOf(res)) {
+        throw new HttpError(400, 'invalid_input', 'The source note belongs to another project');
+      }
+    }
+    res.status(201).json(tasks.create(projectIdOf(res), input));
+  });
+
+  router.get('/board', (_req, res) => {
+    res.json({ columns: board.listColumns(projectIdOf(res)), tasks: tasks.list(projectIdOf(res)) });
+  });
+
+  router.patch('/board/columns/:status', (req, res) => {
+    const status = wipLimitStatusSchema.parse(req.params.status);
+    const { wipLimit } = wipLimitSchema.parse(req.body);
+    res.json(board.setWipLimit(projectIdOf(res), status, wipLimit));
+  });
+
+  return router;
+}

@@ -165,7 +165,7 @@ export default function NoteEditor({
           className="bg-transparent text-2xl font-semibold placeholder:text-slate-300 focus:outline-none"
         />
         <TagInput tags={draft.tags} suggestions={tagSuggestions} onChange={(tags) => change({ tags })} />
-        <LinkedTasks tasks={note.tasks} />
+        <LinkedTasks projectId={note.projectId} tasks={note.tasks} />
         <hr className="border-slate-200" />
         {mode === 'edit' ? (
           <textarea

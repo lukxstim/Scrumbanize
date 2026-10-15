@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { useAutosave, type SaveStatus } from '../../hooks/useAutosave';
 import type { Task, TaskPatch, TaskStatus } from '../../types/task';
 import { formatDate } from '../../utils/format';
+import { paths } from '../../utils/paths';
 import { UNTITLED_NOTE } from '../../utils/taskFromNote';
 import { TASK_STATUSES, TASK_STATUS_LABELS } from '../../utils/taskStatus';
 import ConfirmDialog from '../ConfirmDialog';
@@ -113,7 +114,7 @@ export default function TaskDetailDialog({ task, onClose, onSave, onChangeStatus
         {task.sourceNote && (
           <p className="text-sm text-slate-500">
             Aus Notiz:{' '}
-            <Link to={`/notes/${task.sourceNote.id}`} className="font-medium text-indigo-600 hover:underline">
+            <Link to={paths.notes(task.projectId, task.sourceNote.id)} className="font-medium text-indigo-600 hover:underline">
               {task.sourceNote.title || UNTITLED_NOTE}
             </Link>
           </p>

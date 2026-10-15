@@ -2,11 +2,12 @@
 
 Selbstgehostete Web-App, die Notizen und ein Scrumban-Board verbindet. Hintergrund und Ziele: [docs/vision.md](docs/vision.md), User Stories: [docs/stories](docs/stories).
 
-**Stand:** US-01 bis US-03 sind umgesetzt:
+**Stand:** US-01 bis US-04 sind umgesetzt:
 
-- **Notizen** (`/notes`): Titel, Markdown-Inhalt und Tags, Auto-Save, Live-Suche und Tag-Filter.
-- **Task-Umwandlung:** ganze Notizen oder markierte Textpassagen über ein vorausgefülltes Formular in Tasks im Backlog umwandeln; Notiz und Task sind gegenseitig verlinkt.
-- **Scrumban-Board** (`/board`, Task-Details unter `/tasks/:id`): Spalten Backlog, To Do, In Progress, Review, Done; Verschieben per Drag-and-Drop (Maus, Touch, Tastatur: Leertaste aufnehmen, Pfeiltasten, Leertaste ablegen) oder ◀ ▶; WIP-Limits für To Do, In Progress und Review (nur Warnung, nicht blockierend); Tasks direkt im Backlog anlegen, bearbeiten und löschen.
+- **Projekte:** Notizen und Board sind nach Projekten getrennt (z. B. „Privat“, „Studium“). Projekte werden im Header gewechselt, angelegt, umbenannt, eingefärbt und gelöscht (Bestätigung durch Eintippen des Namens; das letzte Projekt bleibt erhalten). Beim ersten Start gibt es das Projekt „Allgemein“; das zuletzt geöffnete Projekt merkt sich der Browser.
+- **Notizen** (`/p/:projectId/notes`): Titel, Markdown-Inhalt und Tags, Auto-Save, Live-Suche und Tag-Filter.
+- **Task-Umwandlung:** ganze Notizen oder markierte Textpassagen über ein vorausgefülltes Formular in Tasks im Backlog desselben Projekts umwandeln; Notiz und Task sind gegenseitig verlinkt.
+- **Scrumban-Board** (`/p/:projectId/board`, Task-Details unter `/p/:projectId/tasks/:id`): Spalten Backlog, To Do, In Progress, Review, Done; Verschieben per Drag-and-Drop (Maus, Touch, Tastatur: Leertaste aufnehmen, Pfeiltasten, Leertaste ablegen) oder ◀ ▶; WIP-Limits für To Do, In Progress und Review (nur Warnung, nicht blockierend); Tasks direkt im Backlog anlegen, bearbeiten und löschen.
 
 Die App ist für einen einzelnen Nutzer ohne Login gedacht – betreibe sie nur in einem vertrauenswürdigen Netz oder hinter einem Reverse-Proxy mit Authentifizierung.
 
@@ -59,20 +60,27 @@ npm-Workspaces mit zwei Paketen:
 
 | Methode | Pfad              | Beschreibung |
 |---------|-------------------|--------------|
+Listen und Neuanlagen gehören zu einem Projekt (`/api/projects/:projectId/…`). Einzelne Notizen und Tasks werden über ihre projektübergreifend eindeutige ID angesprochen.
+
+| Methode | Pfad              | Beschreibung |
+|---------|-------------------|--------------|
 | GET     | `/api/health`     | Health-Check |
-| GET     | `/api/notes`      | Alle Notizen, zuletzt geänderte zuerst. Optional `?q=` (Volltext in Titel, Inhalt, Tags) und `?tag=` (mehrfach möglich, alle müssen passen) |
+| GET     | `/api/projects`   | Alle Projekte, alphabetisch, mit `noteCount` und `taskCount` |
+| POST    | `/api/projects`   | Projekt anlegen: `{ "name", "color" }` – Farben: `slate`, `red`, `amber`, `emerald`, `sky`, `indigo`, `violet`, `pink`. Namen sind eindeutig (ohne Groß-/Kleinschreibung), sonst 409 |
+| PATCH   | `/api/projects/:id` | Name und/oder Farbe ändern |
+| DELETE  | `/api/projects/:id` | Projekt mit allen Notizen und Tasks löschen; das letzte Projekt nicht (409) |
+| GET     | `/api/projects/:id/notes` | Notizen des Projekts, zuletzt geänderte zuerst. Optional `?q=` (Volltext in Titel, Inhalt, Tags) und `?tag=` (mehrfach möglich, alle müssen passen) |
+| POST    | `/api/projects/:id/notes` | Notiz anlegen: `{ "title": "", "content": "", "tags": [] }` |
+| GET     | `/api/projects/:id/tags` | Tags der Notizen des Projekts mit Anzahl |
+| POST    | `/api/projects/:id/tasks` | Task im Backlog anlegen: `{ "title", "description", "sourceNoteId"? }` – die Notiz muss zum Projekt gehören |
+| GET     | `/api/projects/:id/board` | Spalten mit WIP-Limits und alle Tasks des Projekts: `{ "columns", "tasks" }` |
+| PATCH   | `/api/projects/:id/board/columns/:status` | WIP-Limit setzen (nur `todo`, `in_progress`, `review`): `{ "wipLimit": number \| null }` |
 | GET     | `/api/notes/:id`  | Eine Notiz |
-| POST    | `/api/notes`      | Notiz anlegen: `{ "title": "", "content": "", "tags": [] }` |
-| PUT     | `/api/notes/:id`  | Notiz vollständig ersetzen (gleicher Body) |
+| PUT     | `/api/notes/:id`  | Notiz vollständig ersetzen: `{ "title", "content", "tags" }` |
 | DELETE  | `/api/notes/:id`  | Notiz löschen |
-| GET     | `/api/tags`       | Verwendete Tags mit Anzahl der Notizen |
-| GET     | `/api/tasks`      | Alle Tasks, sortiert nach Status und Position |
 | GET     | `/api/tasks/:id`  | Ein Task inkl. Quell-Notiz (`sourceNote`) |
-| POST    | `/api/tasks`      | Task im Backlog anlegen: `{ "title", "description", "sourceNoteId"? }` |
 | PATCH   | `/api/tasks/:id`  | Titel und/oder Beschreibung ändern: `{ "title"?, "description"? }` |
-| POST    | `/api/tasks/:id/move` | Task verschieben: `{ "status", "index" }` – `index` ist die Zielposition unter den übrigen Tasks der Spalte |
+| POST    | `/api/tasks/:id/move` | Task innerhalb seines Projekts verschieben: `{ "status", "index" }` – `index` ist die Zielposition unter den übrigen Tasks der Spalte |
 | DELETE  | `/api/tasks/:id`  | Task löschen |
-| GET     | `/api/board`      | Spalten mit WIP-Limits und alle Tasks: `{ "columns", "tasks" }` |
-| PATCH   | `/api/board/columns/:status` | WIP-Limit setzen (nur `todo`, `in_progress`, `review`): `{ "wipLimit": number \| null }` |
 
 Tags werden normalisiert (Kleinschreibung, ohne Kommas, max. 32 Zeichen). Tags, die keine Notiz mehr verwendet, werden automatisch entfernt. Notizen enthalten ihre verknüpften Tasks (`tasks`). Tasks sind Kopien: spätere Änderungen an der Notiz werden nicht übernommen, und beim Löschen einer Notiz bleiben ihre Tasks erhalten. Fehler haben die Form `{ "error": { "code", "message" } }`.

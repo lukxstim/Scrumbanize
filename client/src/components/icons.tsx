@@ -31,7 +31,26 @@ export const ChevronRightIcon = (props: SVGProps<SVGSVGElement>) => (
   </Icon>
 );
 
-export const PlusIcon = (props: SVGProps<SVGSVGElement>) => (
+export const ChevronDownIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="M4 6l4 4 4-4" />
+  </Icon>
+);
+
+export const CheckIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="M3.5 8.5 6.5 11.5 12.5 4.5" />
+  </Icon>
+);
+
+export const PencilIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="M10.5 2.5 13.5 5.5 5.5 13.5H2.5V10.5z" />
+    <path d="M9 4l3 3" />
+  </Icon>
+);
+
+export const PlusIcon =(props: SVGProps<SVGSVGElement>) => (
   <Icon {...props}>
     <path d="M8 3v10M3 8h10" />
   </Icon>

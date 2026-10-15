@@ -2,6 +2,7 @@ export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'review' | 'done';
 
 export interface Task {
   id: number;
+  projectId: number;
   title: string;
   /** Markdown, copied from the source note when the task was created. */
   description: string;
