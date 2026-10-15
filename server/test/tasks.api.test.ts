@@ -30,15 +30,17 @@ async function createTask(body: { title: string; description?: string; sourceNot
 }
 
 describe('tasks', () => {
-  it('creates a task from a note in the backlog', async () => {
+  it('creates a task from a note in the first column (Backlog)', async () => {
     const note = await createNote();
+    const { columns, lanes } = (await api.get('/api/projects/1/board')).body;
     const task = await createTask({ title: '  Angebot schreiben ', description: 'Bis Freitag', sourceNoteId: note.id });
 
     expect(task).toMatchObject({
       id: expect.any(Number),
       title: 'Angebot schreiben',
       description: 'Bis Freitag',
-      status: 'backlog',
+      columnId: columns[0].id,
+      laneId: lanes[0].id,
       position: 1,
       sourceNote: { id: note.id, title: 'Meeting' },
     });
@@ -78,9 +80,10 @@ describe('note-task link', () => {
     const note = await createNote();
     const a = await createTask({ title: 'A', sourceNoteId: note.id });
     const b = await createTask({ title: 'B', sourceNoteId: note.id });
+    const backlog = { id: a.columnId, name: 'Backlog' };
     const expected = [
-      { id: a.id, title: 'A', status: 'backlog' },
-      { id: b.id, title: 'B', status: 'backlog' },
+      { id: a.id, title: 'A', column: backlog },
+      { id: b.id, title: 'B', column: backlog },
     ];
 
     expect((await api.get(`/api/notes/${note.id}`)).body.tasks).toEqual(expected);

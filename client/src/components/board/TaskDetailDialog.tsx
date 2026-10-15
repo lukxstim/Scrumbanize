@@ -1,24 +1,29 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useAutosave, type SaveStatus } from '../../hooks/useAutosave';
-import type { Task, TaskPatch, TaskStatus } from '../../types/task';
+import type { BoardColumn, Lane, Task, TaskPatch } from '../../types/task';
 import { formatDate } from '../../utils/format';
 import { paths } from '../../utils/paths';
 import { UNTITLED_NOTE } from '../../utils/taskFromNote';
-import { TASK_STATUSES, TASK_STATUS_LABELS } from '../../utils/taskStatus';
 import ConfirmDialog from '../ConfirmDialog';
 import MarkdownPreview from '../notes/MarkdownPreview';
 
 interface TaskDetailDialogProps {
   /** The dialog keeps its own draft; remount it (via `key`) for another task. It is open while mounted. */
   task: Task;
+  columns: BoardColumn[];
+  lanes: Lane[];
   onClose: () => void;
   onSave: (id: number, patch: TaskPatch) => Promise<void>;
-  onChangeStatus: (id: number, status: TaskStatus) => void;
+  /** Moves the task to the end of the given cell. */
+  onMove: (id: number, columnId: number, laneId: number) => void;
   onDelete: (id: number) => Promise<void>;
 }
 
-export default function TaskDetailDialog({ task, onClose, onSave, onChangeStatus, onDelete }: TaskDetailDialogProps) {
+const selectClass =
+  'rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none';
+
+export default function TaskDetailDialog({ task, columns, lanes, onClose, onSave, onMove, onDelete }: TaskDetailDialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
@@ -68,19 +73,35 @@ export default function TaskDetailDialog({ task, onClose, onSave, onChangeStatus
       <div className="flex items-center gap-3 border-b border-slate-200 px-6 py-3">
         <span className="font-mono text-sm text-slate-400">#{task.id}</span>
         <label className="flex items-center gap-2 text-sm text-slate-600">
-          Status
+          Spalte
           <select
-            value={task.status}
-            onChange={(event) => onChangeStatus(task.id, event.target.value as TaskStatus)}
-            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none"
+            value={task.columnId}
+            onChange={(event) => onMove(task.id, Number(event.target.value), task.laneId)}
+            className={selectClass}
           >
-            {TASK_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {TASK_STATUS_LABELS[s]}
+            {columns.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
               </option>
             ))}
           </select>
         </label>
+        {lanes.length > 1 && (
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            Swimlane
+            <select
+              value={task.laneId}
+              onChange={(event) => onMove(task.id, task.columnId, Number(event.target.value))}
+              className={selectClass}
+            >
+              {lanes.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <div className="flex-1" />
         <SaveIndicator status={status} titleMissing={!title.trim()} onRetry={() => void flush()} />
         <button

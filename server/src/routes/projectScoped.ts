@@ -5,13 +5,14 @@ import type { NotesRepository } from '../repositories/notesRepository.js';
 import type { ProjectsRepository } from '../repositories/projectsRepository.js';
 import type { TasksRepository } from '../repositories/tasksRepository.js';
 import {
+  columnInputSchema,
   idParamSchema,
+  laneInputSchema,
   noteInputSchema,
   noteListQuerySchema,
   taskInputSchema,
-  wipLimitSchema,
-  wipLimitStatusSchema,
 } from '../validation.js';
+import { unwrapBoard } from './board.js';
 
 interface Repositories {
   projects: ProjectsRepository;
@@ -46,7 +47,7 @@ export function projectScopedRouter({ projects, notes, tasks, board }: Repositor
     res.json(notes.listTags(projectIdOf(res)));
   });
 
-  // A task converted from a note always lands in that note's project.
+  // A task converted from a note always lands in that note's project; a given lane must be one of the project's.
   router.post('/tasks', (req, res) => {
     const input = taskInputSchema.parse(req.body);
     if (input.sourceNoteId !== undefined) {
@@ -56,17 +57,24 @@ export function projectScopedRouter({ projects, notes, tasks, board }: Repositor
         throw new HttpError(400, 'invalid_input', 'The source note belongs to another project');
       }
     }
+    if (input.laneId !== undefined && board.laneProjectId(input.laneId) !== projectIdOf(res)) {
+      throw new HttpError(400, 'invalid_input', 'The lane belongs to another project');
+    }
     res.status(201).json(tasks.create(projectIdOf(res), input));
   });
 
   router.get('/board', (_req, res) => {
-    res.json({ columns: board.listColumns(projectIdOf(res)), tasks: tasks.list(projectIdOf(res)) });
+    const projectId = projectIdOf(res);
+    res.json({ columns: board.listColumns(projectId), lanes: board.listLanes(projectId), tasks: tasks.list(projectId) });
   });
 
-  router.patch('/board/columns/:status', (req, res) => {
-    const status = wipLimitStatusSchema.parse(req.params.status);
-    const { wipLimit } = wipLimitSchema.parse(req.body);
-    res.json(board.setWipLimit(projectIdOf(res), status, wipLimit));
+  router.post('/columns', (req, res) => {
+    res.status(201).json(unwrapBoard(board.createColumn(projectIdOf(res), columnInputSchema.parse(req.body)), 'Column'));
+  });
+
+  router.post('/lanes', (req, res) => {
+    const { name } = laneInputSchema.parse(req.body);
+    res.status(201).json(unwrapBoard(board.createLane(projectIdOf(res), name), 'Lane'));
   });
 
   return router;

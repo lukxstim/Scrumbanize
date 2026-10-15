@@ -1,34 +1,27 @@
 import { useDraggable } from '@dnd-kit/core';
-import type { KeyboardEvent, ReactNode, SyntheticEvent } from 'react';
+import type { KeyboardEvent, ReactNode } from 'react';
 import { Link } from 'react-router';
-import type { Task, TaskStatus } from '../../types/task';
+import type { BoardColumn, Task } from '../../types/task';
 import { paths } from '../../utils/paths';
 import { UNTITLED_NOTE } from '../../utils/taskFromNote';
-import { TASK_STATUSES, TASK_STATUS_LABELS } from '../../utils/taskStatus';
 import { ChevronLeftIcon, ChevronRightIcon, NoteIcon } from '../icons';
+import { isolate } from './isolate';
 
 interface TaskCardProps {
   task: Task;
+  /** The columns left and right, for the quick move buttons. */
+  previous?: BoardColumn;
+  next?: BoardColumn;
+  compact: boolean;
   onOpen: (id: number) => void;
-  onMoveTo: (id: number, status: TaskStatus) => void;
+  /** Moves the task to the end of another column, staying in its lane. */
+  onMoveTo: (id: number, columnId: number) => void;
 }
 
-/** Keeps clicks and key presses on controls inside the card from starting a drag or opening the task. */
-const isolate = {
-  onMouseDown: (event: SyntheticEvent) => event.stopPropagation(),
-  onTouchStart: (event: SyntheticEvent) => event.stopPropagation(),
-  onKeyDown: (event: SyntheticEvent) => event.stopPropagation(),
-  onClick: (event: SyntheticEvent) => event.stopPropagation(),
-};
-
 /** A draggable card: Space picks it up with the keyboard, Enter or a click opens the details. */
-export function DraggableTaskCard({ task, onOpen, onMoveTo }: TaskCardProps) {
+export function DraggableTaskCard({ task, previous, next, compact, onOpen, onMoveTo }: TaskCardProps) {
   // The card stays in place as a placeholder; the DragOverlay follows the pointer.
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });
-
-  const index = TASK_STATUSES.indexOf(task.status);
-  const previous = TASK_STATUSES[index - 1];
-  const next = TASK_STATUSES[index + 1];
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id, data: { type: 'task' } });
 
   return (
     <div
@@ -44,15 +37,15 @@ export function DraggableTaskCard({ task, onOpen, onMoveTo }: TaskCardProps) {
       }}
       className="group touch-manipulation select-none rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
     >
-      <TaskCardBody task={task} placeholder={isDragging}>
+      <TaskCardBody task={task} compact={compact} placeholder={isDragging}>
         <div className="flex gap-0.5">
           {previous && (
-            <QuickMoveButton label={TASK_STATUS_LABELS[previous]} onClick={() => onMoveTo(task.id, previous)}>
+            <QuickMoveButton label={previous.name} onClick={() => onMoveTo(task.id, previous.id)}>
               <ChevronLeftIcon />
             </QuickMoveButton>
           )}
           {next && (
-            <QuickMoveButton label={TASK_STATUS_LABELS[next]} onClick={() => onMoveTo(task.id, next)}>
+            <QuickMoveButton label={next.name} onClick={() => onMoveTo(task.id, next.id)}>
               <ChevronRightIcon />
             </QuickMoveButton>
           )}
@@ -82,6 +75,7 @@ function QuickMoveButton({ label, onClick, children }: { label: string; onClick:
 
 interface TaskCardBodyProps {
   task: Task;
+  compact?: boolean;
   /** Controls that take the place of the task number while the card is hovered or focused. */
   children?: ReactNode;
   /** The card follows the pointer while dragging. */
@@ -91,7 +85,7 @@ interface TaskCardBodyProps {
 }
 
 /** The card's visible content, shared by the board and the drag preview. */
-export function TaskCardBody({ task, children, lifted = false, placeholder = false }: TaskCardBodyProps) {
+export function TaskCardBody({ task, compact = false, children, lifted = false, placeholder = false }: TaskCardBodyProps) {
   const look = lifted
     ? 'cursor-grabbing border-indigo-300 shadow-xl ring-1 ring-indigo-200 rotate-[1.5deg]'
     : placeholder
@@ -99,9 +93,15 @@ export function TaskCardBody({ task, children, lifted = false, placeholder = fal
       : 'cursor-grab border-slate-200 shadow-sm hover:border-slate-300 hover:shadow';
 
   return (
-    <article className={`rounded-lg border bg-white px-3 py-2.5 text-left transition-shadow ${look}`}>
+    <article
+      className={`rounded-lg border bg-white text-left transition-shadow ${compact ? 'px-2.5 py-1.5' : 'px-3 py-2.5'} ${look}`}
+    >
       <div className="flex items-start gap-2">
-        <h3 className="min-w-0 flex-1 break-words py-0.5 text-sm leading-snug font-medium text-slate-900">{task.title}</h3>
+        <h3
+          className={`min-w-0 flex-1 break-words py-0.5 leading-snug font-medium text-slate-900 ${compact ? 'text-xs' : 'text-sm'}`}
+        >
+          {task.title}
+        </h3>
         <div className="relative flex h-6 w-12 shrink-0 items-center justify-end">
           <span
             className={`font-mono text-[11px] text-slate-400 ${
@@ -117,7 +117,7 @@ export function TaskCardBody({ task, children, lifted = false, placeholder = fal
           )}
         </div>
       </div>
-      {task.sourceNote && (
+      {task.sourceNote && !compact && (
         <Link
           to={paths.notes(task.projectId, task.sourceNote.id)}
           {...isolate}

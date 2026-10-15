@@ -1,7 +1,6 @@
 import { Link } from 'react-router';
 import type { LinkedTask } from '../../types/task';
 import { paths } from '../../utils/paths';
-import { TASK_STATUS_LABELS } from '../../utils/taskStatus';
 
 /** Tasks share their note's project. */
 export default function LinkedTasks({ projectId, tasks }: { projectId: number; tasks: LinkedTask[] }) {
@@ -19,7 +18,7 @@ export default function LinkedTasks({ projectId, tasks }: { projectId: number; t
         >
           <span className="font-mono text-emerald-600">#{task.id}</span>
           <span className="truncate">{task.title}</span>
-          <span className="shrink-0 text-emerald-600">· {TASK_STATUS_LABELS[task.status]}</span>
+          <span className="shrink-0 text-emerald-600">· {task.column.name}</span>
         </Link>
       ))}
     </div>

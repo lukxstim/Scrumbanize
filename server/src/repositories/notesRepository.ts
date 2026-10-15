@@ -27,6 +27,14 @@ export interface NoteFilter {
   tags?: string[];
 }
 
+interface LinkedTaskRow {
+  id: number;
+  title: string;
+  source_note_id: number;
+  column_id: number;
+  column_name: string;
+}
+
 interface NoteRow {
   id: number;
   project_id: number;
@@ -54,12 +62,21 @@ export function createNotesRepository(db: Db) {
     `SELECT nt.note_id, t.name FROM note_tags nt JOIN tags t ON t.id = nt.tag_id JOIN notes n ON n.id = nt.note_id
      WHERE n.project_id = ? ORDER BY t.name`,
   );
-  const selectTasksOfNote = db.prepare<[number], LinkedTask>(
-    `SELECT id, title, status FROM tasks WHERE source_note_id = ? ORDER BY id`,
+  const selectTasksOfNote = db.prepare<[number], LinkedTaskRow>(
+    `SELECT t.id, t.title, t.source_note_id, c.id AS column_id, c.name AS column_name
+     FROM tasks t JOIN board_columns c ON c.id = t.column_id
+     WHERE t.source_note_id = ? ORDER BY t.id`,
   );
-  const selectAllLinkedTasks = db.prepare<[number], LinkedTask & { source_note_id: number }>(
-    `SELECT id, title, status, source_note_id FROM tasks WHERE project_id = ? AND source_note_id IS NOT NULL ORDER BY id`,
+  const selectAllLinkedTasks = db.prepare<[number], LinkedTaskRow>(
+    `SELECT t.id, t.title, t.source_note_id, c.id AS column_id, c.name AS column_name
+     FROM tasks t JOIN board_columns c ON c.id = t.column_id
+     WHERE t.project_id = ? AND t.source_note_id IS NOT NULL ORDER BY t.id`,
   );
+  const toLinkedTask = (row: LinkedTaskRow): LinkedTask => ({
+    id: row.id,
+    title: row.title,
+    column: { id: row.column_id, name: row.column_name },
+  });
   const clearNoteTags = db.prepare<[number]>(`DELETE FROM note_tags WHERE note_id = ?`);
   const upsertTag = db.prepare<[string], { id: number }>(
     `INSERT INTO tags (name) VALUES (?) ON CONFLICT (name) DO UPDATE SET name = name RETURNING id`,
@@ -98,7 +115,7 @@ export function createNotesRepository(db: Db) {
     return toNote(
       row,
       selectTagsOfNote.all(row.id).map((t) => t.name),
-      selectTasksOfNote.all(row.id),
+      selectTasksOfNote.all(row.id).map(toLinkedTask),
     );
   }
 
@@ -140,10 +157,10 @@ export function createNotesRepository(db: Db) {
       }
 
       const tasksByNote = new Map<number, LinkedTask[]>();
-      for (const { source_note_id, ...task } of selectAllLinkedTasks.all(projectId)) {
-        const list = tasksByNote.get(source_note_id) ?? [];
-        list.push(task);
-        tasksByNote.set(source_note_id, list);
+      for (const row of selectAllLinkedTasks.all(projectId)) {
+        const list = tasksByNote.get(row.source_note_id) ?? [];
+        list.push(toLinkedTask(row));
+        tasksByNote.set(row.source_note_id, list);
       }
 
       return rows.map((row) => toNote(row, tagsByNote.get(row.id) ?? [], tasksByNote.get(row.id) ?? []));

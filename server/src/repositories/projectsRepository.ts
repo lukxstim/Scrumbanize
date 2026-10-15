@@ -1,13 +1,10 @@
 import type { Db } from '../database.js';
 import type { ProjectInput, ProjectPatch } from '../validation.js';
-import { TASK_STATUSES } from './tasksRepository.js';
+import { createBoardRepository } from './boardRepository.js';
 
 /** Preset colors a project can have; the client maps them to Tailwind colors. */
 export const PROJECT_COLORS = ['slate', 'red', 'amber', 'emerald', 'sky', 'indigo', 'violet', 'pink'] as const;
 export type ProjectColor = (typeof PROJECT_COLORS)[number];
-
-/** WIP limits a new project starts with. */
-const DEFAULT_WIP_LIMITS: Partial<Record<(typeof TASK_STATUSES)[number], number>> = { in_progress: 3 };
 
 export interface Project {
   id: number;
@@ -49,9 +46,7 @@ export function createProjectsRepository(db: Db) {
   const insertProject = db.prepare<[string, string, string, string], { id: number }>(
     `INSERT INTO projects (name, color, created_at, updated_at) VALUES (?, ?, ?, ?) RETURNING id`,
   );
-  const insertColumn = db.prepare<[number, string, number | null]>(
-    `INSERT INTO board_columns (project_id, status, wip_limit) VALUES (?, ?, ?)`,
-  );
+  const board = createBoardRepository(db);
   const updateProject = db.prepare<[string | null, string | null, string, number]>(
     `UPDATE projects SET name = COALESCE(?, name), color = COALESCE(?, color), updated_at = ? WHERE id = ?`,
   );
@@ -92,12 +87,12 @@ export function createProjectsRepository(db: Db) {
       return projectExists.get(id) !== undefined;
     },
 
-    /** Also sets up the project's board columns with the default WIP limits. */
+    /** Also sets up the project's default board: five columns and one lane. */
     create: db.transaction((input: ProjectInput): ProjectResult => {
       if (nameTaken(input.name)) return { ok: false, reason: 'name_taken' };
       const now = new Date().toISOString();
       const { id } = insertProject.get(input.name, input.color, now, now)!;
-      for (const status of TASK_STATUSES) insertColumn.run(id, status, DEFAULT_WIP_LIMITS[status] ?? null);
+      board.createDefaults(id);
       return { ok: true, project: list().find((p) => p.id === id)! };
     }),
 

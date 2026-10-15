@@ -1,6 +1,6 @@
 import type { Note, NoteInput } from '../types/note';
 import type { Project, ProjectInput } from '../types/project';
-import type { BoardColumn, Task, TaskInput, TaskPatch, TaskStatus } from '../types/task';
+import type { BoardColumn, Lane, Task, TaskInput, TaskPatch } from '../types/task';
 
 export class ApiError extends Error {
   constructor(
@@ -36,6 +36,7 @@ export const projectsApi = {
 
 export const notesApi = {
   list: (projectId: number) => request<Note[]>(`/projects/${projectId}/notes`),
+  get: (id: number) => request<Note>(`/notes/${id}`),
   create: (projectId: number, input: NoteInput) =>
     request<Note>(`/projects/${projectId}/notes`, { method: 'POST', body: JSON.stringify(input) }),
   update: (id: number, input: NoteInput) =>
@@ -48,17 +49,39 @@ export const tasksApi = {
     request<Task>(`/projects/${projectId}/tasks`, { method: 'POST', body: JSON.stringify(input) }),
   update: (id: number, patch: TaskPatch) =>
     request<Task>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
-  /** `index` counts the other tasks in the target column. */
-  move: (id: number, status: TaskStatus, index: number) =>
-    request<Task>(`/tasks/${id}/move`, { method: 'POST', body: JSON.stringify({ status, index }) }),
+  /** `index` counts the other tasks in the target cell (column × lane). */
+  move: (id: number, columnId: number, laneId: number, index: number) =>
+    request<Task>(`/tasks/${id}/move`, { method: 'POST', body: JSON.stringify({ columnId, laneId, index }) }),
   remove: (id: number) => request<void>(`/tasks/${id}`, { method: 'DELETE' }),
 };
 
 export const boardApi = {
-  get: (projectId: number) => request<{ columns: BoardColumn[]; tasks: Task[] }>(`/projects/${projectId}/board`),
-  setWipLimit: (projectId: number, status: TaskStatus, wipLimit: number | null) =>
-    request<BoardColumn>(`/projects/${projectId}/board/columns/${status}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ wipLimit }),
-    }),
+  get: (projectId: number) =>
+    request<{ columns: BoardColumn[]; lanes: Lane[]; tasks: Task[] }>(`/projects/${projectId}/board`),
+};
+
+/** Deleting a column or lane that still has tasks needs `moveTasksTo`. */
+const deleteQuery = (moveTasksTo?: number) => (moveTasksTo === undefined ? '' : `?moveTasksTo=${moveTasksTo}`);
+
+export const columnsApi = {
+  create: (projectId: number, input: { name: string; wipLimit?: number | null }) =>
+    request<BoardColumn>(`/projects/${projectId}/columns`, { method: 'POST', body: JSON.stringify(input) }),
+  update: (id: number, patch: { name?: string; wipLimit?: number | null }) =>
+    request<BoardColumn>(`/columns/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  /** `index` counts the other columns. */
+  move: (id: number, index: number) =>
+    request<BoardColumn>(`/columns/${id}/move`, { method: 'POST', body: JSON.stringify({ index }) }),
+  remove: (id: number, moveTasksTo?: number) =>
+    request<void>(`/columns/${id}${deleteQuery(moveTasksTo)}`, { method: 'DELETE' }),
+};
+
+export const lanesApi = {
+  create: (projectId: number, name: string) =>
+    request<Lane>(`/projects/${projectId}/lanes`, { method: 'POST', body: JSON.stringify({ name }) }),
+  rename: (id: number, name: string) => request<Lane>(`/lanes/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
+  /** `index` counts the other lanes. */
+  move: (id: number, index: number) =>
+    request<Lane>(`/lanes/${id}/move`, { method: 'POST', body: JSON.stringify({ index }) }),
+  remove: (id: number, moveTasksTo?: number) =>
+    request<void>(`/lanes/${id}${deleteQuery(moveTasksTo)}`, { method: 'DELETE' }),
 };

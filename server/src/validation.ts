@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { PROJECT_COLORS } from './repositories/projectsRepository.js';
-import { TASK_STATUSES, WIP_LIMITED_STATUSES } from './repositories/tasksRepository.js';
 
 export const MAX_TAG_LENGTH = 32;
 export const MAX_TAGS_PER_NOTE = 50;
@@ -42,6 +41,8 @@ export const taskInputSchema = z.object({
   title: z.string().trim().min(1).max(200),
   description: z.string().max(1_000_000),
   sourceNoteId: z.number().int().positive().optional(),
+  /** The lane to create the task in; the first lane if omitted. */
+  laneId: z.number().int().positive().optional(),
 });
 
 export type TaskInput = z.infer<typeof taskInputSchema>;
@@ -54,16 +55,24 @@ export const taskPatchSchema = z.object({
 export type TaskPatch = z.infer<typeof taskPatchSchema>;
 
 export const moveTaskSchema = z.object({
-  status: z.enum(TASK_STATUSES),
-  /** Target index within the destination column, not counting the moved task; clamped to the column's end. */
+  columnId: z.number().int().positive(),
+  laneId: z.number().int().positive(),
+  /** Target index within the destination cell, not counting the moved task; clamped to the cell's end. */
   index: z.number().int().min(0),
 });
 
-export const wipLimitStatusSchema = z.enum(WIP_LIMITED_STATUSES);
+const boardNameSchema = z.string().trim().min(1).max(40);
+const wipLimitSchema = z.number().int().min(1).max(999).nullable();
 
-export const wipLimitSchema = z.object({
-  wipLimit: z.number().int().min(1).max(999).nullable(),
-});
+export const columnInputSchema = z.object({ name: boardNameSchema, wipLimit: wipLimitSchema.optional() });
+export const columnPatchSchema = z.object({ name: boardNameSchema.optional(), wipLimit: wipLimitSchema.optional() });
+export const laneInputSchema = z.object({ name: boardNameSchema });
+
+/** Reordering a column or lane: its new index among the others. */
+export const reorderSchema = z.object({ index: z.number().int().min(0) });
+
+/** Where the tasks of a deleted column or lane go. */
+export const deleteBoardItemQuerySchema = z.object({ moveTasksTo: z.coerce.number().int().positive().optional() });
 
 export const idParamSchema = z.coerce.number().int().positive();
 

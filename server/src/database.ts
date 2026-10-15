@@ -112,6 +112,62 @@ export const migrations: string[] = [
   DROP TABLE board_columns;
   ALTER TABLE board_columns_new RENAME TO board_columns;
   `,
+  // Custom columns and swimlanes: the five fixed statuses become real columns per project, every project
+  // gets the swimlane "Standard", and tasks point at a column and a lane instead of a status.
+  `
+  CREATE TABLE lanes (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    name       TEXT NOT NULL,
+    position   REAL NOT NULL
+  );
+  INSERT INTO lanes (project_id, name, position) SELECT id, 'Standard', 1 FROM projects ORDER BY id;
+  CREATE INDEX idx_lanes_project_position ON lanes(project_id, position);
+
+  CREATE TABLE board_columns_new (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    name       TEXT NOT NULL,
+    position   REAL NOT NULL,
+    wip_limit  INTEGER CHECK (wip_limit IS NULL OR wip_limit > 0)
+  );
+  -- The old status order becomes the column position (1-5), which also maps tasks to their new column below.
+  INSERT INTO board_columns_new (project_id, name, position, wip_limit)
+    SELECT project_id,
+      CASE status WHEN 'backlog' THEN 'Backlog' WHEN 'todo' THEN 'To Do' WHEN 'in_progress' THEN 'In Progress'
+                  WHEN 'review' THEN 'Review' ELSE 'Done' END,
+      CASE status WHEN 'backlog' THEN 1 WHEN 'todo' THEN 2 WHEN 'in_progress' THEN 3 WHEN 'review' THEN 4 ELSE 5 END,
+      wip_limit
+    FROM board_columns ORDER BY project_id, 3;
+  DROP TABLE board_columns;
+  ALTER TABLE board_columns_new RENAME TO board_columns;
+  CREATE INDEX idx_board_columns_project_position ON board_columns(project_id, position);
+
+  CREATE TABLE tasks_new (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id     INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    column_id      INTEGER NOT NULL REFERENCES board_columns(id),
+    lane_id        INTEGER NOT NULL REFERENCES lanes(id),
+    title          TEXT NOT NULL,
+    description    TEXT NOT NULL DEFAULT '',
+    position       REAL NOT NULL,
+    source_note_id INTEGER REFERENCES notes(id) ON DELETE SET NULL,
+    created_at     TEXT NOT NULL,
+    updated_at     TEXT NOT NULL
+  );
+  INSERT INTO tasks_new (id, project_id, column_id, lane_id, title, description, position, source_note_id, created_at, updated_at)
+    SELECT t.id, t.project_id,
+      (SELECT c.id FROM board_columns c WHERE c.project_id = t.project_id AND c.position =
+        CASE t.status WHEN 'backlog' THEN 1 WHEN 'todo' THEN 2 WHEN 'in_progress' THEN 3 WHEN 'review' THEN 4 ELSE 5 END),
+      (SELECT l.id FROM lanes l WHERE l.project_id = t.project_id),
+      t.title, t.description, t.position, t.source_note_id, t.created_at, t.updated_at
+    FROM tasks t;
+  DROP TABLE tasks;
+  ALTER TABLE tasks_new RENAME TO tasks;
+  CREATE INDEX idx_tasks_source_note_id ON tasks(source_note_id);
+  CREATE INDEX idx_tasks_project ON tasks(project_id);
+  CREATE INDEX idx_tasks_cell ON tasks(column_id, lane_id, position);
+  `,
 ];
 
 /** Opens (or creates) the database at `file` and brings its schema up to date. Pass ':memory:' for tests. */

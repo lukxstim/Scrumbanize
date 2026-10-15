@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { PlusIcon } from '../icons';
 
-/** "+ Task" at the bottom of the Backlog: Enter creates the task and keeps the field open for the next one. */
+/** "+ Task" in the first column of each lane: Enter creates the task and keeps the field open for the next one. */
 export default function NewTaskForm({ onCreate }: { onCreate: (title: string) => Promise<unknown> }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');

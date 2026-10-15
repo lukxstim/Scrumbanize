@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { wipState } from '../../utils/board';
+import { isolate } from './isolate';
 
 interface WipLimitControlProps {
   count: number;
   limit: number | null;
   columnLabel: string;
   onChange: (limit: number | null) => void;
+  /** Lets the column menu open the editor. */
+  editing: boolean;
+  onEditingChange: (editing: boolean) => void;
 }
 
 const STATE_CLASSES = {
@@ -15,14 +19,20 @@ const STATE_CLASSES = {
   'over-limit': 'bg-red-600 text-white',
 };
 
-/** Shows "count / limit" for columns that support a WIP limit; click to edit, empty means unlimited. */
-export default function WipLimitControl({ count, limit, columnLabel, onChange }: WipLimitControlProps) {
-  const [editing, setEditing] = useState(false);
+/** Shows "count / limit"; click to edit, empty means unlimited. */
+export default function WipLimitControl({ count, limit, columnLabel, onChange, editing, onEditingChange }: WipLimitControlProps) {
   const [text, setText] = useState('');
+  const [wasEditing, setWasEditing] = useState(editing);
   const state = wipState(count, limit);
 
+  // Fill the field with the current limit whenever editing starts.
+  if (editing !== wasEditing) {
+    setWasEditing(editing);
+    if (editing) setText(limit === null ? '' : String(limit));
+  }
+
   function commit() {
-    setEditing(false);
+    onEditingChange(false);
     const value = text.trim() === '' ? null : Number(text);
     if (value === null || (Number.isInteger(value) && value >= 1 && value <= 999)) {
       if (value !== limit) onChange(value);
@@ -37,11 +47,13 @@ export default function WipLimitControl({ count, limit, columnLabel, onChange }:
         max={999}
         value={text}
         autoFocus
+        {...isolate}
         onChange={(event) => setText(event.target.value)}
         onBlur={commit}
         onKeyDown={(event) => {
+          event.stopPropagation();
           if (event.key === 'Enter') commit();
-          if (event.key === 'Escape') setEditing(false);
+          if (event.key === 'Escape') onEditingChange(false);
         }}
         placeholder="∞"
         aria-label={`WIP-Limit für „${columnLabel}“ (leer = kein Limit)`}
@@ -53,9 +65,10 @@ export default function WipLimitControl({ count, limit, columnLabel, onChange }:
   return (
     <button
       type="button"
-      onClick={() => {
-        setText(limit === null ? '' : String(limit));
-        setEditing(true);
+      {...isolate}
+      onClick={(event) => {
+        event.stopPropagation();
+        onEditingChange(true);
       }}
       title={
         state === 'over-limit'

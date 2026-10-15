@@ -54,7 +54,7 @@ describe('projects', () => {
   it('gives new projects the default WIP limits', async () => {
     const project = await createProject('Neu');
     const { columns } = (await api.get(`/api/projects/${project.id}/board`)).body;
-    expect(columns.find((c: { status: string }) => c.status === 'in_progress').wipLimit).toBe(3);
+    expect(columns.find((c: { name: string }) => c.name === 'In Progress').wipLimit).toBe(3);
   });
 
   it('rejects duplicate names regardless of case, including umlauts', async () => {
@@ -125,8 +125,11 @@ describe('isolation', () => {
     const other = await createProject('Privat');
     const a = (await createTask(1, 'A')).body;
     const b = (await createTask(other.id, 'B')).body;
-    await api.post(`/api/tasks/${a.id}/move`).send({ status: 'todo', index: 0 });
-    await api.post(`/api/tasks/${b.id}/move`).send({ status: 'todo', index: 0 });
+    // Each task moves to its own project's second column.
+    for (const task of [a, b]) {
+      const { columns, lanes } = (await api.get(`/api/projects/${task.projectId}/board`)).body;
+      await api.post(`/api/tasks/${task.id}/move`).send({ columnId: columns[1].id, laneId: lanes[0].id, index: 0 });
+    }
 
     expect((await api.get('/api/projects/1/board')).body.tasks.map((t: { title: string }) => t.title)).toEqual(['A']);
     expect((await api.get(`/api/projects/${other.id}/board`)).body.tasks[0]).toMatchObject({ title: 'B', position: 1 });
@@ -134,9 +137,10 @@ describe('isolation', () => {
 
   it('keeps WIP limits per project', async () => {
     const other = await createProject('Privat');
-    await api.patch(`/api/projects/${other.id}/board/columns/todo`).send({ wipLimit: 5 });
-    const limit = async (p: number) =>
-      (await api.get(`/api/projects/${p}/board`)).body.columns.find((c: { status: string }) => c.status === 'todo').wipLimit;
+    const todoOf = async (p: number) =>
+      (await api.get(`/api/projects/${p}/board`)).body.columns.find((c: { name: string }) => c.name === 'To Do');
+    await api.patch(`/api/columns/${(await todoOf(other.id)).id}`).send({ wipLimit: 5 });
+    const limit = async (p: number) => (await todoOf(p)).wipLimit;
     expect(await limit(other.id)).toBe(5);
     expect(await limit(1)).toBeNull();
   });
@@ -203,12 +207,13 @@ describe('migration to projects', () => {
           projectId: 1,
           title: 'Alt',
           tags: ['tag'],
-          tasks: [{ id: 3, title: 'Alter Task', status: 'review' }],
+          tasks: [{ id: 3, title: 'Alter Task', column: expect.objectContaining({ name: 'Review' }) }],
         }),
       ]);
       const board = (await app.get('/api/projects/1/board')).body;
-      expect(board.tasks[0]).toMatchObject({ id: 3, projectId: 1, status: 'review', position: 2.5, sourceNote: { id: 7 } });
-      expect(board.columns.find((c: { status: string }) => c.status === 'review').wipLimit).toBe(4);
+      const review = board.columns.find((c: { name: string }) => c.name === 'Review');
+      expect(review.wipLimit).toBe(4);
+      expect(board.tasks[0]).toMatchObject({ id: 3, projectId: 1, columnId: review.id, position: 2.5, sourceNote: { id: 7 } });
 
       // Ids continue after the migrated rows, and foreign keys are enforced again.
       const fresh = (await app.post('/api/projects/1/notes').send({ title: 'Neu', content: '', tags: [] })).body;

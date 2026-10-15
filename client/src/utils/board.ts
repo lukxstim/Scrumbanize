@@ -1,57 +1,98 @@
-import type { Task, TaskStatus } from '../types/task';
-import { TASK_STATUSES } from './taskStatus';
+import type { BoardColumn, Task } from '../types/task';
 
-/** Tasks per column, each in board order. */
-export type Columns = Record<TaskStatus, Task[]>;
+/** Tasks per cell (column × lane), each in board order. Keyed by `cellKey`. */
+export type Cells = Record<string, Task[]>;
 
-export function emptyColumns(): Columns {
-  return Object.fromEntries(TASK_STATUSES.map((status) => [status, []])) as unknown as Columns;
+export const cellKey = (columnId: number, laneId: number) => `${columnId}:${laneId}`;
+
+export function groupByCell(tasks: Task[]): Cells {
+  const cells: Cells = {};
+  for (const task of tasks) (cells[cellKey(task.columnId, task.laneId)] ??= []).push(task);
+  for (const list of Object.values(cells)) list.sort((a, b) => a.position - b.position || a.id - b.id);
+  return cells;
 }
 
-export function groupByStatus(tasks: Task[]): Columns {
-  const columns = emptyColumns();
-  for (const task of tasks) columns[task.status].push(task);
-  for (const status of TASK_STATUSES) columns[status].sort((a, b) => a.position - b.position || a.id - b.id);
-  return columns;
+export function cellTasks(cells: Cells, columnId: number, laneId: number): Task[] {
+  return cells[cellKey(columnId, laneId)] ?? [];
 }
 
-export function findTask(columns: Columns, id: number): Task | undefined {
-  for (const status of TASK_STATUSES) {
-    const task = columns[status].find((t) => t.id === id);
+export function findTask(cells: Cells, id: number): Task | undefined {
+  for (const list of Object.values(cells)) {
+    const task = list.find((t) => t.id === id);
     if (task) return task;
   }
   return undefined;
 }
 
-/**
- * Moves a task to `index` in column `status`, where `index` counts the other tasks of that column
- * (the same convention as the move API). Returns new columns; unknown ids leave them unchanged.
- */
-export function applyMove(columns: Columns, id: number, status: TaskStatus, index: number): Columns {
-  const task = findTask(columns, id);
-  if (!task) return columns;
+/** Where a task sits: its cell and its index there. */
+export function placementOf(cells: Cells, id: number): { columnId: number; laneId: number; index: number } | undefined {
+  const task = findTask(cells, id);
+  if (!task) return undefined;
+  const index = cellTasks(cells, task.columnId, task.laneId).findIndex((t) => t.id === id);
+  return { columnId: task.columnId, laneId: task.laneId, index };
+}
 
-  const next = { ...columns, [task.status]: columns[task.status].filter((t) => t.id !== id) };
-  const target = [...next[status]];
-  target.splice(Math.min(index, target.length), 0, task.status === status ? task : { ...task, status });
-  next[status] = target;
+/**
+ * Moves a task to `index` in the cell (columnId, laneId), where `index` counts the other tasks of that cell
+ * (the same convention as the move API). Returns new cells; unknown ids leave them unchanged.
+ */
+export function applyMove(cells: Cells, id: number, columnId: number, laneId: number, index: number): Cells {
+  const task = findTask(cells, id);
+  if (!task) return cells;
+
+  const from = cellKey(task.columnId, task.laneId);
+  const to = cellKey(columnId, laneId);
+  const next = { ...cells, [from]: cells[from]!.filter((t) => t.id !== id) };
+  const target = [...(next[to] ?? [])];
+  target.splice(Math.min(index, target.length), 0, from === to ? task : { ...task, columnId, laneId });
+  next[to] = target;
   return next;
 }
 
 /** Swaps in a newer version of a task (e.g. a server response), keeping the board order. */
-export function replaceTask(columns: Columns, task: Task): Columns {
-  const next = { ...columns };
-  for (const status of TASK_STATUSES) {
-    if (next[status].some((t) => t.id === task.id)) {
-      next[status] = next[status].map((t) => (t.id === task.id ? task : t));
-    }
+export function replaceTask(cells: Cells, task: Task): Cells {
+  const next = { ...cells };
+  for (const [key, list] of Object.entries(next)) {
+    if (list.some((t) => t.id === task.id)) next[key] = list.map((t) => (t.id === task.id ? task : t));
   }
   return next;
 }
 
-export function removeTask(columns: Columns, id: number): Columns {
-  const task = findTask(columns, id);
-  return task ? { ...columns, [task.status]: columns[task.status].filter((t) => t.id !== id) } : columns;
+export function removeTask(cells: Cells, id: number): Cells {
+  const task = findTask(cells, id);
+  if (!task) return cells;
+  const key = cellKey(task.columnId, task.laneId);
+  return { ...cells, [key]: cells[key]!.filter((t) => t.id !== id) };
+}
+
+export function addTask(cells: Cells, task: Task): Cells {
+  const key = cellKey(task.columnId, task.laneId);
+  return { ...cells, [key]: [...(cells[key] ?? []), task] };
+}
+
+/** Tasks in a column across all lanes; WIP limits count these. */
+export function columnCount(cells: Cells, columnId: number): number {
+  return Object.entries(cells).reduce((sum, [key, list]) => (key.startsWith(`${columnId}:`) ? sum + list.length : sum), 0);
+}
+
+/** Tasks in a lane across all columns. */
+export function laneCount(cells: Cells, laneId: number): number {
+  return Object.entries(cells).reduce((sum, [key, list]) => (key.endsWith(`:${laneId}`) ? sum + list.length : sum), 0);
+}
+
+/** Moves the item with `id` to `index` among the other items (for reordering columns and lanes). */
+export function reorder<T extends { id: number }>(items: T[], id: number, index: number): T[] {
+  const item = items.find((i) => i.id === id);
+  if (!item) return items;
+  const rest = items.filter((i) => i.id !== id);
+  rest.splice(Math.min(index, rest.length), 0, item);
+  return rest;
+}
+
+/** The columns left and right of a column, for the quick move buttons. */
+export function neighbours(columns: BoardColumn[], columnId: number): { previous?: BoardColumn; next?: BoardColumn } {
+  const index = columns.findIndex((c) => c.id === columnId);
+  return { previous: columns[index - 1], next: index === -1 ? undefined : columns[index + 1] };
 }
 
 export type WipState = 'none' | 'ok' | 'at-limit' | 'over-limit';

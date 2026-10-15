@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { notFound } from '../errors.js';
+import { HttpError, notFound } from '../errors.js';
 import type { TasksRepository } from '../repositories/tasksRepository.js';
 import { idParamSchema, moveTaskSchema, taskPatchSchema } from '../validation.js';
 
@@ -21,10 +21,14 @@ export function tasksRouter(tasks: TasksRepository): Router {
 
   // Moves stay inside the task's own project.
   router.post('/:id/move', (req, res) => {
-    const { status, index } = moveTaskSchema.parse(req.body);
-    const task = tasks.move(idParamSchema.parse(req.params.id), status, index);
-    if (!task) throw notFound('Task not found');
-    res.json(task);
+    const { columnId, laneId, index } = moveTaskSchema.parse(req.body);
+    const result = tasks.move(idParamSchema.parse(req.params.id), columnId, laneId, index);
+    if (result.ok) {
+      res.json(result.task);
+      return;
+    }
+    if (result.reason === 'not_found') throw notFound('Task not found');
+    throw new HttpError(400, 'invalid_target', "Column and lane must belong to the task's project");
   });
 
   router.delete('/:id', (req, res) => {

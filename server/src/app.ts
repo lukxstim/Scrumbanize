@@ -7,6 +7,7 @@ import { createBoardRepository } from './repositories/boardRepository.js';
 import { createNotesRepository } from './repositories/notesRepository.js';
 import { createProjectsRepository } from './repositories/projectsRepository.js';
 import { createTasksRepository } from './repositories/tasksRepository.js';
+import { columnsRouter, lanesRouter } from './routes/board.js';
 import { notesRouter } from './routes/notes.js';
 import { projectScopedRouter } from './routes/projectScoped.js';
 import { projectsRouter } from './routes/projects.js';
@@ -35,6 +36,8 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   api.use('/projects/:projectId', projectScopedRouter({ projects, notes, tasks, board }));
   api.use('/notes', notesRouter(notes));
   api.use('/tasks', tasksRouter(tasks));
+  api.use('/columns', columnsRouter(board));
+  api.use('/lanes', lanesRouter(board));
   api.use(apiNotFoundHandler);
   app.use('/api', api);
 

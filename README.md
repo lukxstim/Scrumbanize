@@ -2,12 +2,17 @@
 
 Selbstgehostete Web-App, die Notizen und ein Scrumban-Board verbindet. Hintergrund und Ziele: [docs/vision.md](docs/vision.md), User Stories: [docs/stories](docs/stories).
 
-**Stand:** US-01 bis US-04 sind umgesetzt:
+**Stand:** US-01 bis US-05 sind umgesetzt:
 
 - **Projekte:** Notizen und Board sind nach Projekten getrennt (z. B. „Privat“, „Studium“). Projekte werden im Header gewechselt, angelegt, umbenannt, eingefärbt und gelöscht (Bestätigung durch Eintippen des Namens; das letzte Projekt bleibt erhalten). Beim ersten Start gibt es das Projekt „Allgemein“; das zuletzt geöffnete Projekt merkt sich der Browser.
 - **Notizen** (`/p/:projectId/notes`): Titel, Markdown-Inhalt und Tags, Auto-Save, Live-Suche und Tag-Filter.
-- **Task-Umwandlung:** ganze Notizen oder markierte Textpassagen über ein vorausgefülltes Formular in Tasks im Backlog desselben Projekts umwandeln; Notiz und Task sind gegenseitig verlinkt.
-- **Scrumban-Board** (`/p/:projectId/board`, Task-Details unter `/p/:projectId/tasks/:id`): Spalten Backlog, To Do, In Progress, Review, Done; Verschieben per Drag-and-Drop (Maus, Touch, Tastatur: Leertaste aufnehmen, Pfeiltasten, Leertaste ablegen) oder ◀ ▶; WIP-Limits für To Do, In Progress und Review (nur Warnung, nicht blockierend); Tasks direkt im Backlog anlegen, bearbeiten und löschen.
+- **Task-Umwandlung:** ganze Notizen oder markierte Textpassagen über ein vorausgefülltes Formular in Tasks in der ersten Spalte desselben Projekts umwandeln; Notiz und Task sind gegenseitig verlinkt.
+- **Scrumban-Board** (`/p/:projectId/board`, Task-Details unter `/p/:projectId/tasks/:id`):
+  - Eigene Spalten und Swimlanes pro Projekt: anlegen, per Doppelklick umbenennen, über das ⋯-Menü sortieren (Spalten auch per Drag-and-Drop am Kopf) und löschen. Tasks einer gelöschten Spalte oder Swimlane werden in eine wählbare andere verschoben. Höchstens 20 Spalten und 20 Swimlanes; Namen sind pro Projekt eindeutig.
+  - Neue Projekte starten mit Backlog, To Do, In Progress (WIP-Limit 3), Review, Done und der Swimlane „Standard“. Swimlane-Köpfe erscheinen ab zwei Swimlanes und lassen sich einklappen (merkt sich der Browser).
+  - WIP-Limits für jede Spalte, über alle Swimlanes gezählt – nur als Warnung, nicht blockierend.
+  - Tasks per Drag-and-Drop zwischen Spalten und Swimlanes verschieben (Maus, Touch, Tastatur: Leertaste aufnehmen, Pfeiltasten, Leertaste ablegen) oder per ◀ ▶. Neue Tasks landen in der ersten Spalte; jede Swimlane hat dort ein eigenes „+ Task“.
+  - „Kompakt“ verkleinert Karten und Spalten; Spaltenköpfe bleiben beim Scrollen sichtbar.
 
 Die App ist für einen einzelnen Nutzer ohne Login gedacht – betreibe sie nur in einem vertrauenswürdigen Netz oder hinter einem Reverse-Proxy mit Authentifizierung.
 
@@ -72,15 +77,20 @@ Listen und Neuanlagen gehören zu einem Projekt (`/api/projects/:projectId/…`)
 | GET     | `/api/projects/:id/notes` | Notizen des Projekts, zuletzt geänderte zuerst. Optional `?q=` (Volltext in Titel, Inhalt, Tags) und `?tag=` (mehrfach möglich, alle müssen passen) |
 | POST    | `/api/projects/:id/notes` | Notiz anlegen: `{ "title": "", "content": "", "tags": [] }` |
 | GET     | `/api/projects/:id/tags` | Tags der Notizen des Projekts mit Anzahl |
-| POST    | `/api/projects/:id/tasks` | Task im Backlog anlegen: `{ "title", "description", "sourceNoteId"? }` – die Notiz muss zum Projekt gehören |
-| GET     | `/api/projects/:id/board` | Spalten mit WIP-Limits und alle Tasks des Projekts: `{ "columns", "tasks" }` |
-| PATCH   | `/api/projects/:id/board/columns/:status` | WIP-Limit setzen (nur `todo`, `in_progress`, `review`): `{ "wipLimit": number \| null }` |
+| POST    | `/api/projects/:id/tasks` | Task am Ende der ersten Spalte anlegen: `{ "title", "description", "sourceNoteId"?, "laneId"? }` – Notiz und Swimlane müssen zum Projekt gehören; ohne `laneId` die erste Swimlane |
+| GET     | `/api/projects/:id/board` | Board des Projekts: `{ "columns": [{ id, name, position, wipLimit }], "lanes": [{ id, name, position }], "tasks" }` |
+| POST    | `/api/projects/:id/columns` | Spalte anhängen: `{ "name", "wipLimit"? }` – Namen pro Projekt eindeutig (ohne Groß-/Kleinschreibung), max. 40 Zeichen; höchstens 20 Spalten (sonst 409) |
+| POST    | `/api/projects/:id/lanes` | Swimlane anhängen: `{ "name" }` – gleiche Regeln wie bei Spalten |
+| PATCH   | `/api/columns/:id` | Name und/oder WIP-Limit ändern: `{ "name"?, "wipLimit"?: number \| null }` |
+| POST    | `/api/columns/:id/move` | Spalte umsortieren: `{ "index" }` – Position unter den übrigen Spalten |
+| DELETE  | `/api/columns/:id?moveTasksTo=:columnId` | Spalte löschen; hat sie Tasks, ist `moveTasksTo` Pflicht (sonst 409). Die letzte Spalte bleibt erhalten (409) |
+| PATCH, POST, DELETE | `/api/lanes/:id`, `/api/lanes/:id/move` | Swimlane umbenennen (`{ "name" }`), umsortieren und löschen – wie bei Spalten |
 | GET     | `/api/notes/:id`  | Eine Notiz |
 | PUT     | `/api/notes/:id`  | Notiz vollständig ersetzen: `{ "title", "content", "tags" }` |
 | DELETE  | `/api/notes/:id`  | Notiz löschen |
 | GET     | `/api/tasks/:id`  | Ein Task inkl. Quell-Notiz (`sourceNote`) |
 | PATCH   | `/api/tasks/:id`  | Titel und/oder Beschreibung ändern: `{ "title"?, "description"? }` |
-| POST    | `/api/tasks/:id/move` | Task innerhalb seines Projekts verschieben: `{ "status", "index" }` – `index` ist die Zielposition unter den übrigen Tasks der Spalte |
+| POST    | `/api/tasks/:id/move` | Task verschieben: `{ "columnId", "laneId", "index" }` – Spalte und Swimlane müssen zum Projekt des Tasks gehören; `index` ist die Zielposition unter den übrigen Tasks der Zelle |
 | DELETE  | `/api/tasks/:id`  | Task löschen |
 
 Tags werden normalisiert (Kleinschreibung, ohne Kommas, max. 32 Zeichen). Tags, die keine Notiz mehr verwendet, werden automatisch entfernt. Notizen enthalten ihre verknüpften Tasks (`tasks`). Tasks sind Kopien: spätere Änderungen an der Notiz werden nicht übernommen, und beim Löschen einer Notiz bleiben ihre Tasks erhalten. Fehler haben die Form `{ "error": { "code", "message" } }`.
