@@ -13,13 +13,15 @@ interface TaskCardProps {
   previous?: BoardColumn;
   next?: BoardColumn;
   compact: boolean;
+  /** Briefly highlighted after it was moved. */
+  flash?: boolean;
   onOpen: (id: number) => void;
   /** Moves the task to the end of another column, staying in its lane. */
   onMoveTo: (id: number, columnId: number) => void;
 }
 
 /** A draggable card: Space picks it up with the keyboard, Enter or a click opens the details. */
-export function DraggableTaskCard({ task, previous, next, compact, onOpen, onMoveTo }: TaskCardProps) {
+export function DraggableTaskCard({ task, previous, next, compact, flash = false, onOpen, onMoveTo }: TaskCardProps) {
   // The card stays in place as a placeholder; the DragOverlay follows the pointer.
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id, data: { type: 'task' } });
 
@@ -35,9 +37,9 @@ export function DraggableTaskCard({ task, previous, next, compact, onOpen, onMov
         if (event.key === 'Enter') onOpen(task.id);
         else listeners?.onKeyDown?.(event);
       }}
-      className="group touch-manipulation select-none rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+      className="group touch-manipulation select-none rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
-      <TaskCardBody task={task} compact={compact} placeholder={isDragging}>
+      <TaskCardBody task={task} compact={compact} placeholder={isDragging} flash={flash}>
         <div className="flex gap-0.5">
           {previous && (
             <QuickMoveButton label={previous.name} onClick={() => onMoveTo(task.id, previous.id)}>
@@ -66,7 +68,7 @@ function QuickMoveButton({ label, onClick, children }: { label: string; onClick:
       }}
       aria-label={`Nach „${label}“ verschieben`}
       title={`Nach „${label}“`}
-      className="grid size-6 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:bg-slate-100 focus-visible:text-slate-700 focus-visible:outline-none"
+      className="grid size-6 place-items-center rounded-md text-fg-subtle hover:bg-surface-hover hover:text-fg-muted focus-visible:bg-surface-hover focus-visible:text-fg-muted focus-visible:outline-none"
     >
       {children}
     </button>
@@ -82,29 +84,41 @@ interface TaskCardBodyProps {
   lifted?: boolean;
   /** The card's original slot while it is being dragged. */
   placeholder?: boolean;
+  /** Briefly highlights the card, e.g. right after it was moved. */
+  flash?: boolean;
 }
 
 /** The card's visible content, shared by the board and the drag preview. */
-export function TaskCardBody({ task, compact = false, children, lifted = false, placeholder = false }: TaskCardBodyProps) {
+export function TaskCardBody({
+  task,
+  compact = false,
+  children,
+  lifted = false,
+  placeholder = false,
+  flash = false,
+}: TaskCardBodyProps) {
   const look = lifted
-    ? 'cursor-grabbing border-indigo-300 shadow-xl ring-1 ring-indigo-200 rotate-[1.5deg]'
+    ? 'cursor-grabbing border-accent-line shadow-popover ring-1 ring-accent-line rotate-[1.5deg] scale-[1.02]'
     : placeholder
-      ? 'border-dashed border-indigo-300 bg-indigo-50/60 [&>*]:invisible'
-      : 'cursor-grab border-slate-200 shadow-sm hover:border-slate-300 hover:shadow';
+      ? 'border-dashed border-accent-line bg-accent-muted [&>*]:invisible'
+      : 'cursor-grab border-line shadow-card hover:-translate-y-px hover:border-line-strong hover:shadow-card-hover';
+  const tags = task.sourceNote?.tags ?? [];
 
   return (
     <article
-      className={`rounded-lg border bg-white text-left transition-shadow ${compact ? 'px-2.5 py-1.5' : 'px-3 py-2.5'} ${look}`}
+      className={`rounded-lg border bg-surface text-left transition-[transform,box-shadow,border-color] duration-150 ${
+        compact ? 'px-2.5 py-1.5' : 'px-3 py-2.5'
+      } ${look} ${flash ? 'animate-flash' : ''}`}
     >
       <div className="flex items-start gap-2">
         <h3
-          className={`min-w-0 flex-1 break-words py-0.5 leading-snug font-medium text-slate-900 ${compact ? 'text-xs' : 'text-sm'}`}
+          className={`min-w-0 flex-1 break-words py-0.5 leading-snug font-medium text-fg ${compact ? 'text-xs' : 'text-sm'}`}
         >
           {task.title}
         </h3>
         <div className="relative flex h-6 w-12 shrink-0 items-center justify-end">
           <span
-            className={`font-mono text-[11px] text-slate-400 ${
+            className={`font-mono text-[11px] text-fg-subtle ${
               children ? 'group-hover:invisible group-focus-within:invisible group-focus-visible:invisible [@media(hover:none)]:invisible' : ''
             }`}
           >
@@ -117,12 +131,24 @@ export function TaskCardBody({ task, compact = false, children, lifted = false, 
           )}
         </div>
       </div>
+      {tags.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1" title="Tags der verknüpften Notiz">
+          {tags.slice(0, 3).map((tag) => (
+            <span key={tag} className="rounded bg-accent-muted px-1.5 py-px text-[11px] font-medium text-accent-text">
+              {tag}
+            </span>
+          ))}
+          {tags.length > 3 && (
+            <span className="rounded bg-surface-muted px-1.5 py-px text-[11px] text-fg-subtle">+{tags.length - 3}</span>
+          )}
+        </div>
+      )}
       {task.sourceNote && !compact && (
         <Link
           to={paths.notes(task.projectId, task.sourceNote.id)}
           {...isolate}
           title="Zur Notiz"
-          className="mt-1.5 flex w-fit max-w-full items-center gap-1 text-xs text-slate-500 hover:text-indigo-600"
+          className="mt-1.5 flex w-fit max-w-full items-center gap-1 text-xs text-fg-subtle hover:text-accent-text"
         >
           <NoteIcon className="size-3.5 shrink-0" />
           <span className="truncate hover:underline">{task.sourceNote.title || UNTITLED_NOTE}</span>

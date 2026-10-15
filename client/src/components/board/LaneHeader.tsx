@@ -30,7 +30,7 @@ export default function LaneHeader({ lane, count, collapsed, onToggle, isFirst, 
         onClick={onToggle}
         aria-expanded={!collapsed}
         aria-label={`Swimlane „${lane.name}“ ${collapsed ? 'ausklappen' : 'einklappen'}`}
-        className="grid size-6 place-items-center rounded-md text-slate-500 hover:bg-slate-200/70 hover:text-slate-800"
+        className="grid size-6 place-items-center rounded-md text-fg-subtle hover:bg-surface-strong hover:text-fg"
       >
         <ChevronDownIcon className={`size-4 transition-transform ${collapsed ? '-rotate-90' : ''}`} />
       </button>
@@ -40,14 +40,14 @@ export default function LaneHeader({ lane, count, collapsed, onToggle, isFirst, 
         editing={renaming}
         onEditingChange={setRenaming}
         onRename={onRename}
-        className="text-sm font-semibold text-slate-700"
+        className="text-sm font-semibold text-fg-muted"
       />
-      <span className="whitespace-nowrap text-xs text-slate-500">· {countLabel(count, 'Task', 'Tasks')}</span>
+      <span className="whitespace-nowrap text-xs text-fg-subtle">· {countLabel(count, 'Task', 'Tasks')}</span>
       <Menu
         label={`Swimlane „${lane.name}“: Aktionen`}
         trigger={<span aria-hidden="true">⋯</span>}
         align="left"
-        triggerClassName="grid size-6 place-items-center rounded-md text-base leading-none text-slate-500 hover:bg-slate-200/70 hover:text-slate-800"
+        triggerClassName="grid size-6 place-items-center rounded-md text-base leading-none text-fg-subtle hover:bg-surface-strong hover:text-fg"
         items={[
           { label: 'Umbenennen', onSelect: () => setRenaming(true) },
           { label: 'Nach oben', onSelect: () => onMove(-1), disabledReason: isFirst ? 'Schon ganz oben' : undefined },

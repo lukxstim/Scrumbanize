@@ -1,9 +1,16 @@
 import { useState } from 'react';
 import { PlusIcon } from '../icons';
+import { fieldClass } from '../ui/styles';
+
+interface NewTaskFormProps {
+  onCreate: (title: string) => Promise<unknown>;
+  /** Starts with the field open, e.g. for "Neuer Task" from the command palette. */
+  defaultOpen?: boolean;
+}
 
 /** "+ Task" in the first column of each lane: Enter creates the task and keeps the field open for the next one. */
-export default function NewTaskForm({ onCreate }: { onCreate: (title: string) => Promise<unknown> }) {
-  const [open, setOpen] = useState(false);
+export default function NewTaskForm({ onCreate, defaultOpen = false }: NewTaskFormProps) {
+  const [open, setOpen] = useState(defaultOpen);
   const [title, setTitle] = useState('');
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -27,7 +34,7 @@ export default function NewTaskForm({ onCreate }: { onCreate: (title: string) =>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-sm font-medium text-slate-500 hover:bg-slate-200/70 hover:text-slate-800"
+        className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-sm font-medium text-fg-subtle transition-colors duration-150 hover:bg-surface-strong hover:text-fg"
       >
         <PlusIcon />
         Task
@@ -37,6 +44,7 @@ export default function NewTaskForm({ onCreate }: { onCreate: (title: string) =>
 
   return (
     <form
+      className="animate-pop-in"
       onSubmit={(event) => {
         event.preventDefault();
         void submit();
@@ -59,11 +67,11 @@ export default function NewTaskForm({ onCreate }: { onCreate: (title: string) =>
         maxLength={200}
         placeholder="Titel des Tasks …"
         aria-label="Titel des neuen Tasks"
-        className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+        className={`px-2 ${fieldClass}`}
       />
-      <p className="mt-1 text-[11px] text-slate-400">Enter zum Anlegen, Esc zum Abbrechen</p>
+      <p className="mt-1 text-[11px] text-fg-subtle">Enter zum Anlegen, Esc zum Abbrechen</p>
       {failed && (
-        <p role="alert" className="mt-1 text-xs text-red-600">
+        <p role="alert" className="mt-1 text-xs text-danger-text">
           Der Task konnte nicht angelegt werden.
         </p>
       )}

@@ -43,7 +43,7 @@ export default function InlineName({ name, label, editing, onEditingChange, onRe
           if (event.key === 'Enter') commit();
           if (event.key === 'Escape') onEditingChange(false);
         }}
-        className={`min-w-0 flex-1 rounded border border-indigo-400 bg-white px-1.5 py-0.5 focus:outline-none ${className}`}
+        className={`min-w-0 flex-1 rounded border border-accent-line bg-surface px-1.5 py-0.5 focus:outline-none ${className}`}
       />
     );
   }

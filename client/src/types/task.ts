@@ -8,8 +8,8 @@ export interface Task {
   description: string;
   /** Order within the task's cell (column × lane), ascending. */
   position: number;
-  /** The note the task was created from; null if it was created elsewhere or the note was deleted. */
-  sourceNote: { id: number; title: string } | null;
+  /** The note the task was created from, with its tags; null if it was created elsewhere or the note was deleted. */
+  sourceNote: { id: number; title: string; tags: string[] } | null;
   createdAt: string;
   updatedAt: string;
 }

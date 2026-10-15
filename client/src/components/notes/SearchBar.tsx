@@ -1,3 +1,6 @@
+import { SearchIcon } from '../icons';
+import { fieldClass } from '../ui/styles';
+
 interface SearchBarProps {
   value: string;
   onChange: (value: string) => void;
@@ -5,13 +8,16 @@ interface SearchBarProps {
 
 export default function SearchBar({ value, onChange }: SearchBarProps) {
   return (
-    <input
-      type="search"
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      placeholder="Notizen durchsuchen …"
-      aria-label="Notizen durchsuchen"
-      className="w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-    />
+    <div className="relative">
+      <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-fg-faint" />
+      <input
+        type="search"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="Notizen durchsuchen …"
+        aria-label="Notizen durchsuchen"
+        className={`pl-8 ${fieldClass}`}
+      />
+    </div>
   );
 }

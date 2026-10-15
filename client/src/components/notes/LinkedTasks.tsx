@@ -8,17 +8,17 @@ export default function LinkedTasks({ projectId, tasks }: { projectId: number; t
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <span className="text-xs font-medium text-slate-500">Tasks:</span>
+      <span className="text-xs font-medium text-fg-subtle">Tasks:</span>
       {tasks.map((task) => (
         <Link
           key={task.id}
           to={paths.task(projectId, task.id)}
           title="Task auf dem Board öffnen"
-          className="flex max-w-72 items-center gap-1.5 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-xs text-emerald-800 hover:border-emerald-400 hover:bg-emerald-100"
+          className="flex max-w-72 items-center gap-1.5 rounded border border-success-line bg-success-muted px-1.5 py-0.5 text-xs text-success-text transition-[filter] duration-150 hover:brightness-95 dark:hover:brightness-125"
         >
-          <span className="font-mono text-emerald-600">#{task.id}</span>
+          <span className="font-mono text-success-text">#{task.id}</span>
           <span className="truncate">{task.title}</span>
-          <span className="shrink-0 text-emerald-600">· {task.column.name}</span>
+          <span className="shrink-0 text-success-text">· {task.column.name}</span>
         </Link>
       ))}
     </div>

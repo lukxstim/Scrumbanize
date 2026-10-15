@@ -13,10 +13,10 @@ interface WipLimitControlProps {
 }
 
 const STATE_CLASSES = {
-  none: 'text-slate-500',
-  ok: 'text-slate-500',
-  'at-limit': 'bg-amber-100 text-amber-800',
-  'over-limit': 'bg-red-600 text-white',
+  none: 'text-fg-subtle',
+  ok: 'text-fg-subtle',
+  'at-limit': 'bg-warning-muted text-warning-text',
+  'over-limit': 'bg-danger text-white',
 };
 
 /** Shows "count / limit"; click to edit, empty means unlimited. */
@@ -57,13 +57,15 @@ export default function WipLimitControl({ count, limit, columnLabel, onChange, e
         }}
         placeholder="∞"
         aria-label={`WIP-Limit für „${columnLabel}“ (leer = kein Limit)`}
-        className="w-14 rounded border border-indigo-400 px-1.5 py-0.5 text-xs focus:outline-none"
+        className="w-14 rounded border border-accent-line px-1.5 py-0.5 text-xs focus:outline-none"
       />
     );
   }
 
   return (
     <button
+      // A new element per state, so crossing the limit replays the pop-in animation.
+      key={state}
       type="button"
       {...isolate}
       onClick={(event) => {
@@ -76,7 +78,7 @@ export default function WipLimitControl({ count, limit, columnLabel, onChange, e
           : 'WIP-Limit ändern'
       }
       aria-label={`${count} Tasks, WIP-Limit ${limit ?? 'keins'}. Limit ändern`}
-      className={`rounded px-1.5 py-0.5 text-xs font-medium tabular-nums ${STATE_CLASSES[state]} hover:ring-1 hover:ring-slate-300`}
+      className={`rounded px-1.5 py-0.5 text-xs font-medium tabular-nums transition-colors duration-150 ${STATE_CLASSES[state]} ${state === 'over-limit' ? 'animate-pop-in' : ''} hover:ring-1 hover:ring-line-strong`}
     >
       {limit === null ? `${count} / ∞` : `${count} / ${limit}`}
     </button>

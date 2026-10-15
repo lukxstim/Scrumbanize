@@ -11,8 +11,8 @@ export interface Task {
   description: string;
   /** Order within the task's cell (column × lane), ascending. */
   position: number;
-  /** The note the task was created from; null if it was created elsewhere or the note was deleted. */
-  sourceNote: { id: number; title: string } | null;
+  /** The note the task was created from, with its current tags; null if created elsewhere or the note was deleted. */
+  sourceNote: { id: number; title: string; tags: string[] } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -77,6 +77,9 @@ export function createTasksRepository(db: Db) {
      ORDER BY c.position, l.position, t.position, t.id`,
   );
   const deleteTask = db.prepare<[number]>(`DELETE FROM tasks WHERE id = ?`);
+  const selectNoteTags = db.prepare<[number], { name: string }>(
+    `SELECT t.name FROM note_tags nt JOIN tags t ON t.id = nt.tag_id WHERE nt.note_id = ? ORDER BY t.name`,
+  );
   const updateTask = db.prepare<[string | null, string | null, string, number]>(
     `UPDATE tasks SET title = COALESCE(?, title), description = COALESCE(?, description), updated_at = ? WHERE id = ?`,
   );
@@ -98,7 +101,13 @@ export function createTasksRepository(db: Db) {
       description: row.description,
       position: row.position,
       sourceNote:
-        row.source_note_id === null ? null : { id: row.source_note_id, title: row.source_note_title ?? '' },
+        row.source_note_id === null
+          ? null
+          : {
+              id: row.source_note_id,
+              title: row.source_note_title ?? '',
+              tags: selectNoteTags.all(row.source_note_id).map((t) => t.name),
+            },
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };

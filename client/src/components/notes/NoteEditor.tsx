@@ -1,13 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useAutosave, type SaveStatus } from '../../hooks/useAutosave';
 import { useTextSelection } from '../../hooks/useTextSelection';
+import { useToast } from '../../hooks/useToast';
 import type { Note, NoteInput } from '../../types/note';
 import type { Task } from '../../types/task';
 import { buildTaskDraft, UNTITLED_NOTE, type TaskDraft } from '../../utils/taskFromNote';
 import ConfirmDialog from '../ConfirmDialog';
+import { BoardIcon } from '../icons';
+import Button from '../ui/Button';
+import SegmentedControl from '../ui/SegmentedControl';
 import ConvertToTaskDialog from './ConvertToTaskDialog';
 import LinkedTasks from './LinkedTasks';
-import MarkdownPreview from './MarkdownPreview';
+import MarkdownPreview from './LazyMarkdownPreview';
 import TagInput from './TagInput';
 
 interface NoteEditorProps {
@@ -21,8 +25,6 @@ interface NoteEditorProps {
   onDeleteTask: (taskId: number) => Promise<void>;
 }
 
-const UNDO_TIMEOUT_MS = 8000;
-
 export default function NoteEditor({
   note,
   tagSuggestions,
@@ -35,19 +37,11 @@ export default function NoteEditor({
   const [draft, setDraft] = useState<NoteInput>({ title: note.title, content: note.content, tags: note.tags });
   const [mode, setMode] = useState<'edit' | 'preview'>('edit');
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [deleteFailed, setDeleteFailed] = useState(false);
   const [conversion, setConversion] = useState<{ draft: TaskDraft; fromSelection: boolean } | null>(null);
-  const [createdTask, setCreatedTask] = useState<Task | null>(null);
-  const [undoFailed, setUndoFailed] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
+  const toast = useToast();
   const { status, schedule, flush, cancel } = useAutosave<NoteInput>((input) => onSave(note.id, input));
   const { selection, textareaHandlers } = useTextSelection(mode, previewRef);
-
-  useEffect(() => {
-    if (!createdTask) return;
-    const timer = setTimeout(() => setCreatedTask(null), UNDO_TIMEOUT_MS);
-    return () => clearTimeout(timer);
-  }, [createdTask]);
 
   function change(patch: Partial<NoteInput>) {
     const next = { ...draft, ...patch };
@@ -62,7 +56,7 @@ export default function NoteEditor({
     try {
       await onDelete(note.id);
     } catch {
-      setDeleteFailed(true);
+      toast({ message: 'Die Notiz konnte nicht gelöscht werden. Bitte versuche es erneut.', tone: 'error' });
     }
   }
 
@@ -74,17 +68,19 @@ export default function NoteEditor({
   async function createTask(taskDraft: TaskDraft) {
     const task = await onCreateTask(note.id, taskDraft);
     setConversion(null);
-    setUndoFailed(false);
-    setCreatedTask(task);
-  }
-
-  async function undoTask(task: Task) {
-    try {
-      await onDeleteTask(task.id);
-      setCreatedTask(null);
-    } catch {
-      setUndoFailed(true);
-    }
+    toast({
+      message: `Task #${task.id} „${task.title}“ angelegt.`,
+      action: {
+        label: 'Rückgängig',
+        onClick: async () => {
+          try {
+            await onDeleteTask(task.id);
+          } catch {
+            toast({ message: 'Rückgängig machen fehlgeschlagen.', tone: 'error' });
+          }
+        },
+      },
+    });
   }
 
   const taskCount = note.tasks.length;
@@ -102,85 +98,63 @@ export default function NoteEditor({
         }
       }}
     >
-      <div className="flex items-center gap-3 border-b border-slate-200 bg-white px-6 py-2">
-        <div className="flex rounded-md bg-slate-100 p-0.5 text-sm" role="group" aria-label="Ansicht">
-          {(['edit', 'preview'] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={mode === value}
-              onClick={() => setMode(value)}
-              className={`rounded px-3 py-1 ${mode === value ? 'bg-white font-medium shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-            >
-              {value === 'edit' ? 'Bearbeiten' : 'Vorschau'}
-            </button>
-          ))}
-        </div>
-        <button
-          type="button"
+      <div className="flex items-center gap-2 border-b border-line px-6 py-2.5">
+        <SegmentedControl
+          label="Ansicht"
+          size="sm"
+          value={mode}
+          onChange={setMode}
+          options={[
+            { value: 'edit', label: 'Bearbeiten' },
+            { value: 'preview', label: 'Vorschau' },
+          ]}
+        />
+        <Button
+          size="sm"
           // Keep the text selection (and the textarea's focus) when the button is clicked.
           onMouseDown={(event) => event.preventDefault()}
           onClick={startConversion}
-          className="rounded-md border border-indigo-200 px-3 py-1 text-sm font-medium text-indigo-700 hover:bg-indigo-50"
+          className={selection ? 'border-accent-line text-accent-text' : ''}
         >
+          <BoardIcon className="size-3.5" />
           {selection ? 'Auswahl in Task umwandeln' : 'In Task umwandeln'}
-        </button>
+        </Button>
         <div className="flex-1" />
         <SaveIndicator status={status} onRetry={() => void flush()} />
-        <button
-          type="button"
-          onClick={() => setConfirmingDelete(true)}
-          className="rounded-md px-3 py-1 text-sm text-red-600 hover:bg-red-50"
-        >
+        <Button variant="danger-ghost" size="sm" onClick={() => setConfirmingDelete(true)}>
           Löschen
-        </button>
+        </Button>
       </div>
 
-      {createdTask && (
-        <div role="status" className="flex items-center gap-3 bg-emerald-50 px-6 py-2 text-sm text-emerald-800">
-          <span>
-            Task <span className="font-mono">#{createdTask.id}</span> im Backlog erstellt.
-          </span>
-          {undoFailed && <span className="text-red-600">Rückgängig machen fehlgeschlagen.</span>}
-          <button type="button" className="font-medium underline" onClick={() => void undoTask(createdTask)}>
-            Rückgängig
-          </button>
-        </div>
-      )}
-
-      {deleteFailed && (
-        <p role="alert" className="bg-red-50 px-6 py-2 text-sm text-red-700">
-          Die Notiz konnte nicht gelöscht werden. Bitte versuche es erneut.
-        </p>
-      )}
-
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 py-5">
-        <input
-          value={draft.title}
-          onChange={(event) => change({ title: event.target.value })}
-          placeholder="Titel"
-          aria-label="Titel"
-          maxLength={200}
-          autoFocus={autoFocusTitle}
-          className="bg-transparent text-2xl font-semibold placeholder:text-slate-300 focus:outline-none"
-        />
-        <TagInput tags={draft.tags} suggestions={tagSuggestions} onChange={(tags) => change({ tags })} />
-        <LinkedTasks projectId={note.projectId} tasks={note.tasks} />
-        <hr className="border-slate-200" />
-        {mode === 'edit' ? (
-          <textarea
-            value={draft.content}
-            onChange={(event) => change({ content: event.target.value })}
-            {...textareaHandlers}
-            placeholder="Schreibe deine Notiz in Markdown …"
-            aria-label="Inhalt"
-            className="min-h-64 flex-1 resize-none bg-transparent font-mono text-sm leading-relaxed placeholder:text-slate-400 focus:outline-none"
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-3 px-8 py-8">
+          <input
+            value={draft.title}
+            onChange={(event) => change({ title: event.target.value })}
+            placeholder="Titel"
+            aria-label="Titel"
+            maxLength={200}
+            autoFocus={autoFocusTitle}
+            className="bg-transparent text-2xl font-semibold tracking-tight text-fg placeholder:text-fg-faint focus:outline-none"
           />
-        ) : (
-          <div ref={previewRef}>
-            <MarkdownPreview content={draft.content} />
-          </div>
-        )}
+          <TagInput tags={draft.tags} suggestions={tagSuggestions} onChange={(tags) => change({ tags })} />
+          <LinkedTasks projectId={note.projectId} tasks={note.tasks} />
+          <hr className="my-1 border-line" />
+          {mode === 'edit' ? (
+            <textarea
+              value={draft.content}
+              onChange={(event) => change({ content: event.target.value })}
+              {...textareaHandlers}
+              placeholder="Schreibe deine Notiz in Markdown …"
+              aria-label="Inhalt"
+              className="min-h-64 flex-1 resize-none bg-transparent font-mono text-sm leading-relaxed text-fg placeholder:text-fg-faint focus:outline-none"
+            />
+          ) : (
+            <div ref={previewRef}>
+              <MarkdownPreview content={draft.content} />
+            </div>
+          )}
+        </div>
       </div>
 
       <ConfirmDialog
@@ -205,12 +179,19 @@ export default function NoteEditor({
 }
 
 function SaveIndicator({ status, onRetry }: { status: SaveStatus; onRetry: () => void }) {
+  const busy = status === 'pending' || status === 'saving';
   return (
-    <span aria-live="polite" className="text-xs text-slate-400">
+    <span aria-live="polite" className="flex items-center gap-1.5 px-1 text-xs text-fg-subtle">
+      {status !== 'error' && (
+        <span
+          aria-hidden="true"
+          className={`size-1.5 rounded-full transition-colors duration-300 ${busy ? 'animate-pulse bg-amber-400' : 'bg-emerald-500'}`}
+        />
+      )}
       {status === 'saved' && 'Gespeichert'}
-      {(status === 'pending' || status === 'saving') && 'Speichert …'}
+      {busy && 'Speichert …'}
       {status === 'error' && (
-        <span className="text-red-600">
+        <span className="text-danger-text">
           Speichern fehlgeschlagen ·{' '}
           <button type="button" className="underline" onClick={onRetry}>
             Erneut versuchen

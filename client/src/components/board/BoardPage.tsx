@@ -12,9 +12,10 @@ import {
   type KeyboardCoordinateGetter,
 } from '@dnd-kit/core';
 import { useEffect, useRef, useState } from 'react';
-import { useMatch, useNavigate, useParams } from 'react-router';
+import { useLocation, useMatch, useNavigate, useParams } from 'react-router';
 import { useBoard } from '../../hooks/useBoard';
 import { useStoredState } from '../../hooks/useStoredState';
+import { useToast } from '../../hooks/useToast';
 import type { BoardColumn } from '../../types/task';
 import {
   applyMove,
@@ -28,6 +29,7 @@ import {
   wipState,
   type Cells,
 } from '../../utils/board';
+import { isCreateRequest } from '../../utils/appEvents';
 import { columnDropIndex, dropPosition, type CellGeometry } from '../../utils/dropPosition';
 import { paths } from '../../utils/paths';
 import AddItemButton from './AddItemButton';
@@ -38,6 +40,8 @@ import LaneHeader from './LaneHeader';
 import NewTaskForm from './NewTaskForm';
 import { TaskCardBody } from './TaskCard';
 import TaskDetailDialog from './TaskDetailDialog';
+import Button from '../ui/Button';
+import Skeleton from '../ui/Skeleton';
 
 const CARD_GAP = 8;
 const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean';
@@ -50,6 +54,8 @@ export default function BoardPage() {
   const projectId = Number(useParams().projectId);
   const board = useBoard(projectId);
   const navigate = useNavigate();
+  const location = useLocation();
+  const toast = useToast();
   const taskMatch = useMatch('/p/:projectId/tasks/:taskId');
   const openTaskId = taskMatch ? Number(taskMatch.params.taskId) : null;
 
@@ -152,6 +158,38 @@ export default function BoardPage() {
   useEffect(() => {
     if (board.status === 'ready' && openTaskId !== null && !openTask) navigate(paths.board(projectId), { replace: true });
   }, [board.status, openTaskId, openTask, navigate, projectId]);
+
+  // Failed saves reload the board; a toast says what happened.
+  const { actionError, dismissError } = board;
+  useEffect(() => {
+    if (!actionError) return;
+    toast({ message: actionError, tone: 'error' });
+    dismissError();
+  }, [actionError, dismissError, toast]);
+
+  // "Neuer Task" from the command palette arrives as navigation state: with a title the task is created
+  // (and opened), without one the "+ Task" field of the first lane opens.
+  const [newTaskRequest, setNewTaskRequest] = useState(0);
+  const handledRequest = useRef<unknown>(null);
+  useEffect(() => {
+    const state = location.state;
+    if (board.status !== 'ready' || !isCreateRequest(state) || state.create !== 'task') return;
+    if (handledRequest.current === state) return;
+    handledRequest.current = state;
+    const firstLane = board.lanes[0];
+    if (!state.title || !firstLane) {
+      setNewTaskRequest((n) => n + 1);
+      navigate(location.pathname, { replace: true, state: null });
+      return;
+    }
+    board
+      .createTask(state.title, firstLane.id)
+      .then((task) => {
+        toast({ message: `Task #${task.id} „${task.title}“ angelegt.` });
+        navigate(paths.task(projectId, task.id), { replace: true });
+      })
+      .catch(() => toast({ message: 'Der Task konnte nicht angelegt werden.', tone: 'error' }));
+  });
 
   const columnName = (id: number) => board.columns.find((c) => c.id === id)?.name ?? '';
   const laneName = (id: number) => lanes.find((l) => l.id === id)?.name ?? '';
@@ -278,16 +316,29 @@ export default function BoardPage() {
   const dropCell = activeTask ? `${activeTask.columnId}:${activeTask.laneId}` : undefined;
 
   if (board.status === 'loading') {
-    return <p className="p-6 text-sm text-slate-500">Lade Board …</p>;
+    return (
+      <div className="flex gap-3 p-4 pt-12" aria-label="Lade Board …">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className={`flex shrink-0 flex-col gap-2 ${widthClass}`}>
+            <Skeleton className="h-10 rounded-lg" />
+            <div className="flex flex-col gap-2 rounded-xl bg-surface-muted p-2">
+              {Array.from({ length: 3 - (i % 3) }, (_, j) => (
+                <Skeleton key={j} className="h-16 rounded-lg" />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   }
 
   if (board.status === 'error') {
     return (
-      <div className="p-6 text-sm text-red-600">
+      <div className="p-6 text-sm text-danger-text">
         <p>Das Board konnte nicht geladen werden.</p>
-        <button type="button" className="mt-2 underline" onClick={() => void board.reload()}>
+        <Button variant="ghost" size="sm" className="mt-2" onClick={() => void board.reload()}>
           Erneut versuchen
-        </button>
+        </Button>
       </div>
     );
   }
@@ -301,28 +352,19 @@ export default function BoardPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {board.actionError && (
-        <div role="alert" className="flex items-center gap-3 bg-red-50 px-4 py-2 text-sm text-red-700">
-          <span className="flex-1">{board.actionError}</span>
-          <button type="button" className="underline" onClick={board.dismissError}>
-            Schließen
-          </button>
-        </div>
-      )}
-
       <div className="flex items-center justify-end gap-2 px-4 pt-3">
         <button
           type="button"
           aria-pressed={compact}
           onClick={() => setCompact(!compact)}
-          className="flex items-center gap-2 rounded-md px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-200/70"
+          className="flex items-center gap-2 rounded-md px-2 py-1 text-xs font-medium text-fg-muted hover:bg-surface-strong"
         >
           <span
             aria-hidden="true"
-            className={`relative h-4 w-7 shrink-0 rounded-full transition-colors ${compact ? 'bg-indigo-600' : 'bg-slate-300'}`}
+            className={`relative h-4 w-7 shrink-0 rounded-full transition-colors ${compact ? 'bg-accent' : 'bg-line-strong'}`}
           >
             <span
-              className={`absolute left-0.5 top-0.5 size-3 rounded-full bg-white shadow transition-transform ${compact ? 'translate-x-3' : ''}`}
+              className={`absolute left-0.5 top-0.5 size-3 rounded-full bg-white shadow transition-transform duration-150 ${compact ? 'translate-x-3' : ''}`}
             />
           </span>
           Kompakt
@@ -346,7 +388,7 @@ export default function BoardPage() {
         <div ref={boardRef} className="min-h-0 flex-1 overflow-auto">
           <div className="inline-flex min-w-full flex-col gap-3 px-4 pb-4">
             {/* Column headers stay visible while scrolling down. */}
-            <div className="sticky top-0 z-10 -mx-4 flex items-start gap-3 bg-slate-50 px-4 pb-1 pt-2">
+            <div className="sticky top-0 z-10 -mx-4 flex items-start gap-3 bg-canvas px-4 pb-1 pt-2">
               {columns.map((column, i) => (
                 <ColumnHeader
                   key={column.id}
@@ -400,6 +442,7 @@ export default function BoardPage() {
                             previous={previous}
                             next={next}
                             compact={compact}
+                            flashId={board.flashId}
                             widthClass={widthClass}
                             minHeightClass={showLanes ? 'min-h-28' : 'min-h-[calc(100vh-11rem)]'}
                             isDropTarget={dropCell === `${column.id}:${lane.id}`}
@@ -408,7 +451,11 @@ export default function BoardPage() {
                             onMoveTask={(id, columnId) => moveToCellEnd(id, columnId)}
                             footer={
                               columnIndex === 0 ? (
-                                <NewTaskForm onCreate={(title) => board.createTask(title, lane.id)} />
+                                <NewTaskForm
+                                  key={laneIndex === 0 ? newTaskRequest : 0}
+                                  defaultOpen={laneIndex === 0 && newTaskRequest > 0}
+                                  onCreate={(title) => board.createTask(title, lane.id)}
+                                />
                               ) : undefined
                             }
                           />
@@ -465,6 +512,7 @@ export default function BoardPage() {
           onMove={moveToCellEnd}
           onDelete={async (id) => {
             await board.deleteTask(id);
+            toast({ message: 'Task gelöscht.' });
             navigate(paths.board(projectId), { replace: true });
           }}
         />

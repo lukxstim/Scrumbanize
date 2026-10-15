@@ -79,17 +79,25 @@ export function useBoard(projectId: number) {
   );
 
   /** `index` counts the other tasks in the target cell. */
+  // The last moved task is briefly highlighted, as feedback that the move was saved.
+  const [flashId, setFlashId] = useState<number | null>(null);
+  const flashTask = useCallback((id: number) => {
+    setFlashId(id);
+    setTimeout(() => setFlashId((current) => (current === id ? null : current)), 900);
+  }, []);
+
   const moveTask = useCallback(
     async (id: number, columnId: number, laneId: number, index: number) => {
       setCells((current) => applyMove(current, id, columnId, laneId, index));
       try {
         const saved = await tasksApi.move(id, columnId, laneId, index);
         setCells((current) => replaceTask(current, saved));
+        flashTask(id);
       } catch {
         failed('Der Task konnte nicht verschoben werden. Das Board wurde neu geladen.');
       }
     },
-    [failed],
+    [failed, flashTask],
   );
 
   /** New tasks start at the end of the first column, in the given lane. */
@@ -140,6 +148,7 @@ export function useBoard(projectId: number) {
     columns,
     lanes,
     cells,
+    flashId,
     status,
     actionError,
     dismissError: () => setActionError(null),

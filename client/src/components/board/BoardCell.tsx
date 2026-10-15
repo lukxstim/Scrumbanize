@@ -9,6 +9,8 @@ interface BoardCellProps {
   previous?: BoardColumn;
   next?: BoardColumn;
   compact: boolean;
+  /** The task to highlight briefly after a move. */
+  flashId: number | null;
   widthClass: string;
   minHeightClass: string;
   /** A dragged card would currently land here. */
@@ -27,6 +29,7 @@ export default function BoardCell({
   previous,
   next,
   compact,
+  flashId,
   widthClass,
   minHeightClass,
   isDropTarget,
@@ -39,9 +42,9 @@ export default function BoardCell({
     <div
       data-cell-column={column.id}
       data-cell-lane={laneId}
-      className={`flex shrink-0 flex-col gap-2 rounded-xl border p-2 transition-colors ${widthClass} ${minHeightClass} ${
-        isDropTarget ? 'border-indigo-200 bg-indigo-50' : 'bg-slate-100'
-      } ${overLimit ? 'border-red-300' : isDropTarget ? '' : 'border-transparent'}`}
+      className={`flex shrink-0 flex-col gap-2 rounded-xl border p-2 transition-colors duration-150 ${widthClass} ${minHeightClass} ${
+        isDropTarget ? 'border-accent-line bg-accent-muted' : 'bg-surface-muted'
+      } ${overLimit ? 'border-danger-line' : isDropTarget ? '' : 'border-transparent'}`}
     >
       {tasks.map((task) => (
         <DraggableTaskCard
@@ -50,6 +53,7 @@ export default function BoardCell({
           previous={previous}
           next={next}
           compact={compact}
+          flash={task.id === flashId}
           onOpen={onOpenTask}
           onMoveTo={onMoveTask}
         />

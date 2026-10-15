@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { menuItemClass, popoverClass } from './ui/styles';
 
 export interface MenuItem {
   label: string;
@@ -84,8 +85,8 @@ export default function Menu({ label, trigger, items, align = 'right', triggerCl
           role="menu"
           aria-label={label}
           onKeyDown={onKeyDown}
-          className={`absolute top-full z-30 mt-1 w-52 rounded-lg border border-slate-200 bg-white py-1 text-left shadow-lg ${
-            align === 'right' ? 'right-0' : 'left-0'
+          className={`absolute top-full z-30 mt-1 w-52 text-left ${popoverClass} ${
+            align === 'right' ? 'right-0 origin-top-right' : 'left-0 origin-top-left'
           }`}
         >
           {items.map((item) => (
@@ -100,12 +101,12 @@ export default function Menu({ label, trigger, items, align = 'right', triggerCl
                 close(false);
                 item.onSelect();
               }}
-              className={`block w-full px-3 py-1.5 text-left text-sm focus:bg-slate-100 focus:outline-none ${
+              className={`${menuItemClass} ${
                 item.disabledReason
-                  ? 'cursor-not-allowed text-slate-400'
+                  ? '!cursor-not-allowed !bg-transparent !text-fg-faint'
                   : item.danger
-                    ? 'text-red-600 hover:bg-red-50'
-                    : 'text-slate-700 hover:bg-slate-50'
+                    ? '!text-danger-text hover:!bg-danger-muted focus:!bg-danger-muted'
+                    : ''
               }`}
             >
               {item.label}

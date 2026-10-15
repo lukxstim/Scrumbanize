@@ -2,6 +2,7 @@ import { Navigate } from 'react-router';
 import { useProjects } from '../../hooks/useProjects';
 import { paths, type Section } from '../../utils/paths';
 import { defaultProject } from '../../utils/projects';
+import Skeleton from '../ui/Skeleton';
 
 /** Placeholder while the project list loads, or an error with a retry button. */
 export function ProjectsLoading() {
@@ -9,7 +10,7 @@ export function ProjectsLoading() {
 
   if (status === 'error') {
     return (
-      <div className="p-6 text-sm text-red-600">
+      <div className="p-6 text-sm text-danger-text">
         <p>Die Projekte konnten nicht geladen werden.</p>
         <button type="button" className="mt-2 underline" onClick={() => void reload()}>
           Erneut versuchen
@@ -17,7 +18,13 @@ export function ProjectsLoading() {
       </div>
     );
   }
-  return <p className="p-6 text-sm text-slate-500">Lade Projekte …</p>;
+  return (
+    <div className="space-y-3 p-6" aria-label="Lade Projekte …">
+      <Skeleton className="h-5 w-48" />
+      <Skeleton className="h-4 w-80" />
+      <Skeleton className="h-4 w-64" />
+    </div>
+  );
 }
 
 /** Sends addresses without a (valid) project to the last project used, or the first one. */

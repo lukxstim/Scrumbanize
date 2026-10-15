@@ -17,24 +17,24 @@ export default function NoteListItem({ note, selected, onSelect }: NoteListItemP
         type="button"
         aria-current={selected || undefined}
         onClick={() => onSelect(note.id)}
-        className={`block w-full border-l-2 px-4 py-3 text-left ${
-          selected ? 'border-indigo-600 bg-indigo-50' : 'border-transparent hover:bg-slate-50'
+        className={`block w-full border-l-2 px-4 py-3 text-left transition-colors duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${
+          selected ? 'border-accent bg-accent-muted' : 'border-transparent hover:bg-surface-hover'
         }`}
       >
-        <div className={`truncate text-sm font-medium ${note.title ? 'text-slate-900' : 'italic text-slate-400'}`}>
+        <div className={`truncate text-sm font-medium ${note.title ? 'text-fg' : 'italic text-fg-subtle'}`}>
           {note.title || UNTITLED_NOTE}
         </div>
-        {preview && <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{preview}</p>}
+        {preview && <p className="mt-0.5 line-clamp-2 text-xs text-fg-subtle">{preview}</p>}
         <div className="mt-1.5 flex flex-wrap items-center gap-1">
           {note.tags.map((tag) => (
-            <span key={tag} className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600">
+            <span key={tag} className="rounded bg-surface-muted px-1.5 py-0.5 text-[11px] text-fg-muted">
               {tag}
             </span>
           ))}
           {note.tasks.length > 0 && (
             <span
               title={note.tasks.length === 1 ? '1 verknüpfter Task' : `${note.tasks.length} verknüpfte Tasks`}
-              className="flex items-center gap-0.5 rounded bg-emerald-50 px-1.5 py-0.5 text-[11px] text-emerald-700"
+              className="flex items-center gap-0.5 rounded bg-success-muted px-1.5 py-0.5 text-[11px] text-success-text"
             >
               <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3 fill-none stroke-current stroke-2">
                 <rect x="2" y="2" width="12" height="12" rx="2" />
@@ -44,7 +44,7 @@ export default function NoteListItem({ note, selected, onSelect }: NoteListItemP
               <span className="sr-only">{note.tasks.length === 1 ? ' verknüpfter Task' : ' verknüpfte Tasks'}</span>
             </span>
           )}
-          <time dateTime={note.updatedAt} className="ml-auto text-[11px] text-slate-400">
+          <time dateTime={note.updatedAt} className="ml-auto text-[11px] text-fg-subtle">
             {formatDate(note.updatedAt)}
           </time>
         </div>

@@ -6,11 +6,13 @@ import { apiNotFoundHandler, errorHandler } from './errors.js';
 import { createBoardRepository } from './repositories/boardRepository.js';
 import { createNotesRepository } from './repositories/notesRepository.js';
 import { createProjectsRepository } from './repositories/projectsRepository.js';
+import { createSearchRepository } from './repositories/searchRepository.js';
 import { createTasksRepository } from './repositories/tasksRepository.js';
 import { columnsRouter, lanesRouter } from './routes/board.js';
 import { notesRouter } from './routes/notes.js';
 import { projectScopedRouter } from './routes/projectScoped.js';
 import { projectsRouter } from './routes/projects.js';
+import { searchRouter } from './routes/search.js';
 import { tasksRouter } from './routes/tasks.js';
 
 export interface AppOptions {
@@ -24,6 +26,7 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   const tasks = createTasksRepository(db);
   const board = createBoardRepository(db);
   const projects = createProjectsRepository(db);
+  const search = createSearchRepository(db);
 
   app.disable('x-powered-by');
   app.use(express.json({ limit: '2mb' }));
@@ -38,6 +41,7 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   api.use('/tasks', tasksRouter(tasks));
   api.use('/columns', columnsRouter(board));
   api.use('/lanes', lanesRouter(board));
+  api.use('/search', searchRouter(search));
   api.use(apiNotFoundHandler);
   app.use('/api', api);
 

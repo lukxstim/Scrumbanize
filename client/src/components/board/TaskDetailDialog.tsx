@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router';
 import { useAutosave, type SaveStatus } from '../../hooks/useAutosave';
 import type { BoardColumn, Lane, Task, TaskPatch } from '../../types/task';
@@ -6,7 +6,11 @@ import { formatDate } from '../../utils/format';
 import { paths } from '../../utils/paths';
 import { UNTITLED_NOTE } from '../../utils/taskFromNote';
 import ConfirmDialog from '../ConfirmDialog';
-import MarkdownPreview from '../notes/MarkdownPreview';
+import MarkdownPreview from '../notes/LazyMarkdownPreview';
+import Button from '../ui/Button';
+import Dialog from '../ui/Dialog';
+import SegmentedControl from '../ui/SegmentedControl';
+import { fieldClass, iconButtonClass } from '../ui/styles';
 
 interface TaskDetailDialogProps {
   /** The dialog keeps its own draft; remount it (via `key`) for another task. It is open while mounted. */
@@ -20,21 +24,15 @@ interface TaskDetailDialogProps {
   onDelete: (id: number) => Promise<void>;
 }
 
-const selectClass =
-  'rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none';
+const selectClass = `!w-auto !py-1 ${fieldClass}`;
 
 export default function TaskDetailDialog({ task, columns, lanes, onClose, onSave, onMove, onDelete }: TaskDetailDialogProps) {
-  const ref = useRef<HTMLDialogElement>(null);
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
   const [mode, setMode] = useState<'edit' | 'preview'>(task.description ? 'preview' : 'edit');
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleteFailed, setDeleteFailed] = useState(false);
   const { status, schedule, flush, cancel } = useAutosave<TaskPatch>((patch) => onSave(task.id, patch));
-
-  useEffect(() => {
-    ref.current?.showModal();
-  }, []);
 
   function change(next: { title?: string; description?: string }) {
     const nextTitle = next.title ?? title;
@@ -58,21 +56,16 @@ export default function TaskDetailDialog({ task, columns, lanes, onClose, onSave
   }
 
   return (
-    <dialog
-      ref={ref}
-      aria-labelledby="task-detail-title"
-      className="m-auto flex max-h-[90vh] w-full max-w-2xl flex-col rounded-lg bg-white shadow-xl backdrop:bg-slate-900/40 [&:not([open])]:hidden"
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!confirmingDelete) onClose();
-      }}
-      onClick={(event) => {
-        if (event.target === ref.current) onClose();
-      }}
+    <Dialog
+      onClose={onClose}
+      dismissible={!confirmingDelete}
+      closeOnBackdrop
+      labelledBy="task-detail-title"
+      className="max-h-[90vh] max-w-2xl open:flex open:flex-col"
     >
-      <div className="flex items-center gap-3 border-b border-slate-200 px-6 py-3">
-        <span className="font-mono text-sm text-slate-400">#{task.id}</span>
-        <label className="flex items-center gap-2 text-sm text-slate-600">
+      <div className="flex items-center gap-3 border-b border-line px-6 py-3">
+        <span className="font-mono text-xs text-fg-subtle">#{task.id}</span>
+        <label className="flex items-center gap-2 text-sm text-fg-muted">
           Spalte
           <select
             value={task.columnId}
@@ -87,7 +80,7 @@ export default function TaskDetailDialog({ task, columns, lanes, onClose, onSave
           </select>
         </label>
         {lanes.length > 1 && (
-          <label className="flex items-center gap-2 text-sm text-slate-600">
+          <label className="flex items-center gap-2 text-sm text-fg-muted">
             Swimlane
             <select
               value={task.laneId}
@@ -104,18 +97,13 @@ export default function TaskDetailDialog({ task, columns, lanes, onClose, onSave
         )}
         <div className="flex-1" />
         <SaveIndicator status={status} titleMissing={!title.trim()} onRetry={() => void flush()} />
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Schließen"
-          className="rounded-md px-2 py-1 text-lg leading-none text-slate-500 hover:bg-slate-100 hover:text-slate-900"
-        >
+        <button type="button" onClick={onClose} aria-label="Schließen" className={`text-lg leading-none ${iconButtonClass}`}>
           ×
         </button>
       </div>
 
       {deleteFailed && (
-        <p role="alert" className="bg-red-50 px-6 py-2 text-sm text-red-700">
+        <p role="alert" className="bg-danger-muted px-6 py-2 text-sm text-danger-text">
           Der Task konnte nicht gelöscht werden. Bitte versuche es erneut.
         </p>
       )}
@@ -129,13 +117,13 @@ export default function TaskDetailDialog({ task, columns, lanes, onClose, onSave
           placeholder="Titel"
           aria-label="Titel"
           aria-invalid={!title.trim()}
-          className="bg-transparent text-xl font-semibold placeholder:text-slate-300 focus:outline-none"
+          className="bg-transparent text-xl font-semibold placeholder:text-fg-faint focus:outline-none"
         />
 
         {task.sourceNote && (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-fg-subtle">
             Aus Notiz:{' '}
-            <Link to={paths.notes(task.projectId, task.sourceNote.id)} className="font-medium text-indigo-600 hover:underline">
+            <Link to={paths.notes(task.projectId, task.sourceNote.id)} className="font-medium text-accent-text hover:underline">
               {task.sourceNote.title || UNTITLED_NOTE}
             </Link>
           </p>
@@ -143,20 +131,17 @@ export default function TaskDetailDialog({ task, columns, lanes, onClose, onSave
 
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-700">Beschreibung</span>
-            <div className="flex rounded-md bg-slate-100 p-0.5 text-xs" role="group" aria-label="Ansicht der Beschreibung">
-              {(['edit', 'preview'] as const).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={mode === value}
-                  onClick={() => setMode(value)}
-                  className={`rounded px-2.5 py-0.5 ${mode === value ? 'bg-white font-medium shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                >
-                  {value === 'edit' ? 'Bearbeiten' : 'Vorschau'}
-                </button>
-              ))}
-            </div>
+            <span className="text-sm font-medium text-fg-muted">Beschreibung</span>
+            <SegmentedControl
+              label="Ansicht der Beschreibung"
+              size="sm"
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: 'edit', label: 'Bearbeiten' },
+                { value: 'preview', label: 'Vorschau' },
+              ]}
+            />
           </div>
           {mode === 'edit' ? (
             <textarea
@@ -165,27 +150,23 @@ export default function TaskDetailDialog({ task, columns, lanes, onClose, onSave
               rows={12}
               placeholder="Beschreibung in Markdown …"
               aria-label="Beschreibung"
-              className="block w-full resize-y rounded-md border border-slate-300 px-3 py-2 font-mono text-sm leading-relaxed focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className={`resize-y py-2 font-mono leading-relaxed ${fieldClass}`}
             />
           ) : (
-            <div className="min-h-24 rounded-md border border-slate-200 px-4 py-3">
+            <div className="min-h-24 rounded-md border border-line px-4 py-3">
               <MarkdownPreview content={description} />
             </div>
           )}
         </div>
       </div>
 
-      <div className="flex items-center gap-3 border-t border-slate-200 px-6 py-3 text-xs text-slate-400">
+      <div className="flex items-center gap-3 border-t border-line px-6 py-3 text-xs text-fg-subtle">
         <span>Erstellt {formatDate(task.createdAt)}</span>
         <span>Geändert {formatDate(task.updatedAt)}</span>
         <div className="flex-1" />
-        <button
-          type="button"
-          onClick={() => setConfirmingDelete(true)}
-          className="rounded-md px-3 py-1 text-sm text-red-600 hover:bg-red-50"
-        >
+        <Button variant="danger-ghost" size="sm" onClick={() => setConfirmingDelete(true)}>
           Löschen
-        </button>
+        </Button>
       </div>
 
       <ConfirmDialog
@@ -196,20 +177,20 @@ export default function TaskDetailDialog({ task, columns, lanes, onClose, onSave
         onConfirm={() => void confirmDelete()}
         onCancel={() => setConfirmingDelete(false)}
       />
-    </dialog>
+    </Dialog>
   );
 }
 
 function SaveIndicator({ status, titleMissing, onRetry }: { status: SaveStatus; titleMissing: boolean; onRetry: () => void }) {
   if (titleMissing) {
-    return <span className="text-xs text-amber-700">Titel fehlt – nicht gespeichert</span>;
+    return <span className="text-xs text-warning-text">Titel fehlt – nicht gespeichert</span>;
   }
   return (
-    <span aria-live="polite" className="text-xs text-slate-400">
+    <span aria-live="polite" className="text-xs text-fg-subtle">
       {status === 'saved' && 'Gespeichert'}
       {(status === 'pending' || status === 'saving') && 'Speichert …'}
       {status === 'error' && (
-        <span className="text-red-600">
+        <span className="text-danger-text">
           Speichern fehlgeschlagen ·{' '}
           <button type="button" className="underline" onClick={onRetry}>
             Erneut versuchen

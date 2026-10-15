@@ -13,9 +13,9 @@ export default function TagFilter({ tags, selected, onToggle, onClear }: TagFilt
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-xs font-medium text-slate-500">Nach Tags filtern</span>
+        <span className="text-xs font-medium text-fg-subtle">Nach Tags filtern</span>
         {selected.length > 0 && (
-          <button type="button" className="text-xs text-indigo-600 hover:underline" onClick={onClear}>
+          <button type="button" className="text-xs text-accent-text hover:underline" onClick={onClear}>
             Zurücksetzen
           </button>
         )}
@@ -29,13 +29,13 @@ export default function TagFilter({ tags, selected, onToggle, onClear }: TagFilt
               type="button"
               aria-pressed={active}
               onClick={() => onToggle(name)}
-              className={`rounded-full border px-2 py-0.5 text-xs ${
+              className={`rounded-full border px-2 py-0.5 text-xs transition-colors duration-150 ${
                 active
-                  ? 'border-indigo-600 bg-indigo-600 text-white'
-                  : 'border-slate-300 bg-white text-slate-700 hover:border-indigo-400'
+                  ? 'border-accent bg-accent text-white'
+                  : 'border-line bg-surface text-fg-muted hover:border-accent-line hover:text-fg'
               }`}
             >
-              {name} <span className={active ? 'text-indigo-200' : 'text-slate-400'}>{count}</span>
+              {name} <span className={active ? 'text-accent-fg/70' : 'text-fg-subtle'}>{count}</span>
             </button>
           );
         })}

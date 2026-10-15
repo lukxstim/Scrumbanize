@@ -85,3 +85,14 @@ export const lanesApi = {
   remove: (id: number, moveTasksTo?: number) =>
     request<void>(`/lanes/${id}${deleteQuery(moveTasksTo)}`, { method: 'DELETE' }),
 };
+
+export interface SearchResults {
+  notes: { id: number; projectId: number; title: string; snippet: string }[];
+  tasks: { id: number; projectId: number; title: string; columnName: string }[];
+}
+
+export const searchApi = {
+  /** Notes and tasks of all projects; hits of `projectId` come first. */
+  search: (query: string, projectId: number, signal?: AbortSignal) =>
+    request<SearchResults>(`/search?q=${encodeURIComponent(query)}&project=${projectId}&limit=8`, { signal }),
+};

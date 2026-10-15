@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { PlusIcon } from '../icons';
+import { fieldClass } from '../ui/styles';
 
 interface AddItemButtonProps {
   /** "Spalte" or "Swimlane". */
@@ -32,7 +33,7 @@ export default function AddItemButton({ label, placeholder, onAdd, className = '
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-200/70 hover:text-slate-800 ${className}`}
+        className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-fg-subtle hover:bg-surface-strong hover:text-fg ${className}`}
       >
         <PlusIcon />
         {label}
@@ -42,7 +43,7 @@ export default function AddItemButton({ label, placeholder, onAdd, className = '
 
   return (
     <form
-      className={className}
+      className={`animate-pop-in ${className}`}
       onSubmit={(event) => {
         event.preventDefault();
         void submit();
@@ -65,9 +66,9 @@ export default function AddItemButton({ label, placeholder, onAdd, className = '
         onBlur={() => {
           if (!name.trim()) setOpen(false);
         }}
-        className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+        className={`px-2 ${fieldClass}`}
       />
-      <p className="mt-1 text-[11px] text-slate-400">Enter zum Anlegen, Esc zum Abbrechen</p>
+      <p className="mt-1 text-[11px] text-fg-subtle">Enter zum Anlegen, Esc zum Abbrechen</p>
     </form>
   );
 }

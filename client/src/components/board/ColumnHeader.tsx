@@ -54,12 +54,12 @@ export default function ColumnHeader({
       {...listeners}
       aria-roledescription="verschiebbare Spalte"
       aria-label={`Spalte „${column.name}“`}
-      className={`flex shrink-0 cursor-grab touch-manipulation select-none items-center gap-2 rounded-lg px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 ${widthClass} ${
+      className={`flex shrink-0 cursor-grab touch-manipulation select-none items-center gap-2 rounded-lg px-3 py-2 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${widthClass} ${
         isDragging
-          ? 'border border-dashed border-indigo-300 bg-indigo-50/60 [&>*]:invisible'
+          ? 'border border-dashed border-accent-line bg-accent-muted [&>*]:invisible'
           : overLimit
-            ? 'bg-red-100 text-red-800 ring-1 ring-red-300'
-            : 'bg-slate-200/70 text-slate-700'
+            ? 'bg-danger-muted text-danger-text ring-1 ring-danger-line'
+            : 'bg-surface-strong text-fg-muted'
       }`}
     >
       <InlineName
@@ -83,7 +83,7 @@ export default function ColumnHeader({
         <Menu
           label={`Spalte „${column.name}“: Aktionen`}
           trigger={<span aria-hidden="true">⋯</span>}
-          triggerClassName="grid size-6 place-items-center rounded-md text-base leading-none text-slate-500 hover:bg-white/70 hover:text-slate-800"
+          triggerClassName="grid size-6 place-items-center rounded-md text-base leading-none text-fg-subtle hover:bg-surface/70 hover:text-fg"
           items={[
             { label: 'Umbenennen', onSelect: () => setRenaming(true) },
             { label: 'WIP-Limit ändern', onSelect: () => setEditingWip(true) },
@@ -101,7 +101,7 @@ export default function ColumnHeader({
 export function ColumnHeaderGhost({ column, widthClass }: { column: BoardColumn; widthClass: string }) {
   return (
     <div
-      className={`flex cursor-grabbing items-center rounded-lg bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-xl ring-1 ring-indigo-300 ${widthClass}`}
+      className={`flex cursor-grabbing items-center rounded-lg bg-surface px-3 py-2 text-sm font-semibold text-fg shadow-popover ring-1 ring-accent-line ${widthClass}`}
     >
       {column.name}
     </div>

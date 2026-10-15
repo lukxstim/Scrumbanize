@@ -1,7 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import type { ProjectInput } from '../../types/project';
 import { ApiError } from '../../utils/api';
 import { PROJECT_COLORS } from '../../utils/projects';
+import Button from '../ui/Button';
+import Dialog from '../ui/Dialog';
+import { fieldClass, labelClass } from '../ui/styles';
 
 interface ProjectDialogProps {
   mode: 'create' | 'edit';
@@ -23,15 +26,10 @@ export default function ProjectDialog({
   onDelete,
   deleteDisabledReason,
 }: ProjectDialogProps) {
-  const ref = useRef<HTMLDialogElement>(null);
   const [name, setName] = useState(initial.name);
   const [color, setColor] = useState(initial.color);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    ref.current?.showModal();
-  }, []);
 
   async function submit() {
     setSaving(true);
@@ -49,46 +47,38 @@ export default function ProjectDialog({
   }
 
   return (
-    <dialog
-      ref={ref}
-      aria-labelledby="project-dialog-title"
-      className="m-auto w-full max-w-md rounded-lg bg-white p-6 shadow-xl backdrop:bg-slate-900/40"
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!saving) onClose();
-      }}
-    >
+    <Dialog onClose={onClose} dismissible={!saving} labelledBy="project-dialog-title" className="max-w-md p-6">
       <form
         onSubmit={(event) => {
           event.preventDefault();
           void submit();
         }}
       >
-        <h2 id="project-dialog-title" className="text-lg font-semibold text-slate-900">
+        <h2 id="project-dialog-title" className="text-base font-semibold text-fg">
           {mode === 'create' ? 'Neues Projekt' : 'Projekt bearbeiten'}
         </h2>
 
-        <label className="mt-5 block text-sm font-medium text-slate-700">
+        <label className={`mt-5 ${labelClass}`}>
           Name
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
             required
             maxLength={60}
-            autoFocus
+            data-autofocus
             placeholder="z. B. Studium"
-            className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm font-normal focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className={`mt-1 font-normal ${fieldClass}`}
           />
         </label>
 
         <fieldset className="mt-5">
-          <legend className="text-sm font-medium text-slate-700">Farbe</legend>
+          <legend className={labelClass}>Farbe</legend>
           <div className="mt-2 flex flex-wrap gap-2.5">
             {PROJECT_COLORS.map((option) => (
               <label
                 key={option.value}
                 title={option.label}
-                className="grid size-8 cursor-pointer place-items-center rounded-full ring-offset-2 has-checked:ring-2 has-checked:ring-slate-900 has-focus-visible:outline-2 has-focus-visible:outline-offset-4 has-focus-visible:outline-indigo-500"
+                className="grid size-8 cursor-pointer place-items-center rounded-full ring-offset-2 ring-offset-surface transition-shadow has-checked:ring-2 has-checked:ring-fg has-focus-visible:outline-2 has-focus-visible:outline-offset-4 has-focus-visible:outline-accent"
               >
                 <input
                   type="radio"
@@ -98,7 +88,7 @@ export default function ProjectDialog({
                   onChange={() => setColor(option.value)}
                   className="sr-only"
                 />
-                <span className={`size-6 rounded-full ${option.dot}`} />
+                <span className={`size-6 rounded-full transition-transform hover:scale-110 ${option.dot}`} />
                 <span className="sr-only">{option.label}</span>
               </label>
             ))}
@@ -106,41 +96,29 @@ export default function ProjectDialog({
         </fieldset>
 
         {error && (
-          <p role="alert" className="mt-4 text-sm text-red-600">
+          <p role="alert" className="mt-4 text-sm text-danger-text">
             {error}
           </p>
         )}
 
         <div className="mt-7 flex items-center gap-2">
           {onDelete && (
-            <button
-              type="button"
-              onClick={onDelete}
-              disabled={saving || deleteDisabledReason !== undefined}
-              title={deleteDisabledReason}
-              className="rounded-md px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-transparent"
-            >
-              Projekt löschen …
-            </button>
+            // The wrapper shows the reason as tooltip; disabled buttons do not receive hover.
+            <span title={deleteDisabledReason}>
+              <Button variant="danger-ghost" onClick={onDelete} disabled={saving || deleteDisabledReason !== undefined}>
+                Projekt löschen …
+              </Button>
+            </span>
           )}
           <div className="flex-1" />
-          <button
-            type="button"
-            disabled={saving}
-            onClick={onClose}
-            className="rounded-md px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
-          >
+          <Button variant="ghost" disabled={saving} onClick={onClose}>
             Abbrechen
-          </button>
-          <button
-            type="submit"
-            disabled={saving || !name.trim()}
-            className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-          >
+          </Button>
+          <Button type="submit" variant="primary" disabled={saving || !name.trim()}>
             {mode === 'create' ? 'Projekt anlegen' : 'Speichern'}
-          </button>
+          </Button>
         </div>
       </form>
-    </dialog>
+    </Dialog>
   );
 }

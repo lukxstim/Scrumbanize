@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { useProjects } from '../../hooks/useProjects';
+import { useToast } from '../../hooks/useToast';
 import type { Project, ProjectInput } from '../../types/project';
+import { onNewProjectRequest } from '../../utils/appEvents';
 import { paths, type Section } from '../../utils/paths';
 import { colorDot, countLabel, PROJECT_COLORS } from '../../utils/projects';
 import { CheckIcon, ChevronDownIcon, PencilIcon, PlusIcon } from '../icons';
+import { menuItemClass, popoverClass } from '../ui/styles';
 import DeleteProjectDialog from './DeleteProjectDialog';
 import ProjectDialog from './ProjectDialog';
 
@@ -24,6 +27,10 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const toast = useToast();
+
+  // "Neues Projekt" from the command palette.
+  useEffect(() => onNewProjectRequest(() => setDialog('create')), []);
 
   const menuItems = () => [...(menuRef.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]') ?? [])];
 
@@ -91,17 +98,21 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
     const project = await createProject(input);
     setDialog(null);
     navigate(paths.notes(project.id));
+    toast({ message: `Projekt „${project.name}“ angelegt.` });
   }
 
   async function save(input: ProjectInput) {
     await updateProject(active.id, input);
     setDialog(null);
+    toast({ message: 'Projekt gespeichert.' });
   }
 
   async function remove() {
+    const name = active.name;
     await deleteProject(active.id);
     setDialog(null);
     navigate('/', { replace: true });
+    toast({ message: `Projekt „${name}“ gelöscht.` });
   }
 
   // New projects start with a color that is not used yet, if there is one.
@@ -122,11 +133,11 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
             setMenuOpen(true);
           }
         }}
-        className="flex max-w-64 items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-100 aria-expanded:bg-slate-100"
+        className="flex h-8 max-w-64 items-center gap-2 rounded-md px-2.5 text-sm font-medium text-fg transition-colors duration-150 hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-accent aria-expanded:bg-surface-hover"
       >
         <span className={`size-2.5 shrink-0 rounded-full ${colorDot(active.color)}`} aria-hidden="true" />
         <span className="truncate">{active.name}</span>
-        <ChevronDownIcon className="size-3.5 shrink-0 text-slate-400" />
+        <ChevronDownIcon className="size-3.5 shrink-0 text-fg-subtle" />
       </button>
 
       {menuOpen && (
@@ -135,9 +146,9 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
           role="menu"
           aria-label="Projekte"
           onKeyDown={onMenuKeyDown}
-          className="absolute left-0 top-full z-20 mt-1 w-72 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+          className={`absolute left-0 top-full z-30 mt-1 w-72 origin-top-left ${popoverClass}`}
         >
-          <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400" aria-hidden="true">
+          <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-fg-subtle" aria-hidden="true">
             Projekte
           </div>
           <div className="max-h-80 overflow-y-auto">
@@ -148,36 +159,36 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
                 role="menuitemradio"
                 aria-checked={project.id === active.id}
                 onClick={() => switchTo(project)}
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-left hover:bg-slate-50 focus:bg-slate-100 focus:outline-none"
+                className={`py-2 ${menuItemClass}`}
               >
                 <span className={`size-2.5 shrink-0 rounded-full ${colorDot(project.color)}`} aria-hidden="true" />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-slate-800">{project.name}</span>
-                  <span className="block text-xs text-slate-500">
+                  <span className="block truncate text-sm font-medium text-fg">{project.name}</span>
+                  <span className="block text-xs text-fg-subtle">
                     {countLabel(project.noteCount, 'Notiz', 'Notizen')} · {countLabel(project.taskCount, 'Task', 'Tasks')}
                   </span>
                 </span>
-                {project.id === active.id && <CheckIcon className="size-4 shrink-0 text-indigo-600" />}
+                {project.id === active.id && <CheckIcon className="size-4 shrink-0 text-accent-text" />}
               </button>
             ))}
           </div>
-          <div role="separator" className="my-1 border-t border-slate-100" />
+          <div role="separator" className="my-1 border-t border-line" />
           <button
             type="button"
             role="menuitem"
             onClick={() => openDialog('create')}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 focus:bg-slate-100 focus:outline-none"
+            className={`py-2 ${menuItemClass}`}
           >
-            <PlusIcon className="size-4 text-slate-400" />
+            <PlusIcon className="size-4 text-fg-subtle" />
             Neues Projekt
           </button>
           <button
             type="button"
             role="menuitem"
             onClick={() => openDialog('edit')}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 focus:bg-slate-100 focus:outline-none"
+            className={`py-2 ${menuItemClass}`}
           >
-            <PencilIcon className="size-4 text-slate-400" />
+            <PencilIcon className="size-4 text-fg-subtle" />
             <span className="truncate">„{active.name}“ bearbeiten …</span>
           </button>
         </div>

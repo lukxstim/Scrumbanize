@@ -1,2 +1,194 @@
 @import 'tailwindcss';
+@import '@fontsource-variable/inter';
 @plugin '@tailwindcss/typography';
+
+/* `dark:` follows the app's theme switch (data-theme on <html>), not only the system setting. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/*
+ * Design tokens. Components use these semantic names (bg-surface, text-fg-muted, border-line, bg-accent …)
+ * instead of fixed palette colors, so the dark theme below only has to redefine the variables.
+ */
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --color-canvas: var(--color-zinc-50);
+  --color-surface: var(--color-white);
+  --color-surface-muted: var(--color-zinc-100);
+  --color-surface-hover: var(--color-zinc-100);
+  --color-surface-strong: oklch(92% 0.004 286);
+
+  --color-line: var(--color-zinc-200);
+  --color-line-strong: var(--color-zinc-300);
+
+  --color-fg: var(--color-zinc-900);
+  --color-fg-muted: var(--color-zinc-600);
+  /* A bit darker than zinc-500, so small text stays AA-readable on the muted and strong surfaces. */
+  --color-fg-subtle: oklch(49% 0.014 286);
+  --color-fg-faint: var(--color-zinc-400);
+
+  --color-accent: var(--color-indigo-600);
+  --color-accent-hover: var(--color-indigo-700);
+  --color-accent-fg: var(--color-white);
+  --color-accent-muted: var(--color-indigo-50);
+  --color-accent-line: var(--color-indigo-200);
+  --color-accent-text: var(--color-indigo-700);
+
+  --color-danger: var(--color-red-600);
+  --color-danger-hover: var(--color-red-700);
+  --color-danger-muted: var(--color-red-50);
+  --color-danger-line: var(--color-red-300);
+  --color-danger-text: var(--color-red-700);
+
+  --color-warning-muted: var(--color-amber-100);
+  --color-warning-text: var(--color-amber-800);
+
+  --color-success-muted: var(--color-emerald-50);
+  --color-success-line: var(--color-emerald-200);
+  --color-success-text: var(--color-emerald-800);
+
+  --shadow-card: 0 1px 2px 0 rgb(24 24 27 / 0.06), 0 1px 1px 0 rgb(24 24 27 / 0.03);
+  --shadow-card-hover: 0 4px 12px -2px rgb(24 24 27 / 0.12), 0 2px 4px -2px rgb(24 24 27 / 0.06);
+  --shadow-popover: 0 10px 30px -10px rgb(24 24 27 / 0.25), 0 4px 8px -4px rgb(24 24 27 / 0.08);
+  --shadow-dialog: 0 24px 64px -16px rgb(24 24 27 / 0.35);
+
+  --animate-pop-in: pop-in 140ms cubic-bezier(0.2, 0.9, 0.3, 1);
+  --animate-toast-in: toast-in 220ms cubic-bezier(0.2, 0.9, 0.3, 1);
+  --animate-flash: flash 900ms ease-out;
+}
+
+[data-theme='dark'] {
+  --color-canvas: oklch(16% 0.004 286);
+  --color-surface: oklch(20.5% 0.005 286);
+  --color-surface-muted: oklch(18.5% 0.005 286);
+  --color-surface-hover: oklch(26% 0.006 286);
+  --color-surface-strong: oklch(24% 0.006 286);
+
+  --color-line: oklch(28% 0.006 286);
+  --color-line-strong: oklch(36% 0.007 286);
+
+  --color-fg: var(--color-zinc-100);
+  --color-fg-muted: var(--color-zinc-300);
+  --color-fg-subtle: var(--color-zinc-400);
+  --color-fg-faint: var(--color-zinc-500);
+
+  --color-accent: var(--color-indigo-500);
+  --color-accent-hover: var(--color-indigo-400);
+  --color-accent-muted: oklch(58.5% 0.233 277.117 / 0.16);
+  --color-accent-line: oklch(58.5% 0.233 277.117 / 0.45);
+  --color-accent-text: var(--color-indigo-300);
+
+  --color-danger: var(--color-red-500);
+  --color-danger-hover: var(--color-red-400);
+  --color-danger-muted: oklch(63.7% 0.237 25.331 / 0.14);
+  --color-danger-line: oklch(63.7% 0.237 25.331 / 0.5);
+  --color-danger-text: var(--color-red-300);
+
+  --color-warning-muted: oklch(76.9% 0.188 70.08 / 0.16);
+  --color-warning-text: var(--color-amber-300);
+
+  --color-success-muted: oklch(69.6% 0.17 162.48 / 0.13);
+  --color-success-line: oklch(69.6% 0.17 162.48 / 0.35);
+  --color-success-text: var(--color-emerald-300);
+
+  --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --shadow-card-hover: 0 6px 16px -4px rgb(0 0 0 / 0.6);
+  --shadow-popover: 0 12px 32px -8px rgb(0 0 0 / 0.7), 0 0 0 1px var(--color-line);
+  --shadow-dialog: 0 24px 64px -12px rgb(0 0 0 / 0.8), 0 0 0 1px var(--color-line);
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  [data-theme='dark'] {
+    color-scheme: dark;
+  }
+
+  html,
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background-color: var(--color-accent-muted);
+  }
+}
+
+/* Dialogs fade and scale in (and out, where they are closed rather than unmounted). */
+dialog {
+  opacity: 0;
+  transform: translateY(6px) scale(0.98);
+  transition:
+    opacity 160ms ease,
+    transform 160ms cubic-bezier(0.2, 0.9, 0.3, 1),
+    overlay 160ms allow-discrete,
+    display 160ms allow-discrete;
+}
+dialog[open] {
+  opacity: 1;
+  transform: none;
+}
+@starting-style {
+  dialog[open] {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+dialog::backdrop {
+  background-color: rgb(9 9 11 / 0);
+  backdrop-filter: blur(0);
+  transition:
+    background-color 160ms ease,
+    backdrop-filter 160ms ease,
+    overlay 160ms allow-discrete,
+    display 160ms allow-discrete;
+}
+dialog[open]::backdrop {
+  background-color: rgb(9 9 11 / 0.45);
+  backdrop-filter: blur(2px);
+}
+@starting-style {
+  dialog[open]::backdrop {
+    background-color: rgb(9 9 11 / 0);
+    backdrop-filter: blur(0);
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+}
+@keyframes flash {
+  from {
+    box-shadow: 0 0 0 3px var(--color-accent-line);
+  }
+}
+
+/* Theme switches cross-fade (View Transitions API, where supported). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 200ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after,
+  ::backdrop {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}

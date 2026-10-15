@@ -83,3 +83,10 @@ export const noteListQuerySchema = z.object({
     .optional()
     .transform((value) => (value === undefined ? [] : [value].flat().map(normalizeTag).filter(Boolean))),
 });
+
+export const searchQuerySchema = z.object({
+  q: z.string().trim().max(200).default(''),
+  /** Hits of this project come first. */
+  project: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});

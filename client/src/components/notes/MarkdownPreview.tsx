@@ -4,11 +4,11 @@ import remarkGfm from 'remark-gfm';
 // react-markdown does not render raw HTML and strips unsafe URLs (e.g. javascript:), so note content cannot inject scripts.
 export default function MarkdownPreview({ content }: { content: string }) {
   if (!content.trim()) {
-    return <p className="text-sm italic text-slate-400">Noch kein Inhalt.</p>;
+    return <p className="text-sm italic text-fg-subtle">Noch kein Inhalt.</p>;
   }
 
   return (
-    <div className="prose prose-slate max-w-none">
+    <div className="prose prose-zinc dark:prose-invert max-w-none">
       <Markdown
         remarkPlugins={[remarkGfm]}
         components={{
