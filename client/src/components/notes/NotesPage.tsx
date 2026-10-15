@@ -1,4 +1,5 @@
 import { useDeferredValue, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router';
 import { useNotes } from '../../hooks/useNotes';
 import { filterNotes, sortByUpdated } from '../../utils/filterNotes';
 import { countTags } from '../../utils/tags';
@@ -9,10 +10,12 @@ import TagFilter from './TagFilter';
 
 export default function NotesPage() {
   const { notes, status, reload, createNote, saveNote, deleteNote, createTaskFromNote, deleteTask } = useNotes();
+  const navigate = useNavigate();
+  const { noteId } = useParams();
+  const selectedId = noteId ? Number(noteId) : null;
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [newNoteId, setNewNoteId] = useState<number | null>(null);
   const [createFailed, setCreateFailed] = useState(false);
 
@@ -34,7 +37,7 @@ export default function NotesPage() {
       const note = await createNote();
       setQuery('');
       setSelectedTags([]);
-      setSelectedId(note.id);
+      navigate(`/notes/${note.id}`);
       setNewNoteId(note.id);
     } catch {
       setCreateFailed(true);
@@ -43,7 +46,7 @@ export default function NotesPage() {
 
   async function handleDelete(id: number) {
     await deleteNote(id);
-    setSelectedId(null);
+    navigate('/notes', { replace: true });
   }
 
   function toggleTag(tag: string) {
@@ -87,7 +90,7 @@ export default function NotesPage() {
             <NoteList
               notes={visibleNotes}
               selectedId={selectedId}
-              onSelect={setSelectedId}
+              onSelect={(id) => navigate(`/notes/${id}`)}
               emptyMessage={notes.length === 0 ? 'Noch keine Notizen vorhanden.' : 'Keine Notizen gefunden.'}
             />
           )}

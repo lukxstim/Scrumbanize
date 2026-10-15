@@ -2,7 +2,13 @@
 
 Selbstgehostete Web-App, die Notizen und ein Scrumban-Board verbindet. Hintergrund und Ziele: [docs/vision.md](docs/vision.md), User Stories: [docs/stories](docs/stories).
 
-**Stand:** US-01 (Notizen-Management) und US-02 (Task-Umwandlung) sind umgesetzt: Notizen mit Titel, Markdown-Inhalt und Tags anlegen, bearbeiten (mit Auto-Save) und löschen, Live-Suche und Tag-Filter, sowie ganze Notizen oder markierte Textpassagen in Tasks im Backlog umwandeln. Das Scrumban-Board (US-03) folgt. Die App ist für einen einzelnen Nutzer ohne Login gedacht – betreibe sie nur in einem vertrauenswürdigen Netz oder hinter einem Reverse-Proxy mit Authentifizierung.
+**Stand:** US-01 bis US-03 sind umgesetzt:
+
+- **Notizen** (`/notes`): Titel, Markdown-Inhalt und Tags, Auto-Save, Live-Suche und Tag-Filter.
+- **Task-Umwandlung:** ganze Notizen oder markierte Textpassagen über ein vorausgefülltes Formular in Tasks im Backlog umwandeln; Notiz und Task sind gegenseitig verlinkt.
+- **Scrumban-Board** (`/board`, Task-Details unter `/tasks/:id`): Spalten Backlog, To Do, In Progress, Review, Done; Verschieben per Drag-and-Drop (Maus, Touch, Tastatur: Leertaste aufnehmen, Pfeiltasten, Leertaste ablegen) oder ◀ ▶; WIP-Limits für To Do, In Progress und Review (nur Warnung, nicht blockierend); Tasks direkt im Backlog anlegen, bearbeiten und löschen.
+
+Die App ist für einen einzelnen Nutzer ohne Login gedacht – betreibe sie nur in einem vertrauenswürdigen Netz oder hinter einem Reverse-Proxy mit Authentifizierung.
 
 ## Betrieb mit Docker
 
@@ -63,6 +69,10 @@ npm-Workspaces mit zwei Paketen:
 | GET     | `/api/tasks`      | Alle Tasks, sortiert nach Status und Position |
 | GET     | `/api/tasks/:id`  | Ein Task inkl. Quell-Notiz (`sourceNote`) |
 | POST    | `/api/tasks`      | Task im Backlog anlegen: `{ "title", "description", "sourceNoteId"? }` |
+| PATCH   | `/api/tasks/:id`  | Titel und/oder Beschreibung ändern: `{ "title"?, "description"? }` |
+| POST    | `/api/tasks/:id/move` | Task verschieben: `{ "status", "index" }` – `index` ist die Zielposition unter den übrigen Tasks der Spalte |
 | DELETE  | `/api/tasks/:id`  | Task löschen |
+| GET     | `/api/board`      | Spalten mit WIP-Limits und alle Tasks: `{ "columns", "tasks" }` |
+| PATCH   | `/api/board/columns/:status` | WIP-Limit setzen (nur `todo`, `in_progress`, `review`): `{ "wipLimit": number \| null }` |
 
 Tags werden normalisiert (Kleinschreibung, ohne Kommas, max. 32 Zeichen). Tags, die keine Notiz mehr verwendet, werden automatisch entfernt. Notizen enthalten ihre verknüpften Tasks (`tasks`). Tasks sind Kopien: spätere Änderungen an der Notiz werden nicht übernommen, und beim Löschen einer Notiz bleiben ihre Tasks erhalten. Fehler haben die Form `{ "error": { "code", "message" } }`.

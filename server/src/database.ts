@@ -46,6 +46,15 @@ export const migrations: string[] = [
   CREATE INDEX idx_tasks_source_note_id ON tasks(source_note_id);
   CREATE INDEX idx_tasks_status_position ON tasks(status, position);
   `,
+  `
+  CREATE TABLE board_columns (
+    status    TEXT PRIMARY KEY CHECK (status IN ('backlog', 'todo', 'in_progress', 'review', 'done')),
+    wip_limit INTEGER CHECK (wip_limit IS NULL OR wip_limit > 0)
+  );
+
+  INSERT INTO board_columns (status, wip_limit) VALUES
+    ('backlog', NULL), ('todo', NULL), ('in_progress', 3), ('review', NULL), ('done', NULL);
+  `,
 ];
 
 /** Opens (or creates) the database at `file` and brings its schema up to date. Pass ':memory:' for tests. */

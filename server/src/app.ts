@@ -3,8 +3,10 @@ import path from 'node:path';
 import express from 'express';
 import type { Db } from './database.js';
 import { apiNotFoundHandler, errorHandler } from './errors.js';
+import { createBoardRepository } from './repositories/boardRepository.js';
 import { createNotesRepository } from './repositories/notesRepository.js';
 import { createTasksRepository } from './repositories/tasksRepository.js';
+import { boardRouter } from './routes/board.js';
 import { notesRouter } from './routes/notes.js';
 import { tagsRouter } from './routes/tags.js';
 import { tasksRouter } from './routes/tasks.js';
@@ -18,6 +20,7 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   const app = express();
   const notes = createNotesRepository(db);
   const tasks = createTasksRepository(db);
+  const board = createBoardRepository(db);
 
   app.disable('x-powered-by');
   app.use(express.json({ limit: '2mb' }));
@@ -29,6 +32,7 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   api.use('/notes', notesRouter(notes));
   api.use('/tags', tagsRouter(notes));
   api.use('/tasks', tasksRouter(tasks));
+  api.use('/board', boardRouter(board, tasks));
   api.use(apiNotFoundHandler);
   app.use('/api', api);
 

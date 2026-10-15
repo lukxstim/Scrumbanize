@@ -1,3 +1,4 @@
+import { Link } from 'react-router';
 import type { LinkedTask } from '../../types/task';
 import { TASK_STATUS_LABELS } from '../../utils/taskStatus';
 
@@ -8,14 +9,16 @@ export default function LinkedTasks({ tasks }: { tasks: LinkedTask[] }) {
     <div className="flex flex-wrap items-center gap-1.5">
       <span className="text-xs font-medium text-slate-500">Tasks:</span>
       {tasks.map((task) => (
-        <span
+        <Link
           key={task.id}
-          className="flex max-w-72 items-center gap-1.5 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-xs text-emerald-800"
+          to={`/tasks/${task.id}`}
+          title="Task auf dem Board öffnen"
+          className="flex max-w-72 items-center gap-1.5 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-xs text-emerald-800 hover:border-emerald-400 hover:bg-emerald-100"
         >
           <span className="font-mono text-emerald-600">#{task.id}</span>
           <span className="truncate">{task.title}</span>
           <span className="shrink-0 text-emerald-600">· {TASK_STATUS_LABELS[task.status]}</span>
-        </span>
+        </Link>
       ))}
     </div>
   );

@@ -20,5 +20,13 @@ export interface TaskInput {
   sourceNoteId?: number;
 }
 
+export type TaskPatch = Partial<Pick<Task, 'title' | 'description'>>;
+
+export interface BoardColumn {
+  status: TaskStatus;
+  /** null means unlimited. */
+  wipLimit: number | null;
+}
+
 /** The short form of a task that notes carry. */
 export type LinkedTask = Pick<Task, 'id' | 'title' | 'status'>;

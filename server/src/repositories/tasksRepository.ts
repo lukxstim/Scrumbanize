@@ -1,9 +1,15 @@
 import type { Db } from '../database.js';
-import type { TaskInput } from '../validation.js';
+import type { TaskInput, TaskPatch } from '../validation.js';
 
 /** Board columns in display order. */
 export const TASK_STATUSES = ['backlog', 'todo', 'in_progress', 'review', 'done'] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
+
+/** The "active" columns that can have a WIP limit; Backlog and Done are always unlimited. */
+export const WIP_LIMITED_STATUSES = ['todo', 'in_progress', 'review'] as const;
+
+/** Below this gap between neighbours, a column's positions are renumbered instead of halved again. */
+const MIN_POSITION_GAP = 1e-6;
 
 export interface Task {
   id: number;
@@ -57,6 +63,16 @@ export function createTasksRepository(db: Db) {
   const selectTask = db.prepare<[number], TaskRow>(`${selectTaskSql} WHERE t.id = ?`);
   const selectAllTasks = db.prepare<[], TaskRow>(`${selectTaskSql} ORDER BY ${statusOrderSql}, t.position, t.id`);
   const deleteTask = db.prepare<[number]>(`DELETE FROM tasks WHERE id = ?`);
+  const updateTask = db.prepare<[string | null, string | null, string, number]>(
+    `UPDATE tasks SET title = COALESCE(?, title), description = COALESCE(?, description), updated_at = ? WHERE id = ?`,
+  );
+  const selectColumnSiblings = db.prepare<[TaskStatus, number], { id: number; position: number }>(
+    `SELECT id, position FROM tasks WHERE status = ? AND id != ? ORDER BY position, id`,
+  );
+  const updatePlacement = db.prepare<[TaskStatus, number, string, number]>(
+    `UPDATE tasks SET status = ?, position = ?, updated_at = ? WHERE id = ?`,
+  );
+  const updatePosition = db.prepare<[number, number]>(`UPDATE tasks SET position = ? WHERE id = ?`);
 
   function toTask(row: TaskRow): Task {
     return {
@@ -91,6 +107,46 @@ export function createTasksRepository(db: Db) {
       const now = new Date().toISOString();
       const { position } = nextBacklogPosition.get()!;
       const { id } = insertTask.get(input.title, input.description, position, input.sourceNoteId ?? null, now, now)!;
+      return toTask(selectTask.get(id)!);
+    }),
+
+    /** Changes title and/or description. Returns undefined if the task does not exist. */
+    update: db.transaction((id: number, patch: TaskPatch): Task | undefined => {
+      updateTask.run(patch.title ?? null, patch.description ?? null, new Date().toISOString(), id);
+      const row = selectTask.get(id);
+      return row && toTask(row);
+    }),
+
+    /**
+     * Places the task at `index` among the other tasks of column `status` (clamped to the end).
+     * Only the moved task's position changes, unless its neighbours are too close and the column is renumbered.
+     * Returns undefined if the task does not exist.
+     */
+    move: db.transaction((id: number, status: TaskStatus, index: number): Task | undefined => {
+      if (!selectTask.get(id)) return undefined;
+
+      const siblings = selectColumnSiblings.all(status, id);
+      const at = Math.min(index, siblings.length);
+      const prev = siblings[at - 1];
+      const next = siblings[at];
+
+      let position: number;
+      if (prev && next) {
+        position = (prev.position + next.position) / 2;
+      } else if (prev) {
+        position = prev.position + 1;
+      } else if (next) {
+        position = next.position - 1;
+      } else {
+        position = 1;
+      }
+
+      if (prev && next && next.position - prev.position < MIN_POSITION_GAP) {
+        siblings.forEach((sibling, i) => updatePosition.run(i < at ? i + 1 : i + 2, sibling.id));
+        position = at + 1;
+      }
+
+      updatePlacement.run(status, position, new Date().toISOString(), id);
       return toTask(selectTask.get(id)!);
     }),
 

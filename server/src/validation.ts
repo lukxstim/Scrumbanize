@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TASK_STATUSES, WIP_LIMITED_STATUSES } from './repositories/tasksRepository.js';
 
 export const MAX_TAG_LENGTH = 32;
 export const MAX_TAGS_PER_NOTE = 50;
@@ -32,6 +33,25 @@ export const taskInputSchema = z.object({
 });
 
 export type TaskInput = z.infer<typeof taskInputSchema>;
+
+export const taskPatchSchema = z.object({
+  title: z.string().trim().min(1).max(200).optional(),
+  description: z.string().max(1_000_000).optional(),
+});
+
+export type TaskPatch = z.infer<typeof taskPatchSchema>;
+
+export const moveTaskSchema = z.object({
+  status: z.enum(TASK_STATUSES),
+  /** Target index within the destination column, not counting the moved task; clamped to the column's end. */
+  index: z.number().int().min(0),
+});
+
+export const wipLimitStatusSchema = z.enum(WIP_LIMITED_STATUSES);
+
+export const wipLimitSchema = z.object({
+  wipLimit: z.number().int().min(1).max(999).nullable(),
+});
 
 export const idParamSchema =z.coerce.number().int().positive();
 

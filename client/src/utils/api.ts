@@ -1,5 +1,5 @@
 import type { Note, NoteInput } from '../types/note';
-import type { Task, TaskInput } from '../types/task';
+import type { BoardColumn, Task, TaskInput, TaskPatch, TaskStatus } from '../types/task';
 
 export class ApiError extends Error {
   constructor(
@@ -36,5 +36,16 @@ export const notesApi = {
 export const tasksApi = {
   list: () => request<Task[]>('/tasks'),
   create: (input: TaskInput) => request<Task>('/tasks', { method: 'POST', body: JSON.stringify(input) }),
+  update: (id: number, patch: TaskPatch) =>
+    request<Task>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  /** `index` counts the other tasks in the target column. */
+  move: (id: number, status: TaskStatus, index: number) =>
+    request<Task>(`/tasks/${id}/move`, { method: 'POST', body: JSON.stringify({ status, index }) }),
   remove: (id: number) => request<void>(`/tasks/${id}`, { method: 'DELETE' }),
+};
+
+export const boardApi = {
+  get: () => request<{ columns: BoardColumn[]; tasks: Task[] }>('/board'),
+  setWipLimit: (status: TaskStatus, wipLimit: number | null) =>
+    request<BoardColumn>(`/board/columns/${status}`, { method: 'PATCH', body: JSON.stringify({ wipLimit }) }),
 };
