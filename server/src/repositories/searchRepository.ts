@@ -19,7 +19,8 @@ const SNIPPET_LENGTH = 90;
 
 /** A short excerpt of `content` around the first occurrence of `query`, on one line. */
 export function snippetAround(content: string, query: string): string {
-  const text = content.replace(/\s+/g, ' ').trim();
+  // Highlights are stored as <mark data-color="…"> tags, which are not part of the text.
+  const text = content.replace(/<\/?mark[^>]*>/g, '').replace(/\s+/g, ' ').trim();
   const at = text.toLowerCase().indexOf(query.toLowerCase());
   if (at <= 30) return text.slice(0, SNIPPET_LENGTH);
   return `… ${text.slice(at - 30, at - 30 + SNIPPET_LENGTH)}`;

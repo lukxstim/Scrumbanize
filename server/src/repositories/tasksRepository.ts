@@ -3,6 +3,7 @@ import type { Db } from '../database.js';
 import { positionForIndex } from '../positions.js';
 import { type TaskInput, type TaskPatch, type TaskPriority, scheduleProblem } from '../validation.js';
 import { createActivityRepository } from './activityRepository.js';
+import { createAttachmentQueries, type Attachment } from './attachmentsRepository.js';
 
 export interface Task {
   id: number;
@@ -18,6 +19,8 @@ export interface Task {
   priority: TaskPriority | null;
   /** Links to other tasks of the project, oldest first; tasks in the trash are left out. */
   links: TaskLink[];
+  /** Attached files, oldest first. */
+  attachments: Attachment[];
   /** Calendar dates YYYY-MM-DD; a start date always comes with a due date on or after it. */
   startDate: string | null;
   dueDate: string | null;
@@ -86,6 +89,7 @@ export type TasksRepository = ReturnType<typeof createTasksRepository>;
 
 export function createTasksRepository(db: Db) {
   const activities = createActivityRepository(db);
+  const attachmentQueries = createAttachmentQueries(db);
   const selectColumnName = db.prepare<[number], { name: string }>(`SELECT name FROM board_columns WHERE id = ?`);
   const selectLaneName = db.prepare<[number], { name: string }>(`SELECT name FROM lanes WHERE id = ?`);
   const columnName = (id: number) => selectColumnName.get(id)?.name ?? '';
@@ -193,6 +197,7 @@ export function createTasksRepository(db: Db) {
             },
       priority: row.priority,
       links: linksOf(row.id),
+      attachments: attachmentQueries.forTask(row.id),
       startDate: row.start_date,
       dueDate: row.due_date,
       createdAt: row.created_at,

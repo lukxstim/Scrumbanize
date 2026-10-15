@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { Attachment } from '../types/attachment';
 import type { Note, NoteInput } from '../types/note';
 import type { Task } from '../types/task';
 import { notesApi, tasksApi, trashApi } from '../utils/api';
@@ -33,8 +34,11 @@ export function useNotes(projectId: number) {
 
   const saveNote = useCallback(async (id: number, input: NoteInput): Promise<void> => {
     const saved = await notesApi.update(id, input);
-    // Keep the local task list: a save that was sent before a task was created would otherwise drop it.
-    setNotes((current) => current.map((note) => (note.id === id ? { ...saved, tasks: note.tasks } : note)));
+    // Keep the local task and attachment lists: a save sent before a task was created or a file was uploaded
+    // would otherwise drop them.
+    setNotes((current) =>
+      current.map((note) => (note.id === id ? { ...saved, tasks: note.tasks, attachments: note.attachments } : note)),
+    );
   }, []);
 
   const deleteNote = useCallback(async (id: number): Promise<void> => {
@@ -62,5 +66,10 @@ export function useNotes(projectId: number) {
     );
   }, []);
 
-  return { notes, status, reload, createNote, saveNote, deleteNote, createTaskFromNote, discardTask };
+  /** Applies an upload or removal to the note's attachment list. */
+  const updateAttachments = useCallback((noteId: number, update: (attachments: Attachment[]) => Attachment[]) => {
+    setNotes((current) => current.map((note) => (note.id === noteId ? { ...note, attachments: update(note.attachments) } : note)));
+  }, []);
+
+  return { notes, status, reload, updateAttachments, createNote, saveNote, deleteNote, createTaskFromNote, discardTask };
 }

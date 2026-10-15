@@ -69,6 +69,7 @@ describe('tags on tasks', () => {
 describe('snippetAround', () => {
   it('starts at the beginning for early matches and cuts around later ones', () => {
     expect(snippetAround('Hallo  Welt\nneue Zeile', 'welt')).toBe('Hallo Welt neue Zeile');
+    expect(snippetAround('Ein <mark data-color="green">wichtiger</mark> Satz', 'satz')).toBe('Ein wichtiger Satz');
     const long = `${'x'.repeat(100)} Treffer ${'y'.repeat(100)}`;
     expect(snippetAround(long, 'treffer').startsWith('… ')).toBe(true);
     expect(snippetAround(long, 'treffer')).toContain('Treffer');

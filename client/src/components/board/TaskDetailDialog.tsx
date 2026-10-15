@@ -8,11 +8,12 @@ import type { Schedule } from '../../utils/schedule';
 import { UNTITLED_NOTE } from '../../utils/taskFromNote';
 import ScheduleFields from '../tasks/ScheduleFields';
 import TaskLinks from '../tasks/TaskLinks';
+import AttachmentsPanel from '../attachments/AttachmentsPanel';
+import type { Attachment } from '../../types/attachment';
 import { linkCandidates } from '../../utils/links';
-import MarkdownPreview from '../notes/LazyMarkdownPreview';
+import MarkdownEditor from '../editor/MarkdownEditor';
 import Button from '../ui/Button';
 import Dialog from '../ui/Dialog';
-import SegmentedControl from '../ui/SegmentedControl';
 import { fieldClass, iconButtonClass } from '../ui/styles';
 
 interface TaskDetailDialogProps {
@@ -31,6 +32,7 @@ interface TaskDetailDialogProps {
   onRemoveLink: (id: number, linkId: number) => Promise<void>;
   /** Shows another task's details, e.g. a linked one. */
   onOpenTask: (id: number) => void;
+  onUpdateAttachments: (id: number, update: (attachments: Attachment[]) => Attachment[]) => void;
 }
 
 const selectClass = `!w-auto !py-1 ${fieldClass}`;
@@ -47,10 +49,10 @@ export default function TaskDetailDialog({
   onAddLink,
   onRemoveLink,
   onOpenTask,
+  onUpdateAttachments,
 }: TaskDetailDialogProps) {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
-  const [mode, setMode] = useState<'edit' | 'preview'>(task.description ? 'preview' : 'edit');
   const [deleteFailed, setDeleteFailed] = useState(false);
   // Priority and dates are saved right away (no typing involved); a failed save puts the old values back.
   const [dates, setDates] = useState<Schedule>({ priority: task.priority, startDate: task.startDate, dueDate: task.dueDate });
@@ -181,34 +183,23 @@ export default function TaskDetailDialog({
         />
 
         <div>
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm font-medium text-fg-muted">Beschreibung</span>
-            <SegmentedControl
-              label="Ansicht der Beschreibung"
-              size="sm"
-              value={mode}
-              onChange={setMode}
-              options={[
-                { value: 'edit', label: 'Bearbeiten' },
-                { value: 'preview', label: 'Vorschau' },
-              ]}
+          <span className="mb-1 block text-sm font-medium text-fg-muted">Beschreibung</span>
+          <div className="rounded-md border border-line px-3 pb-3">
+            <MarkdownEditor
+              value={description}
+              onChange={(next) => change({ description: next })}
+              label="Beschreibung"
+              placeholder="Beschreibung …"
+              minHeightClass="min-h-40"
             />
           </div>
-          {mode === 'edit' ? (
-            <textarea
-              value={description}
-              onChange={(event) => change({ description: event.target.value })}
-              rows={12}
-              placeholder="Beschreibung in Markdown …"
-              aria-label="Beschreibung"
-              className={`resize-y py-2 font-mono leading-relaxed ${fieldClass}`}
-            />
-          ) : (
-            <div className="min-h-24 rounded-md border border-line px-4 py-3">
-              <MarkdownPreview content={description} />
-            </div>
-          )}
         </div>
+
+        <AttachmentsPanel
+          owner={{ type: 'task', id: task.id }}
+          attachments={task.attachments}
+          onUpdate={(update) => onUpdateAttachments(task.id, update)}
+        />
       </div>
 
       <div className="flex items-center gap-3 border-t border-line px-6 py-3 text-xs text-fg-subtle">

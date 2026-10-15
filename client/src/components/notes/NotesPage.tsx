@@ -19,7 +19,7 @@ import TagFilter from './TagFilter';
 export default function NotesPage() {
   const { projectId: projectParam, noteId } = useParams();
   const projectId = Number(projectParam);
-  const { notes, status, reload, createNote, saveNote, deleteNote, createTaskFromNote, discardTask } = useNotes(projectId);
+  const { notes, status, reload, updateAttachments, createNote, saveNote, deleteNote, createTaskFromNote, discardTask } = useNotes(projectId);
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
@@ -143,6 +143,7 @@ export default function NotesPage() {
             onDelete={handleDelete}
             onCreateTask={createTaskFromNote}
             onDiscardTask={discardTask}
+            onUpdateAttachments={updateAttachments}
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center">

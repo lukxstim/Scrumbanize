@@ -1,16 +1,16 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useAutosave, type SaveStatus } from '../../hooks/useAutosave';
-import { useTextSelection } from '../../hooks/useTextSelection';
 import { useToast } from '../../hooks/useToast';
+import type { Attachment } from '../../types/attachment';
 import type { Note, NoteInput } from '../../types/note';
 import type { Task } from '../../types/task';
 import { buildTaskDraft, UNTITLED_NOTE, type TaskDraft } from '../../utils/taskFromNote';
 import { BoardIcon } from '../icons';
+import AttachmentsPanel from '../attachments/AttachmentsPanel';
+import MarkdownEditor from '../editor/MarkdownEditor';
 import Button from '../ui/Button';
-import SegmentedControl from '../ui/SegmentedControl';
 import ConvertToTaskDialog from './ConvertToTaskDialog';
 import LinkedTasks from './LinkedTasks';
-import MarkdownPreview from './LazyMarkdownPreview';
 import TagInput from './TagInput';
 
 interface NoteEditorProps {
@@ -23,6 +23,7 @@ interface NoteEditorProps {
   onCreateTask: (noteId: number, draft: TaskDraft) => Promise<Task>;
   /** Takes back a task just created from this note. */
   onDiscardTask: (taskId: number) => Promise<void>;
+  onUpdateAttachments: (noteId: number, update: (attachments: Attachment[]) => Attachment[]) => void;
 }
 
 export default function NoteEditor({
@@ -33,14 +34,14 @@ export default function NoteEditor({
   onDelete,
   onCreateTask,
   onDiscardTask,
+  onUpdateAttachments,
 }: NoteEditorProps) {
   const [draft, setDraft] = useState<NoteInput>({ title: note.title, content: note.content, tags: note.tags });
-  const [mode, setMode] = useState<'edit' | 'preview'>('edit');
   const [conversion, setConversion] = useState<{ draft: TaskDraft; fromSelection: boolean } | null>(null);
-  const previewRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
   const { status, schedule, flush, cancel } = useAutosave<NoteInput>((input) => onSave(note.id, input));
-  const { selection, textareaHandlers } = useTextSelection(mode, previewRef);
+  // Markdown of what is selected in the editor, for "Auswahl in Task umwandeln".
+  const [selection, setSelection] = useState('');
 
   function change(patch: Partial<NoteInput>) {
     const next = { ...draft, ...patch };
@@ -94,19 +95,9 @@ export default function NoteEditor({
       }}
     >
       <div className="flex items-center gap-2 border-b border-line px-6 py-2.5">
-        <SegmentedControl
-          label="Ansicht"
-          size="sm"
-          value={mode}
-          onChange={setMode}
-          options={[
-            { value: 'edit', label: 'Bearbeiten' },
-            { value: 'preview', label: 'Vorschau' },
-          ]}
-        />
         <Button
           size="sm"
-          // Keep the text selection (and the textarea's focus) when the button is clicked.
+          // Keep the text selection (and the editor's focus) when the button is clicked.
           onMouseDown={(event) => event.preventDefault()}
           onClick={startConversion}
           className={selection ? 'border-accent-line text-accent-text' : ''}
@@ -135,20 +126,19 @@ export default function NoteEditor({
           <TagInput tags={draft.tags} suggestions={tagSuggestions} onChange={(tags) => change({ tags })} />
           <LinkedTasks projectId={note.projectId} tasks={note.tasks} />
           <hr className="my-1 border-line" />
-          {mode === 'edit' ? (
-            <textarea
-              value={draft.content}
-              onChange={(event) => change({ content: event.target.value })}
-              {...textareaHandlers}
-              placeholder="Schreibe deine Notiz in Markdown …"
-              aria-label="Inhalt"
-              className="min-h-64 flex-1 resize-none bg-transparent font-mono text-sm leading-relaxed text-fg placeholder:text-fg-faint focus:outline-none"
-            />
-          ) : (
-            <div ref={previewRef}>
-              <MarkdownPreview content={draft.content} />
-            </div>
-          )}
+          <MarkdownEditor
+            value={draft.content}
+            onChange={(content) => change({ content })}
+            onSelectionChange={setSelection}
+            label="Inhalt"
+            placeholder="Schreibe deine Notiz …"
+            minHeightClass="min-h-64"
+          />
+          <AttachmentsPanel
+            owner={{ type: 'note', id: note.id }}
+            attachments={note.attachments}
+            onUpdate={(update) => onUpdateAttachments(note.id, update)}
+          />
         </div>
       </div>
 

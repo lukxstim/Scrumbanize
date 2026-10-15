@@ -57,6 +57,12 @@ export const text = {
     return `Notiz ${noteName(title)} bearbeitet${details ? ` (${details})` : ''}`;
   },
   noteDeleted: (title: string) => `Notiz ${noteName(title)} gelöscht`,
+  filesAttached: (owner: 'note' | 'task', title: string, fileNames: string[]) =>
+    `${fileNames.length === 1 ? `Datei ${quote(fileNames[0]!)}` : `${fileNames.length} Dateien`} an ${
+      owner === 'note' ? `Notiz ${noteName(title)}` : `Task ${quote(title)}`
+    } angehängt`,
+  fileRemoved: (owner: 'note' | 'task', title: string, fileName: string) =>
+    `Datei ${quote(fileName)} von ${owner === 'note' ? `Notiz ${noteName(title)}` : `Task ${quote(title)}`} entfernt`,
   noteTrashed: (title: string) => `Notiz ${noteName(title)} in den Papierkorb verschoben`,
   noteRestored: (title: string) => `Notiz ${noteName(title)} wiederhergestellt`,
   notePurged: (title: string) => `Notiz ${noteName(title)} endgültig gelöscht`,

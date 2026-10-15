@@ -4,8 +4,11 @@ import type { ProjectsRepository } from '../repositories/projectsRepository.js';
 import type { TrashRepository } from '../repositories/trashRepository.js';
 import { idParamSchema, trashQuerySchema, trashTypeSchema } from '../validation.js';
 
-/** The trash bin across projects: list, restore, purge single items, empty. */
-export function trashRouter(trash: TrashRepository, projects: ProjectsRepository): Router {
+/**
+ * The trash bin across projects: list, restore, purge single items, empty. `afterPurge` removes the files of
+ * attachments that went with the purged items.
+ */
+export function trashRouter(trash: TrashRepository, projects: ProjectsRepository, afterPurge: () => void): Router {
   const router = Router();
 
   /** `project` limits notes and tasks to one project; trashed projects are always listed. */
@@ -25,6 +28,7 @@ export function trashRouter(trash: TrashRepository, projects: ProjectsRepository
     if (!trash.purge(trashTypeSchema.parse(req.params.type), idParamSchema.parse(req.params.id))) {
       throw notFound('Not in the trash');
     }
+    afterPurge();
     res.status(204).end();
   });
 
@@ -32,7 +36,9 @@ export function trashRouter(trash: TrashRepository, projects: ProjectsRepository
   router.delete('/', (req, res) => {
     const { project } = trashQuerySchema.parse(req.query);
     if (project !== undefined && !projects.exists(project)) throw notFound('Project not found');
-    res.json(trash.empty(project));
+    const purged = trash.empty(project);
+    afterPurge();
+    res.json(purged);
   });
 
   return router;

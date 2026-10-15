@@ -1,3 +1,5 @@
+import type { Attachment } from './attachment';
+
 export const TASK_PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const;
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
 
@@ -26,6 +28,8 @@ export interface Task {
   priority: TaskPriority | null;
   /** Links to other tasks of the project, oldest first. */
   links: TaskLink[];
+  /** Attached files, oldest first. */
+  attachments: Attachment[];
   /** Calendar dates YYYY-MM-DD; a start date always comes with a due date on or after it. */
   startDate: string | null;
   dueDate: string | null;

@@ -4,10 +4,12 @@
 
 Selbstgehostete Web-App, die Notizen und ein Scrumban-Board verbindet. Hintergrund und Ziele: [docs/vision.md](docs/vision.md), User Stories: [docs/stories](docs/stories).
 
-**Stand:** US-01 bis US-11 sind umgesetzt:
+**Stand:** US-01 bis US-12 sind umgesetzt:
 
 - **Projekte:** Notizen und Board sind nach Projekten getrennt (z. B. „Privat“, „Studium“). Projekte werden im Header gewechselt, angelegt, umbenannt, eingefärbt und gelöscht (sie kommen nach einer Rückfrage in den Papierkorb; das letzte Projekt bleibt erhalten). Beim ersten Start gibt es das Projekt „Allgemein“; das zuletzt geöffnete Projekt merkt sich der Browser.
-- **Notizen** (`/p/:projectId/notes`): Titel, Markdown-Inhalt und Tags, Auto-Save, Live-Suche und Tag-Filter.
+- **Notizen** (`/p/:projectId/notes`): Titel, Inhalt und Tags, Auto-Save, Live-Suche und Tag-Filter.
+- **Editor** für Notizen und Task-Beschreibungen: formatiert bearbeiten (WYSIWYG) mit Werkzeugleiste – Überschriften, fett, kursiv, durchgestrichen, Code, Hervorheben in 5 Farben, Listen, Checklisten, Zitat, Codeblock, Link, Rückgängig – und Markdown-Kürzeln beim Tippen (`## `, `- [ ] `, `**…**`). Gespeichert wird weiterhin Markdown (GFM); Hervorhebungen als `<mark data-color="…">`. Der Schalter „Formatiert / Markdown“ zeigt den Quelltext (merkt sich der Browser). Inhalte mit HTML oder Fußnoten öffnen nur als Markdown, damit nichts verloren geht. Beim Speichern über den Editor kann sich die Schreibweise vereinheitlichen (z. B. `*`-Listen zu `-`, `__fett__` zu `**fett**`), der Inhalt bleibt gleich.
+- **Anhänge** an Notizen und Tasks: per Drag-and-Drop oder „auswählen“, bis zu 10 Dateien je Upload und 25 MB je Datei. Erlaubt sind Bilder (PNG, JPEG, GIF, WebP), PDF, Office (DOCX, XLSX, PPTX), OpenDocument (ODT, ODS, ODP), TXT, CSV, MD und ZIP – kein SVG. Bilder erscheinen als Vorschaubilder, andere Dateien als Liste; Bilder und PDFs öffnen in einer Vorschau (← → blättern), alles lässt sich herunterladen (mit Originalnamen) und nach Rückfrage endgültig entfernen. Anhänge folgen Notiz bzw. Task in den Papierkorb und werden beim endgültigen Löschen mit entfernt; bei der Umwandlung einer Notiz bleiben sie an der Notiz.
 - **Task-Umwandlung:** ganze Notizen oder markierte Textpassagen über ein vorausgefülltes Formular (optional mit Priorität und Fälligkeit) in Tasks in der ersten Spalte desselben Projekts umwandeln; Notiz und Task sind gegenseitig verlinkt.
 - **Scrumban-Board** (`/p/:projectId/board`, Task-Details unter `/p/:projectId/tasks/:id`):
   - Eigene Spalten und Swimlanes pro Projekt: anlegen, per Doppelklick umbenennen, über das ⋯-Menü sortieren (Spalten auch per Drag-and-Drop am Kopf) und löschen. Tasks einer gelöschten Spalte oder Swimlane werden in eine wählbare andere verschoben. Höchstens 20 Spalten und 20 Swimlanes; Namen sind pro Projekt eindeutig.
@@ -16,7 +18,7 @@ Selbstgehostete Web-App, die Notizen und ein Scrumban-Board verbindet. Hintergru
   - Tasks per Drag-and-Drop zwischen Spalten und Swimlanes verschieben (Maus, Touch, Tastatur: Leertaste aufnehmen, Pfeiltasten, Leertaste ablegen) oder per ◀ ▶. Neue Tasks landen in der ersten Spalte; jede Swimlane hat dort ein eigenes „+ Task“.
   - „Kompakt“ verkleinert Karten und Spalten; Spaltenköpfe bleiben beim Scrollen sichtbar.
   - **Verknüpfungen:** In den Task-Details lassen sich Tasks desselben Projekts verknüpfen – „Hängt zusammen mit“, „Blockiert“ und „Wird blockiert von“ (dieselbe Verknüpfung von der anderen Seite gesehen). Pro Task-Paar gibt es höchstens eine Verknüpfung; die Auswahl sucht nach Titel oder `#Nummer`. Verknüpfte Tasks erscheinen gruppiert und als Links in den Details; Karten zeigen die Anzahl (Tooltip mit der Liste) und „Blockiert“, solange ein blockierender Task nicht in der letzten Spalte steht. Verschieben bleibt trotzdem möglich.
-  - Task-Karten zeigen die Tags ihrer Notiz, die Priorität (farbiger Rand und Label) und die Fälligkeit („Heute“, „Morgen“, „17.10.“; überfällig rot).
+  - Task-Karten zeigen den Fortschritt der Checkliste in der Beschreibung (z. B. „2/5“), die Anzahl der Anhänge, die Tags ihrer Notiz, die Priorität (farbiger Rand und Label) und die Fälligkeit („Heute“, „Morgen“, „17.10.“; überfällig rot).
   - **Prioritäten und Termine:** Jeder Task kann eine Priorität (Niedrig, Mittel, Hoch, Dringend), ein Fälligkeitsdatum und optional ein Startdatum haben – reine Kalendertage ohne Uhrzeit. Ein Start braucht eine Fälligkeit und liegt nicht danach. Gesetzt werden sie in den Task-Details (mit „Heute“, „Morgen“, „Nächste Woche“, „Entfernen“). Tasks in der letzten Spalte gelten als erledigt und sind nie überfällig.
   - **Sortieren und Filtern:** nach Priorität oder Fälligkeit sortieren, nach Priorität (auch „Ohne“) und Fälligkeit (überfällig, heute, diese Woche, mit/ohne Termin) filtern. Das ändert nur die Anzeige, nicht die gespeicherte Reihenfolge, und wird pro Projekt im Browser gemerkt. Solange sortiert wird, lässt sich die Reihenfolge innerhalb einer Zelle nicht per Drag-and-Drop ändern; WIP-Limits zählen immer alle Tasks.
 - **Kalender** (`/p/:projectId/calendar`): Monats- (mit Kalenderwochen) und Wochenansicht der Tasks des Projekts nach Fälligkeit; Tasks mit Startdatum erscheinen als Balken über den Zeitraum. Termine per Drag-and-Drop verschieben (der ganze Zeitraum wandert mit; auch per Tastatur: Pfeiltasten = ±1 Tag/Woche), Tasks aus der Seitenleiste „Ohne Fälligkeit“ auf einen Tag ziehen oder einen Termin dorthin ziehen, um ihn zu entfernen. „+“ an einem Tag legt einen dort fälligen Task an, ein Klick öffnet die Task-Details. Wochen beginnen am Montag; erledigte Tasks sind ausgegraut.
@@ -49,11 +51,12 @@ Notizen, Tasks und Einstellungen liegen in **`%APPDATA%\Scrumbanize\`** (z. B. `
 | Datei | Inhalt |
 |---|---|
 | `scrumbanize.db` | Die Datenbank – dieselbe Art Datei wie bei Docker und in der Entwicklung |
+| `uploads\` | Die Dateien der Anhänge (unter zufälligen Namen; die Originalnamen stehen in der Datenbank) |
 | `window-state.json` | Fenstergröße und -position |
 | `logs\main.log` | Protokoll für die Fehlersuche |
 
-- **Backup:** Scrumbanize beenden und `scrumbanize.db` kopieren.
-- **Daten übernehmen** (z. B. von Docker oder aus der Entwicklung): Scrumbanize beenden und die vorhandene `scrumbanize.db` in diesen Ordner kopieren (bestehende Datei vorher sichern). Die Datenbank wird beim nächsten Start automatisch auf den aktuellen Stand gebracht.
+- **Backup:** Scrumbanize beenden und `scrumbanize.db` **und den Ordner `uploads`** kopieren.
+- **Daten übernehmen** (z. B. von Docker oder aus der Entwicklung): Scrumbanize beenden und die vorhandene `scrumbanize.db` samt `uploads`-Ordner in diesen Ordner kopieren (bestehende Datei vorher sichern). Die Datenbank wird beim nächsten Start automatisch auf den aktuellen Stand gebracht.
 - **Update:** neue Version einfach installieren bzw. die neue portable Datei verwenden – die Daten bleiben erhalten, auch beim Deinstallieren.
 
 ### Technik
@@ -82,11 +85,12 @@ docker compose up -d --build
 
 Die App läuft danach auf <http://localhost:3000>. Ein anderer Port lässt sich mit `SCRUMBANIZE_PORT=8080 docker compose up -d` setzen.
 
-Die SQLite-Datenbank liegt im Volume `scrumbanize-data` (im Container unter `/data/scrumbanize.db`) und bleibt bei Neustarts und Updates erhalten. Backup, während der Container läuft:
+Die SQLite-Datenbank und die Anhänge liegen im Volume `scrumbanize-data` (im Container unter `/data/scrumbanize.db` und `/data/uploads/`) und bleibt bei Neustarts und Updates erhalten. Backup, während der Container läuft:
 
 ```sh
 docker compose exec scrumbanize node -e "require('better-sqlite3')('/data/scrumbanize.db').backup('/data/backup.db')"
 docker compose cp scrumbanize:/data/backup.db ./backup.db
+docker compose cp scrumbanize:/data/uploads ./uploads   # die Dateien der Anhänge
 ```
 
 ## Entwicklung
@@ -102,7 +106,7 @@ npm run build      # Client nach client/dist, Server nach server/dist
 npm start          # Produktionsserver, liefert auch den gebauten Client aus
 ```
 
-Lokal liegt die Datenbank unter `data/scrumbanize.db` (per `.gitignore` ausgeschlossen).
+Lokal liegen die Datenbank unter `data/scrumbanize.db` und die Anhänge unter `data/uploads/` (per `.gitignore` ausgeschlossen).
 
 ### Konfiguration (Umgebungsvariablen)
 
@@ -110,7 +114,7 @@ Lokal liegt die Datenbank unter `data/scrumbanize.db` (per `.gitignore` ausgesch
 |---------------|--------------------------|-----------------------------------------|
 | `PORT`        | `3000`                   | Port des Servers                        |
 | `HOST`        | alle Netzwerkschnittstellen | Adresse, an die der Server bindet (z. B. `127.0.0.1`) |
-| `DATA_DIR`    | `<repo>/data`, Docker: `/data` | Verzeichnis der SQLite-Datenbank   |
+| `DATA_DIR`    | `<repo>/data`, Docker: `/data` | Verzeichnis der SQLite-Datenbank und der Anhänge (`uploads/`) |
 | `CLIENT_DIST` | `<repo>/client/dist`     | Gebauter Client, der mit ausgeliefert wird |
 
 ## Projektstruktur
@@ -151,6 +155,9 @@ Listen und Neuanlagen gehören zu einem Projekt (`/api/projects/:projectId/…`)
 | POST    | `/api/tasks/:id/move` | Task verschieben: `{ "columnId", "laneId", "index" }` – Spalte und Swimlane müssen zum Projekt des Tasks gehören; `index` ist die Zielposition unter den übrigen Tasks der Zelle |
 | POST    | `/api/tasks/:id/links` | Verknüpfen: `{ "targetId", "kind" }` mit `kind` `relates`, `blocks` oder `blocked_by` (aus Sicht von `:id`). Antwort: beide Tasks `{ task, target }`. 400 bei Verknüpfung mit sich selbst oder einem anderen Projekt, 409, wenn das Paar schon verknüpft ist |
 | DELETE  | `/api/tasks/:id/links/:linkId` | Verknüpfung entfernen (von beiden Seiten aus möglich); Antwort: beide Tasks |
+| POST    | `/api/notes/:id/attachments`, `/api/tasks/:id/attachments` | Dateien anhängen: `multipart/form-data` mit dem Feld `files` (bis zu 10, je max. 25 MB). Antwort 201: `[{ id, fileName, mimeType, size, createdAt }]`. 413 bei zu großen Dateien, 415 bei nicht erlaubtem Typ, 404, wenn Notiz bzw. Task fehlt oder im Papierkorb liegt |
+| GET     | `/api/attachments/:id/file?download=1` | Die Datei mit Originalnamen: Bilder und PDFs zur Anzeige im Browser, alles andere (und mit `download`) als Download. Immer mit `nosniff`, außer bei PDFs auch mit `Content-Security-Policy: sandbox` |
+| DELETE  | `/api/attachments/:id` | Anhang samt Datei endgültig löschen |
 | DELETE  | `/api/tasks/:id`  | Task in den Papierkorb verschieben |
 | GET     | `/api/trash?project=` | Papierkorb, zuletzt gelöschte zuerst: `[{ type, id, projectId, projectName, projectColor, title, deletedAt, snippet?, columnName?, noteCount?, taskCount? }]` mit `type` `note`, `task` oder `project`. `project` beschränkt Notizen und Tasks auf ein Projekt; gelöschte Projekte sind immer dabei, Notizen und Tasks gelöschter Projekte nie einzeln |
 | POST    | `/api/trash/:type/:id/restore` | Wiederherstellen: `{ type, item, renamedFrom? }` – `item` ist die Notiz, der Task bzw. das Projekt; `renamedFrom`, wenn der Projektname inzwischen vergeben war |
@@ -159,4 +166,4 @@ Listen und Neuanlagen gehören zu einem Projekt (`/api/projects/:projectId/…`)
 | GET     | `/api/projects/:id/activities?type=&before=&limit=` | Aktivitätsprotokoll, neueste zuerst: `{ "items": [{ id, entityType, entityId, actionType, description, metadata, createdAt, exists }], "nextCursor" }`. `type`: `note`, `task`, `board` oder `project`; `before`: `nextCursor` der vorigen Seite; `limit` 1–100 (Standard 30). `exists` sagt, ob die Notiz bzw. der Task noch existiert |
 | GET     | `/api/search?q=&project=&limit=` | Suche über alle Projekte für die Befehlspalette: `{ "notes": [{ id, projectId, title, snippet }], "tasks": [{ id, projectId, title, columnName }] }` – Treffer des Projekts `project` zuerst, `limit` 1–50 (Standard 20) |
 
-Tasks enthalten ihre Verknüpfungen (`links: [{ id, kind, task: { id, title, columnId, columnName, done } }]`, `done` = letzte Spalte). `priority` ist `low`, `medium`, `high`, `urgent` oder `null`; `startDate` und `dueDate` sind Kalendertage `YYYY-MM-DD` oder `null`, ein `startDate` braucht ein `dueDate` am selben Tag oder später. Tags werden normalisiert (Kleinschreibung, ohne Kommas, max. 32 Zeichen). Tags, die keine Notiz mehr verwendet, werden automatisch entfernt. Notizen enthalten ihre verknüpften Tasks (`tasks`). Tasks sind Kopien: spätere Änderungen an der Notiz werden nicht übernommen, und beim Löschen einer Notiz bleiben ihre Tasks erhalten. Was im Papierkorb liegt, liefern die übrigen Endpunkte nicht mehr (404) – auch nicht in Suche, Listen und Zählern. Fehler haben die Form `{ "error": { "code", "message" } }`.
+Notizen und Tasks enthalten ihre Anhänge (`attachments`). Tasks enthalten ihre Verknüpfungen (`links: [{ id, kind, task: { id, title, columnId, columnName, done } }]`, `done` = letzte Spalte). `priority` ist `low`, `medium`, `high`, `urgent` oder `null`; `startDate` und `dueDate` sind Kalendertage `YYYY-MM-DD` oder `null`, ein `startDate` braucht ein `dueDate` am selben Tag oder später. Tags werden normalisiert (Kleinschreibung, ohne Kommas, max. 32 Zeichen). Tags, die keine Notiz mehr verwendet, werden automatisch entfernt. Notizen enthalten ihre verknüpften Tasks (`tasks`). Tasks sind Kopien: spätere Änderungen an der Notiz werden nicht übernommen, und beim Löschen einer Notiz bleiben ihre Tasks erhalten. Was im Papierkorb liegt, liefern die übrigen Endpunkte nicht mehr (404) – auch nicht in Suche, Listen und Zählern. Fehler haben die Form `{ "error": { "code", "message" } }`.

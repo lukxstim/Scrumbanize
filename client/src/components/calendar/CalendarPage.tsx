@@ -318,6 +318,7 @@ export default function CalendarPage() {
           allTasks={tasks}
           onAddLink={board.addLink}
           onRemoveLink={board.removeLink}
+          onUpdateAttachments={board.updateAttachments}
           onOpenTask={setOpenTaskId}
           onMove={(id, columnId, laneId) =>
             void board.moveTask(id, columnId, laneId, cellTasks(board.cells, columnId, laneId).filter((t) => t.id !== id).length)

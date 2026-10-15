@@ -162,3 +162,9 @@ export const LinkIcon = (props: SVGProps<SVGSVGElement>) => (
     <path d="M9.25 6.75a2.75 2.75 0 0 0-3.9-.1L3.6 8.4a2.75 2.75 0 0 0 3.9 3.9l.75-.75" />
   </Icon>
 );
+
+export const PaperclipIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="m13 7.5-5.4 5.4a3.25 3.25 0 0 1-4.6-4.6l5.6-5.6a2.1 2.1 0 0 1 3 3L6 11.3a1 1 0 0 1-1.4-1.4l5.1-5.1" />
+  </Icon>
+);

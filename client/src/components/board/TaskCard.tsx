@@ -4,10 +4,11 @@ import { Link } from 'react-router';
 import type { BoardColumn, Task } from '../../types/task';
 import { todayIso } from '../../utils/dates';
 import { paths } from '../../utils/paths';
+import { checklistProgress } from '../../utils/checklist';
 import { linkSummary, openBlockers } from '../../utils/links';
 import { PRIORITY_LABELS, PRIORITY_STYLES } from '../../utils/priority';
 import { UNTITLED_NOTE } from '../../utils/taskFromNote';
-import { ChevronLeftIcon, ChevronRightIcon, LinkIcon, NoteIcon } from '../icons';
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, LinkIcon, NoteIcon, PaperclipIcon } from '../icons';
 import { DueBadge, PriorityBadge } from '../tasks/TaskBadges';
 import { isolate } from './isolate';
 
@@ -95,6 +96,10 @@ interface TaskCardBodyProps {
   flash?: boolean;
 }
 
+/** Small grey counters on the card (links, checklist, attachments). */
+const metaBadge =
+  'inline-flex items-center gap-0.5 rounded bg-surface-muted px-1.5 py-px text-[11px] font-medium text-fg-subtle ring-1 ring-line ring-inset';
+
 /** The card's visible content, shared by the board and the drag preview. */
 export function TaskCardBody({
   task,
@@ -112,7 +117,9 @@ export function TaskCardBody({
       : 'cursor-grab border-line shadow-card hover:-translate-y-px hover:border-line-strong hover:shadow-card-hover';
   const tags = task.sourceNote?.tags ?? [];
   const blockers = openBlockers(task);
-  const hasBadges = task.dueDate || (task.priority && !compact) || task.links.length > 0;
+  const checklist = checklistProgress(task.description);
+  const hasBadges =
+    task.dueDate || (task.priority && !compact) || task.links.length > 0 || task.attachments.length > 0 || checklist.total > 0;
 
   return (
     <article
@@ -168,6 +175,23 @@ export function TaskCardBody({
               <LinkIcon className="size-3" />
               {task.links.length}
               <span className="sr-only">{task.links.length === 1 ? ' Verknüpfung' : ' Verknüpfungen'}</span>
+            </span>
+          )}
+          {checklist.total > 0 && (
+            <span
+              className={`${metaBadge} ${checklist.done === checklist.total ? 'text-success-text' : ''}`}
+              title={`Checkliste: ${checklist.done} von ${checklist.total} erledigt`}
+            >
+              <CheckIcon className="size-3" />
+              {checklist.done}/{checklist.total}
+              <span className="sr-only"> Checkliste erledigt</span>
+            </span>
+          )}
+          {task.attachments.length > 0 && (
+            <span className={metaBadge} title={task.attachments.map((a) => a.fileName).join('\n')}>
+              <PaperclipIcon className="size-3" />
+              {task.attachments.length}
+              <span className="sr-only">{task.attachments.length === 1 ? ' Anhang' : ' Anhänge'}</span>
             </span>
           )}
         </div>

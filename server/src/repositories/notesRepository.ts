@@ -3,6 +3,7 @@ import type { Db } from '../database.js';
 import type { NoteInput } from '../validation.js';
 import { createActivityRepository } from './activityRepository.js';
 import type { LinkedTask } from './tasksRepository.js';
+import { createAttachmentQueries, type Attachment } from './attachmentsRepository.js';
 
 export interface Note {
   id: number;
@@ -12,6 +13,8 @@ export interface Note {
   tags: string[];
   /** Tasks created from this note, oldest first. */
   tasks: LinkedTask[];
+  /** Attached files, oldest first. */
+  attachments: Attachment[];
   createdAt: string;
   updatedAt: string;
 }
@@ -50,6 +53,7 @@ export type NotesRepository = ReturnType<typeof createNotesRepository>;
 
 export function createNotesRepository(db: Db) {
   const activities = createActivityRepository(db);
+  const attachmentQueries = createAttachmentQueries(db);
   const insertNote = db.prepare<[number, string, string, string, string], NoteRow>(
     `INSERT INTO notes (project_id, title, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?) RETURNING *`,
   );
@@ -107,7 +111,7 @@ export function createNotesRepository(db: Db) {
     deleteUnusedTags.run();
   }
 
-  function toNote(row: NoteRow, tags: string[], tasks: LinkedTask[]): Note {
+  function toNote(row: NoteRow, tags: string[], tasks: LinkedTask[], attachments: Attachment[]): Note {
     return {
       id: row.id,
       projectId: row.project_id,
@@ -115,6 +119,7 @@ export function createNotesRepository(db: Db) {
       content: row.content,
       tags,
       tasks,
+      attachments,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -125,6 +130,7 @@ export function createNotesRepository(db: Db) {
       row,
       selectTagsOfNote.all(row.id).map((t) => t.name),
       selectTasksOfNote.all(row.id).map(toLinkedTask),
+      attachmentQueries.forNote(row.id),
     );
   }
 
@@ -172,7 +178,10 @@ export function createNotesRepository(db: Db) {
         tasksByNote.set(row.source_note_id, list);
       }
 
-      return rows.map((row) => toNote(row, tagsByNote.get(row.id) ?? [], tasksByNote.get(row.id) ?? []));
+      const attachmentsByNote = attachmentQueries.forProjectNotes(projectId);
+      return rows.map((row) =>
+        toNote(row, tagsByNote.get(row.id) ?? [], tasksByNote.get(row.id) ?? [], attachmentsByNote.get(row.id) ?? []),
+      );
     },
 
     get(id: number): Note | undefined {

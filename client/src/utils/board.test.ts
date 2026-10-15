@@ -28,6 +28,7 @@ function task(id: number, columnId: number, laneId: number, position: number): T
     sourceNote: null,
     priority: null,
     links: [],
+    attachments: [],
     startDate: null,
     dueDate: null,
     createdAt: '',

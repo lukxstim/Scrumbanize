@@ -206,3 +206,102 @@ dialog[open]::backdrop {
     transition-duration: 1ms !important;
   }
 }
+
+/*
+ * Highlight colors (stored as <mark data-color="…">): light pastel backgrounds, translucent ones in the dark
+ * theme. The text keeps its normal color, so it stays readable in both themes.
+ */
+:root {
+  --highlight-yellow: var(--color-yellow-200);
+  --highlight-green: var(--color-green-200);
+  --highlight-blue: var(--color-sky-200);
+  --highlight-pink: var(--color-pink-200);
+  --highlight-orange: var(--color-orange-200);
+}
+[data-theme='dark'] {
+  --highlight-yellow: oklch(79.5% 0.184 86.047 / 0.32);
+  --highlight-green: oklch(72.3% 0.219 149.579 / 0.3);
+  --highlight-blue: oklch(68.5% 0.169 237.323 / 0.34);
+  --highlight-pink: oklch(65.6% 0.241 354.308 / 0.34);
+  --highlight-orange: oklch(70.5% 0.213 47.604 / 0.34);
+}
+mark[data-color],
+[data-highlight-swatch] {
+  color: inherit;
+  border-radius: 0.2em;
+  padding: 0 0.1em;
+  background-color: var(--highlight-yellow);
+}
+:is(mark[data-color], [data-highlight-swatch])[data-color='green'],
+[data-highlight-swatch='green'] {
+  background-color: var(--highlight-green);
+}
+:is(mark[data-color], [data-highlight-swatch])[data-color='blue'],
+[data-highlight-swatch='blue'] {
+  background-color: var(--highlight-blue);
+}
+:is(mark[data-color], [data-highlight-swatch])[data-color='pink'],
+[data-highlight-swatch='pink'] {
+  background-color: var(--highlight-pink);
+}
+:is(mark[data-color], [data-highlight-swatch])[data-color='orange'],
+[data-highlight-swatch='orange'] {
+  background-color: var(--highlight-orange);
+}
+
+/* The rich-text editor (Tiptap/ProseMirror). */
+.rich-text {
+  caret-color: var(--color-accent);
+}
+.rich-text > :first-child {
+  margin-top: 0;
+}
+.rich-text p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--color-fg-faint);
+}
+.rich-text ul[data-type='taskList'] {
+  list-style: none;
+  padding-left: 0.25em;
+}
+.rich-text ul[data-type='taskList'] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+  margin: 0.15em 0;
+  padding-left: 0;
+}
+.rich-text ul[data-type='taskList'] li::marker {
+  content: none;
+}
+.rich-text ul[data-type='taskList'] li > label {
+  flex: none;
+  margin-top: 0.3em;
+  user-select: none;
+}
+.rich-text ul[data-type='taskList'] li > label input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+.rich-text ul[data-type='taskList'] li > div {
+  flex: 1;
+  min-width: 0;
+}
+.rich-text ul[data-type='taskList'] li > div > p {
+  margin: 0;
+}
+.rich-text ul[data-type='taskList'] li[data-checked='true'] > div {
+  color: var(--color-fg-subtle);
+  text-decoration: line-through;
+}
+.rich-text a {
+  cursor: text;
+}
+.rich-text .selectedCell {
+  background-color: var(--color-accent-muted);
+}

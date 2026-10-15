@@ -32,6 +32,8 @@ export interface RunningServer {
 }
 
 export const DB_FILE_NAME = 'scrumbanize.db';
+/** Attachment files, next to the database. */
+export const UPLOADS_DIR_NAME = 'uploads';
 
 /**
  * Opens the database and starts the HTTP server. Used by the CLI entry point (index.ts: dev, Docker,
@@ -44,12 +46,14 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   }
 
   const dbFile = path.join(path.resolve(options.dataDir), DB_FILE_NAME);
+  const uploadsDir = path.join(path.resolve(options.dataDir), UPLOADS_DIR_NAME);
   const db = openDatabase(dbFile);
 
   // The guard needs the actual port, which is only known after listening.
   let actualPort = options.port;
   const app = createApp(db, {
     clientDist: options.clientDist,
+    uploadsDir,
     trustedHosts: options.localOnly ? () => loopbackHosts(actualPort) : undefined,
   });
 

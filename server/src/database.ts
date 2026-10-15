@@ -257,6 +257,24 @@ export const migrations: string[] = [
     ON task_links(min(source_task_id, target_task_id), max(source_task_id, target_task_id));
   CREATE INDEX idx_task_links_target ON task_links(target_task_id);
   `,
+  // File attachments of notes and tasks. The files live in <dataDir>/uploads under stored_name; rows go with
+  // their note, task or project (cascade), and files without a row are swept away (see attachmentsRepository).
+  `
+  CREATE TABLE attachments (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id  INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    note_id     INTEGER REFERENCES notes(id) ON DELETE CASCADE,
+    task_id     INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+    file_name   TEXT NOT NULL,
+    stored_name TEXT NOT NULL UNIQUE,
+    mime_type   TEXT NOT NULL,
+    size        INTEGER NOT NULL,
+    created_at  TEXT NOT NULL,
+    CHECK ((note_id IS NULL) <> (task_id IS NULL))
+  );
+  CREATE INDEX idx_attachments_note ON attachments(note_id);
+  CREATE INDEX idx_attachments_task ON attachments(task_id);
+  `,
 ];
 
 /** Opens (or creates) the database at `file` and brings its schema up to date. Pass ':memory:' for tests. */

@@ -538,6 +538,7 @@ export default function BoardPage() {
           allTasks={Object.values(board.cells).flat()}
           onAddLink={board.addLink}
           onRemoveLink={board.removeLink}
+          onUpdateAttachments={board.updateAttachments}
           onOpenTask={(id) => navigate(paths.task(projectId, id))}
           onDelete={async (id) => {
             await board.deleteTask(id);

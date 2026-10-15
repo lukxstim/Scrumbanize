@@ -1,4 +1,5 @@
 import type { ActivityEntity, ActivityPage } from '../types/activity';
+import type { Attachment, AttachmentOwner } from '../types/attachment';
 import type { Note, NoteInput } from '../types/note';
 import type { Project, ProjectInput } from '../types/project';
 import type { BoardColumn, Lane, LinkKind, Task, TaskInput, TaskPatch } from '../types/task';
@@ -119,6 +120,36 @@ export const trashApi = {
   purge: (type: TrashType, id: number) => trashRequest<void>(`/trash/${type}/${id}`, { method: 'DELETE' }),
   /** Empties the trash of one project, or everything (trashed projects included). */
   empty: (projectId?: number) => trashRequest<EmptyResult>(`/trash${projectQuery(projectId)}`, { method: 'DELETE' }),
+};
+
+export const attachmentsApi = {
+  /**
+   * Uploads files to a note or task; `onProgress` gets 0…1. Uses XMLHttpRequest, since fetch cannot report
+   * upload progress. Rejects with an ApiError like the other calls.
+   */
+  upload(owner: AttachmentOwner, files: File[], onProgress?: (share: number) => void): Promise<Attachment[]> {
+    const form = new FormData();
+    for (const file of files) form.append('files', file, file.name);
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `/api/${owner.type === 'note' ? 'notes' : 'tasks'}/${owner.id}/attachments`);
+      xhr.responseType = 'json';
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) onProgress?.(event.loaded / event.total);
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response as Attachment[]);
+        else {
+          const error = (xhr.response as { error?: { code?: string; message?: string } } | null)?.error;
+          reject(new ApiError(xhr.status, error?.code ?? 'unknown', error?.message ?? xhr.statusText));
+        }
+      };
+      xhr.onerror = () => reject(new ApiError(0, 'network', 'Network error'));
+      xhr.send(form);
+    });
+  },
+  /** Deletes the attachment and its file for good. */
+  remove: (id: number) => request<void>(`/attachments/${id}`, { method: 'DELETE' }),
 };
 
 export const searchApi = {

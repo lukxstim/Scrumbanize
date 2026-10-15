@@ -78,6 +78,8 @@ function createWindow(url: string): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // Chromium's built-in PDF viewer, for previewing PDF attachments.
+      plugins: true,
     },
   });
   mainWindow = window;

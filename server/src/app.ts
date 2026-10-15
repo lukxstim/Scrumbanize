@@ -1,16 +1,20 @@
 import fs from 'node:fs';
+import os from 'node:os';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import express from 'express';
 import type { Db } from './database.js';
 import { apiNotFoundHandler, errorHandler } from './errors.js';
 import { hostGuard } from './hostGuard.js';
 import { createActivityRepository } from './repositories/activityRepository.js';
+import { createAttachmentsRepository } from './repositories/attachmentsRepository.js';
 import { createBoardRepository } from './repositories/boardRepository.js';
 import { createNotesRepository } from './repositories/notesRepository.js';
 import { createProjectsRepository } from './repositories/projectsRepository.js';
 import { createSearchRepository } from './repositories/searchRepository.js';
 import { createTasksRepository } from './repositories/tasksRepository.js';
 import { createTrashRepository } from './repositories/trashRepository.js';
+import { attachmentsRouter } from './routes/attachments.js';
 import { columnsRouter, lanesRouter } from './routes/board.js';
 import { notesRouter } from './routes/notes.js';
 import { projectScopedRouter } from './routes/projectScoped.js';
@@ -24,6 +28,8 @@ export interface AppOptions {
   clientDist?: string;
   /** If given, only requests for these host:port values from the same origin are accepted (desktop app). */
   trustedHosts?: () => readonly string[];
+  /** Folder for attachment files (`<dataDir>/uploads`). Tests may leave it out and get a throwaway folder. */
+  uploadsDir?: string;
 }
 
 export function createApp(db: Db, options: AppOptions = {}): express.Express {
@@ -35,6 +41,12 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   const search = createSearchRepository(db);
   const activities = createActivityRepository(db);
   const trash = createTrashRepository(db);
+  const attachments = createAttachmentsRepository(
+    db,
+    options.uploadsDir ?? path.join(os.tmpdir(), `scrumbanize-uploads-${randomUUID()}`),
+  );
+  // Files left behind by purges or a crash.
+  attachments.sweep();
 
   app.disable('x-powered-by');
   // Before everything else, so rejected requests reach neither the API nor the static files.
@@ -52,7 +64,8 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   api.use('/columns', columnsRouter(board));
   api.use('/lanes', lanesRouter(board));
   api.use('/search', searchRouter(search));
-  api.use('/trash', trashRouter(trash, projects));
+  api.use('/trash', trashRouter(trash, projects, () => attachments.sweep()));
+  api.use(attachmentsRouter(attachments));
   api.use(apiNotFoundHandler);
   app.use('/api', api);
 

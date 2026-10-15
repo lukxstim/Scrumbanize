@@ -95,6 +95,19 @@ describe('task links', () => {
     ]);
   });
 
+  it('keeps a link entry when the task is edited right after (no merge into it)', async () => {
+    const a = await createTask('A');
+    const b = await createTask('B');
+    db.prepare(`UPDATE activities SET created_at = '2000-01-01T00:00:00.000Z'`).run();
+    await link(a.id, b.id, 'relates');
+    const res = await api.patch(`/api/tasks/${a.id}`).send({ description: 'neu' });
+    expect(res.status).toBe(200);
+    const descriptions = ((await api.get('/api/projects/1/activities?type=task')).body.items as { description: string }[]).map(
+      (i) => i.description,
+    );
+    expect(descriptions.slice(0, 2)).toEqual(['Task „A“ bearbeitet (Beschreibung)', 'Task „A“ mit „B“ verknüpft']);
+  });
+
   it('hides links to tasks in the trash, brings them back on restore and drops them on purge', async () => {
     const a = await createTask('A');
     const b = await createTask('B');

@@ -1,3 +1,4 @@
+import type { Attachment } from './attachment';
 import type { LinkedTask } from './task';
 
 export interface Note {
@@ -10,6 +11,8 @@ export interface Note {
   tags: string[];
   /** Tasks created from this note, oldest first. */
   tasks: LinkedTask[];
+  /** Attached files, oldest first. */
+  attachments: Attachment[];
   /** ISO 8601 timestamps. */
   createdAt: string;
   updatedAt: string;

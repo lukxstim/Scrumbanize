@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { Attachment } from '../types/attachment';
 import type { BoardColumn, Lane, LinkKind, Task, TaskInput, TaskPatch } from '../types/task';
 import { ApiError, boardApi, columnsApi, lanesApi, tasksApi } from '../utils/api';
 import { addTask, applyMove, groupByCell, removeTask, reorder, replaceTask, type Cells } from '../utils/board';
@@ -120,6 +121,14 @@ export function useBoard(projectId: number) {
     [columns],
   );
 
+  /** Applies an upload or removal to the task's attachment list. */
+  const updateAttachments = useCallback((taskId: number, update: (attachments: Attachment[]) => Attachment[]) => {
+    setCells((current) => {
+      const task = Object.values(current).flat().find((t) => t.id === taskId);
+      return task ? replaceTask(current, { ...task, attachments: update(task.attachments) }) : current;
+    });
+  }, []);
+
   /** Links show on both tasks, so both are replaced with the server's versions. */
   const addLink = useCallback(async (id: number, targetId: number, kind: LinkKind): Promise<void> => {
     const { task, target } = await tasksApi.addLink(id, targetId, kind);
@@ -191,6 +200,7 @@ export function useBoard(projectId: number) {
     updateTask,
     addLink,
     removeLink,
+    updateAttachments,
     rescheduleTask,
     deleteTask,
     moveColumn,

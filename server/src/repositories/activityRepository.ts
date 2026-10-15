@@ -114,9 +114,12 @@ export function createActivityRepository(db: Db) {
     recordEdit(input: EditInput, now = new Date()): void {
       if (isEmpty(input.changes)) return;
       const latest = selectLatestForEntity.get(input.entityType, input.entityId);
+      // Only "created" entries and other edit entries take further edits; "update" entries of other kinds
+      // (links, attachments) carry no change summary to merge into and stay as they are.
       const recent =
         latest &&
-        (latest.action_type === 'create' || latest.action_type === 'update') &&
+        (latest.action_type === 'create' ||
+          (latest.action_type === 'update' && (JSON.parse(latest.metadata) as { changes?: unknown }).changes !== undefined)) &&
         now.getTime() - new Date(latest.created_at).getTime() <= AGGREGATE_WINDOW_MS;
 
       if (!recent) {
