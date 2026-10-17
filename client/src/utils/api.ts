@@ -1,4 +1,5 @@
 import type { ActivityEntity, ActivityPage } from '../types/activity';
+import type { AnalyticsQuery, AnalyticsReport } from '../types/analytics';
 import type { Attachment, AttachmentOwner } from '../types/attachment';
 import type { Note, NoteInput } from '../types/note';
 import type { Project, ProjectInput } from '../types/project';
@@ -168,6 +169,19 @@ export const searchApi = {
   /** Notes and tasks of all projects; hits of `projectId` come first. */
   search: (query: string, projectId: number, signal?: AbortSignal) =>
     request<SearchResults>(`/search?q=${encodeURIComponent(query)}&project=${projectId}&limit=8`, { signal }),
+};
+
+export const analyticsApi = {
+  /** Days and weeks are counted in the browser's time zone. */
+  get: (projectId: number, query: AnalyticsQuery, signal?: AbortSignal) => {
+    const params = new URLSearchParams({
+      from: query.from,
+      to: query.to,
+      granularity: query.granularity,
+      tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    });
+    return request<AnalyticsReport>(`/projects/${projectId}/analytics?${params}`, { signal });
+  },
 };
 
 export const activitiesApi = {

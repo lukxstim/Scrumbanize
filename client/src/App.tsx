@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Link, Navigate, NavLink, Route, Routes, useLocation, useMatch, useNavigate, useParams, useSearchParams } from 'react-router';
 import BoardPage from './components/board/BoardPage';
@@ -6,7 +6,7 @@ import CommandPalette from './components/CommandPalette';
 import ActivityDrawer from './components/activity/ActivityDrawer';
 import CalendarPage from './components/calendar/CalendarPage';
 import TrashPage from './components/trash/TrashPage';
-import { BoardIcon, CalendarIcon, HistoryIcon, NoteIcon, SearchIcon, TrashIcon } from './components/icons';
+import { BoardIcon, CalendarIcon, ChartIcon, HistoryIcon, NoteIcon, SearchIcon, TrashIcon } from './components/icons';
 import NotesPage from './components/notes/NotesPage';
 import ProjectLayout from './components/projects/ProjectLayout';
 import ProjectSwitcher from './components/projects/ProjectSwitcher';
@@ -22,6 +22,9 @@ import { onTourStartRequest } from './utils/appEvents';
 import { closedTourState, INITIAL_TOUR_STATE, isTourState, TOUR_STORAGE_KEY } from './utils/tour';
 import { isReminderState, REMINDER_STORAGE_KEY, reminderStep, type ReminderState } from './utils/updateReminder';
 import { ACTIVITY_PARAM, paths, withActivityDrawer } from './utils/paths';
+
+// Loaded on first visit, so the charting library stays out of the main bundle.
+const AnalyticsPage = lazy(() => import('./components/analytics/AnalyticsPage'));
 
 
 /** Round icon buttons at the right of the header (activity, trash). */
@@ -50,8 +53,9 @@ export default function App() {
   const taskMatch = useMatch('/p/:projectId/tasks/:taskId');
   const onBoard = boardMatch !== null || taskMatch !== null;
   const onCalendar = useMatch('/p/:projectId/calendar') !== null;
+  const onAnalytics = useMatch('/p/:projectId/analytics') !== null;
   const onTrash = useMatch('/p/:projectId/trash') !== null;
-  const section = onTrash ? 'trash' : onCalendar ? 'calendar' : onBoard ? 'board' : 'notes';
+  const section = onTrash ? 'trash' : onAnalytics ? 'analytics' : onCalendar ? 'calendar' : onBoard ? 'board' : 'notes';
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -153,6 +157,10 @@ export default function App() {
                 <CalendarIcon className="size-3.5" />
                 Kalender
               </NavLink>
+              <NavLink to={paths.analytics(activeProject.id)} className={({ isActive }) => tabClass(isActive)} data-tour="tab-analytics">
+                <ChartIcon className="size-3.5" />
+                Statistiken
+              </NavLink>
             </nav>
           </>
         )}
@@ -212,6 +220,14 @@ export default function App() {
             <Route path="tasks/:taskId" element={null} />
           </Route>
           <Route path="calendar" element={<CalendarPage />} />
+          <Route
+            path="analytics"
+            element={
+              <Suspense fallback={null}>
+                <AnalyticsPage />
+              </Suspense>
+            }
+          />
           <Route path="activity" element={<ActivityRedirect />} />
           <Route path="trash" element={<TrashPage />} />
         </Route>

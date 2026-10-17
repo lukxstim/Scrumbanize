@@ -7,6 +7,7 @@ import type { Db } from './database.js';
 import { apiNotFoundHandler, errorHandler } from './errors.js';
 import { hostGuard } from './hostGuard.js';
 import { createActivityRepository } from './repositories/activityRepository.js';
+import { createAnalyticsRepository } from './repositories/analyticsRepository.js';
 import { createAttachmentsRepository } from './repositories/attachmentsRepository.js';
 import { createBoardRepository } from './repositories/boardRepository.js';
 import { createMetaRepository } from './repositories/metaRepository.js';
@@ -48,6 +49,7 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   const projects = createProjectsRepository(db);
   const search = createSearchRepository(db);
   const activities = createActivityRepository(db);
+  const analytics = createAnalyticsRepository(db);
   const trash = createTrashRepository(db);
   const meta = createMetaRepository(db);
   const attachments = createAttachmentsRepository(
@@ -72,7 +74,7 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
     res.json({ sampleProjectId: meta.sampleProjectId(), desktop: options.desktop ?? null });
   });
   api.use('/projects', projectsRouter(projects));
-  api.use('/projects/:projectId', projectScopedRouter({ activities, projects, notes, tasks, board }));
+  api.use('/projects/:projectId', projectScopedRouter({ activities, analytics, projects, notes, tasks, board }));
   api.use('/notes', notesRouter(notes));
   api.use('/tasks', tasksRouter(tasks));
   api.use('/columns', columnsRouter(board));

@@ -130,6 +130,12 @@ export const CalendarIcon = (props: SVGProps<SVGSVGElement>) => (
   </Icon>
 );
 
+export const ChartIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="M2.5 13.5h11M4.5 11V8M8 11V4M11.5 11V6.5" />
+  </Icon>
+);
+
 export const FlagIcon = (props: SVGProps<SVGSVGElement>) => (
   <Icon {...props}>
     <path d="M3.5 14V2.5M3.5 3h8l-1.75 3 1.75 3h-8" />

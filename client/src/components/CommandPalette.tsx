@@ -14,6 +14,7 @@ import { UNTITLED_NOTE } from '../utils/taskFromNote';
 import {
   BoardIcon,
   CalendarIcon,
+  ChartIcon,
   TrashIcon,
   CheckIcon,
   HistoryIcon,
@@ -166,6 +167,13 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
           keywords: 'kalender termine fällig deadlines monat woche gehe zu',
           icon: <CalendarIcon />,
           run: () => navigate(paths.calendar(activeProject.id)),
+        },
+        {
+          id: 'go-analytics',
+          label: `Statistiken von „${activeProject.name}“`,
+          keywords: 'statistiken analytics reporting velocity durchlaufzeit lead cycle time wip auswertung gehe zu',
+          icon: <ChartIcon />,
+          run: () => navigate(paths.analytics(activeProject.id)),
         },
         {
           id: 'go-activity',

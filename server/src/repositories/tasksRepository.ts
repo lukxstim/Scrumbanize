@@ -412,7 +412,7 @@ export function createTasksRepository(db: Db) {
         entityId: id,
         actionType: 'delete',
         description: text.taskTrashed(before.title),
-        metadata: { title: before.title, column: columnName(before.column_id) },
+        metadata: { title: before.title, column: columnName(before.column_id), columnId: before.column_id },
       });
       return true;
     }),
@@ -432,7 +432,7 @@ export function createTasksRepository(db: Db) {
         entityId: id,
         actionType: 'restore',
         description: text.taskRestored(trashed.title, column),
-        metadata: { title: trashed.title, column },
+        metadata: { title: trashed.title, column, columnId: trashed.column_id },
       });
       return toTask(selectTask.get(id)!);
     }),

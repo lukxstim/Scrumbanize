@@ -47,6 +47,12 @@
   --color-success-line: var(--color-emerald-200);
   --color-success-text: var(--color-emerald-800);
 
+  /* Chart series in fixed order (checked for color-blind separation and 3:1 contrast on both surfaces);
+     the breach color only ever means "over the WIP limit". */
+  --color-chart-1: #2a78d6;
+  --color-chart-2: #eb6834;
+  --color-chart-breach: #d03b3b;
+
   --shadow-card: 0 1px 2px 0 rgb(24 24 27 / 0.06), 0 1px 1px 0 rgb(24 24 27 / 0.03);
   --shadow-card-hover: 0 4px 12px -2px rgb(24 24 27 / 0.12), 0 2px 4px -2px rgb(24 24 27 / 0.06);
   --shadow-popover: 0 10px 30px -10px rgb(24 24 27 / 0.25), 0 4px 8px -4px rgb(24 24 27 / 0.08);
@@ -90,6 +96,9 @@
   --color-success-muted: oklch(69.6% 0.17 162.48 / 0.13);
   --color-success-line: oklch(69.6% 0.17 162.48 / 0.35);
   --color-success-text: var(--color-emerald-300);
+
+  --color-chart-1: #3987e5;
+  --color-chart-2: #d95926;
 
   --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.4);
   --shadow-card-hover: 0 6px 16px -4px rgb(0 0 0 / 0.6);

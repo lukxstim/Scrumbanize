@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isTimeZone } from './analytics.js';
 import { ENTITY_TYPES } from './repositories/activityRepository.js';
 import { PROJECT_COLORS } from './repositories/projectsRepository.js';
 
@@ -150,3 +151,21 @@ export const searchQuerySchema = z.object({
   project: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
+
+/** At most this many days between `from` and `to`, so a report stays quick. */
+export const MAX_ANALYTICS_DAYS = 2 * 366;
+
+export const analyticsQuerySchema = z
+  .object({
+    /** First and last day; the last DEFAULT_WEEKS weeks if omitted. Both are widened to whole weeks or months. */
+    from: dateSchema.optional(),
+    to: dateSchema.optional(),
+    granularity: z.enum(['week', 'month']).default('week'),
+    /** IANA time zone of the viewer; days and weeks are counted there. */
+    tz: z.string().max(64).refine(isTimeZone, 'unknown time zone').default('UTC'),
+  })
+  .refine((q) => !q.from || !q.to || q.from <= q.to, { message: 'from must not be after to', path: ['from'] })
+  .refine((q) => !q.from || !q.to || (Date.parse(q.to) - Date.parse(q.from)) / 86_400_000 <= MAX_ANALYTICS_DAYS, {
+    message: `the range must not be longer than ${MAX_ANALYTICS_DAYS} days`,
+    path: ['to'],
+  });
