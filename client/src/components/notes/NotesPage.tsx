@@ -13,6 +13,7 @@ import Kbd, { modKey } from '../ui/Kbd';
 import Skeleton from '../ui/Skeleton';
 import NoteEditor from './NoteEditor';
 import NoteList from './NoteList';
+import NotesViewSwitch from './NotesViewSwitch';
 import SearchBar from './SearchBar';
 import TagFilter from './TagFilter';
 
@@ -91,8 +92,9 @@ export default function NotesPage() {
     <div className="flex min-h-0 flex-1">
       <aside className="flex w-80 shrink-0 flex-col border-r border-line bg-surface">
         <div className="space-y-3 border-b border-line p-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <h1 className="text-sm font-semibold text-fg">Notizen</h1>
+            <NotesViewSwitch projectId={projectId} view="list" />
             <Button variant="primary" size="sm" onClick={() => void handleCreate()}>
               <PlusIcon className="size-3.5" />
               Neue Notiz

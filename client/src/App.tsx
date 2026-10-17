@@ -25,6 +25,7 @@ import { ACTIVITY_PARAM, paths, withActivityDrawer } from './utils/paths';
 
 // Loaded on first visit, so the charting library stays out of the main bundle.
 const AnalyticsPage = lazy(() => import('./components/analytics/AnalyticsPage'));
+const GraphPage = lazy(() => import('./components/graph/GraphPage'));
 
 
 /** Round icon buttons at the right of the header (activity, trash). */
@@ -54,8 +55,10 @@ export default function App() {
   const onBoard = boardMatch !== null || taskMatch !== null;
   const onCalendar = useMatch('/p/:projectId/calendar') !== null;
   const onAnalytics = useMatch('/p/:projectId/analytics') !== null;
+  // The graph is a view of the notes area, so the Notes tab stays active there.
+  const onGraph = useMatch('/p/:projectId/graph') !== null;
   const onTrash = useMatch('/p/:projectId/trash') !== null;
-  const section = onTrash ? 'trash' : onAnalytics ? 'analytics' : onCalendar ? 'calendar' : onBoard ? 'board' : 'notes';
+  const section = onTrash ? 'trash' : onAnalytics ? 'analytics' : onCalendar ? 'calendar' : onBoard ? 'board' : onGraph ? 'graph' : 'notes';
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -145,7 +148,7 @@ export default function App() {
               className="ml-2 inline-flex shrink-0 rounded-lg bg-surface-muted p-0.5 ring-1 ring-line ring-inset"
               aria-label="Hauptnavigation"
             >
-              <NavLink to={paths.notes(activeProject.id)} className={({ isActive }) => tabClass(isActive)} data-tour="tab-notes">
+              <NavLink to={paths.notes(activeProject.id)} className={({ isActive }) => tabClass(isActive || onGraph)} data-tour="tab-notes">
                 <NoteIcon className="size-3.5" />
                 Notizen
               </NavLink>
@@ -219,6 +222,14 @@ export default function App() {
             <Route path="board" element={null} />
             <Route path="tasks/:taskId" element={null} />
           </Route>
+          <Route
+            path="graph"
+            element={
+              <Suspense fallback={null}>
+                <GraphPage />
+              </Suspense>
+            }
+          />
           <Route path="calendar" element={<CalendarPage />} />
           <Route
             path="analytics"

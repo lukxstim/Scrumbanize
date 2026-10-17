@@ -10,6 +10,7 @@ import { createActivityRepository } from './repositories/activityRepository.js';
 import { createAnalyticsRepository } from './repositories/analyticsRepository.js';
 import { createAttachmentsRepository } from './repositories/attachmentsRepository.js';
 import { createBoardRepository } from './repositories/boardRepository.js';
+import { createGraphRepository } from './repositories/graphRepository.js';
 import { createMetaRepository } from './repositories/metaRepository.js';
 import { createNotesRepository } from './repositories/notesRepository.js';
 import { createProjectsRepository } from './repositories/projectsRepository.js';
@@ -50,6 +51,7 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   const search = createSearchRepository(db);
   const activities = createActivityRepository(db);
   const analytics = createAnalyticsRepository(db);
+  const graph = createGraphRepository(db);
   const trash = createTrashRepository(db);
   const meta = createMetaRepository(db);
   const attachments = createAttachmentsRepository(
@@ -74,7 +76,7 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
     res.json({ sampleProjectId: meta.sampleProjectId(), desktop: options.desktop ?? null });
   });
   api.use('/projects', projectsRouter(projects));
-  api.use('/projects/:projectId', projectScopedRouter({ activities, analytics, projects, notes, tasks, board }));
+  api.use('/projects/:projectId', projectScopedRouter({ activities, analytics, graph, projects, notes, tasks, board }));
   api.use('/notes', notesRouter(notes));
   api.use('/tasks', tasksRouter(tasks));
   api.use('/columns', columnsRouter(board));

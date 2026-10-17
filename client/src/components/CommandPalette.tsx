@@ -15,6 +15,7 @@ import {
   BoardIcon,
   CalendarIcon,
   ChartIcon,
+  GraphIcon,
   TrashIcon,
   CheckIcon,
   HistoryIcon,
@@ -153,6 +154,13 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
           keywords: 'notizen öffnen gehe zu',
           icon: <NoteIcon />,
           run: () => navigate(paths.notes(activeProject.id)),
+        },
+        {
+          id: 'go-graph',
+          label: `Graph von „${activeProject.name}“`,
+          keywords: 'graph netzwerk knoten verbindungen verknüpfungen zusammenhänge obsidian gehe zu',
+          icon: <GraphIcon />,
+          run: () => navigate(paths.graph(activeProject.id)),
         },
         {
           id: 'go-board',

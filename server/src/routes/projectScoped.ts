@@ -3,6 +3,7 @@ import { HttpError, notFound } from '../errors.js';
 import type { ActivityRepository } from '../repositories/activityRepository.js';
 import type { AnalyticsRepository } from '../repositories/analyticsRepository.js';
 import type { BoardRepository } from '../repositories/boardRepository.js';
+import type { GraphRepository } from '../repositories/graphRepository.js';
 import type { NotesRepository } from '../repositories/notesRepository.js';
 import type { ProjectsRepository } from '../repositories/projectsRepository.js';
 import type { TasksRepository } from '../repositories/tasksRepository.js';
@@ -21,6 +22,7 @@ import { unwrapBoard } from './board.js';
 interface Repositories {
   activities: ActivityRepository;
   analytics: AnalyticsRepository;
+  graph: GraphRepository;
   projects: ProjectsRepository;
   notes: NotesRepository;
   tasks: TasksRepository;
@@ -30,7 +32,7 @@ interface Repositories {
 const projectIdOf = (res: Response) => res.locals.projectId as number;
 
 /** Lists and creation inside one project, mounted at /api/projects/:projectId. */
-export function projectScopedRouter({ activities, analytics, projects, notes, tasks, board }: Repositories): Router {
+export function projectScopedRouter({ activities, analytics, graph, projects, notes, tasks, board }: Repositories): Router {
   const router = Router({ mergeParams: true });
 
   router.use((req, res, next) => {
@@ -57,6 +59,10 @@ export function projectScopedRouter({ activities, analytics, projects, notes, ta
   router.get('/analytics', (req, res) => {
     const { from, to, granularity, tz } = analyticsQuerySchema.parse(req.query);
     res.json(analytics.report(projectIdOf(res), { from, to, granularity, timeZone: tz }));
+  });
+
+  router.get('/graph', (_req, res) => {
+    res.json(graph.get(projectIdOf(res)));
   });
 
   router.get('/tags', (_req, res) => {

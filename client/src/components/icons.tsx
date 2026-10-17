@@ -181,3 +181,37 @@ export const InfoIcon = (props: SVGProps<SVGSVGElement>) => (
     <path d="M8 7.25v3.5M8 5.25v.01" />
   </Icon>
 );
+
+export const ListIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="M5.5 4h8M5.5 8h8M5.5 12h8M2.5 4h.01M2.5 8h.01M2.5 12h.01" />
+  </Icon>
+);
+
+export const GraphIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <circle cx="4" cy="4.5" r="1.75" />
+    <circle cx="12" cy="4" r="1.75" />
+    <circle cx="8" cy="12" r="1.75" />
+    <path d="M5.75 4.4l4.5-.3M5 6l2.2 4.4M11.2 5.6l-2.4 4.7" />
+  </Icon>
+);
+
+export const MindmapIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <rect x="5.5" y="6.5" width="5" height="3" rx="1" />
+    <path d="M5.5 8H4c-1 0-1.5-.5-1.5-1.5V4M5.5 8H4c-1 0-1.5.5-1.5 1.5V12M10.5 8H12c1 0 1.5-.5 1.5-1.5V4M10.5 8H12c1 0 1.5.5 1.5 1.5V12" />
+  </Icon>
+);
+
+export const DownloadIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="M8 2.5v8M4.75 7.5 8 10.75l3.25-3.25M3 13.5h10" />
+  </Icon>
+);
+
+export const FitIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3" />
+  </Icon>
+);

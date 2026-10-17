@@ -1,5 +1,6 @@
 import type { ActivityEntity, ActivityPage } from '../types/activity';
 import type { AnalyticsQuery, AnalyticsReport } from '../types/analytics';
+import type { GraphData } from '../types/graph';
 import type { Attachment, AttachmentOwner } from '../types/attachment';
 import type { Note, NoteInput } from '../types/note';
 import type { Project, ProjectInput } from '../types/project';
@@ -169,6 +170,11 @@ export const searchApi = {
   /** Notes and tasks of all projects; hits of `projectId` come first. */
   search: (query: string, projectId: number, signal?: AbortSignal) =>
     request<SearchResults>(`/search?q=${encodeURIComponent(query)}&project=${projectId}&limit=8`, { signal }),
+};
+
+export const graphApi = {
+  /** Notes and tasks of the project (without contents) and their connections. */
+  get: (projectId: number) => request<GraphData>(`/projects/${projectId}/graph`),
 };
 
 export const analyticsApi = {

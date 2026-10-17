@@ -1,6 +1,8 @@
 /** URLs of the app's pages; everything lives inside a project. */
 export const paths = {
   notes: (projectId: number, noteId?: number) => `/p/${projectId}/notes${noteId === undefined ? '' : `/${noteId}`}`,
+  /** The notes area as a graph of notes and tasks. */
+  graph: (projectId: number) => `/p/${projectId}/graph`,
   board: (projectId: number) => `/p/${projectId}/board`,
   task: (projectId: number, taskId: number) => `/p/${projectId}/tasks/${taskId}`,
   calendar: (projectId: number) => `/p/${projectId}/calendar`,
@@ -9,7 +11,7 @@ export const paths = {
 };
 
 /** The top-level pages of a project (the header tabs). */
-export type Section = 'notes' | 'board' | 'calendar' | 'analytics' | 'trash';
+export type Section = 'notes' | 'graph' | 'board' | 'calendar' | 'analytics' | 'trash';
 
 /** The start page of a section, e.g. to keep the section when switching projects. */
 export function sectionPath(projectId: number, section: Section): string {

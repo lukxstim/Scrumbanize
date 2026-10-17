@@ -1,17 +1,20 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useAutosave, type SaveStatus } from '../../hooks/useAutosave';
 import { useToast } from '../../hooks/useToast';
 import type { Attachment } from '../../types/attachment';
 import type { Note, NoteInput } from '../../types/note';
 import type { Task } from '../../types/task';
 import { buildTaskDraft, UNTITLED_NOTE, type TaskDraft } from '../../utils/taskFromNote';
-import { BoardIcon } from '../icons';
+import { BoardIcon, MindmapIcon } from '../icons';
 import AttachmentsPanel from '../attachments/AttachmentsPanel';
 import MarkdownEditor from '../editor/MarkdownEditor';
 import Button from '../ui/Button';
 import ConvertToTaskDialog from './ConvertToTaskDialog';
 import LinkedTasks from './LinkedTasks';
 import TagInput from './TagInput';
+
+// Loaded when first opened, with its layout code.
+const MindmapDialog = lazy(() => import('../mindmap/MindmapDialog'));
 
 interface NoteEditorProps {
   /** The editor keeps its own draft; remount it (via `key`) to edit another note. */
@@ -42,6 +45,7 @@ export default function NoteEditor({
   const { status, schedule, flush, cancel } = useAutosave<NoteInput>((input) => onSave(note.id, input));
   // Markdown of what is selected in the editor, for "Auswahl in Task umwandeln".
   const [selection, setSelection] = useState('');
+  const [mindmapOpen, setMindmapOpen] = useState(false);
 
   function change(patch: Partial<NoteInput>) {
     const next = { ...draft, ...patch };
@@ -105,6 +109,10 @@ export default function NoteEditor({
           <BoardIcon className="size-3.5" />
           {selection ? 'Auswahl in Task umwandeln' : 'In Task umwandeln'}
         </Button>
+        <Button size="sm" variant="ghost" onClick={() => setMindmapOpen(true)} title="Überschriften und Listen der Notiz als Mindmap">
+          <MindmapIcon className="size-3.5" />
+          Als Mindmap
+        </Button>
         <div className="flex-1" />
         <SaveIndicator status={status} onRetry={() => void flush()} />
         <Button variant="danger-ghost" size="sm" onClick={() => void moveToTrash()}>
@@ -150,6 +158,11 @@ export default function NoteEditor({
           onSubmit={createTask}
           onCancel={() => setConversion(null)}
         />
+      )}
+      {mindmapOpen && (
+        <Suspense fallback={null}>
+          <MindmapDialog title={draft.title} markdown={draft.content} onClose={() => setMindmapOpen(false)} />
+        </Suspense>
       )}
     </div>
   );
