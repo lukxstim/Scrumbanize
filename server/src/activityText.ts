@@ -112,6 +112,7 @@ export const text = {
 
   projectCreated: (name: string) => `Projekt ${quote(name)} angelegt`,
   sampleProjectCreated: () => 'Beispielprojekt angelegt',
+  notesImported: (count: number) => `${count === 1 ? '1 Notiz' : `${count} Notizen`} importiert`,
   projectRenamed: (from: string, to: string) => `Projekt ${quote(from)} in ${quote(to)} umbenannt`,
   projectRecolored: (name: string) => `Farbe von Projekt ${quote(name)} geändert`,
   projectTrashed: (name: string) => `Projekt ${quote(name)} in den Papierkorb verschoben`,

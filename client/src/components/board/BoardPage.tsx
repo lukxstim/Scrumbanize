@@ -32,7 +32,8 @@ import {
 import { isCreateRequest } from '../../utils/appEvents';
 import { columnDropIndex, dropPosition, type CellGeometry } from '../../utils/dropPosition';
 import { todayIso } from '../../utils/dates';
-import { trashApi } from '../../utils/api';
+import { exportUrls, trashApi } from '../../utils/api';
+import { DownloadIcon } from '../icons';
 import { paths } from '../../utils/paths';
 import { applyView, DEFAULT_VIEW, dropIndexInCell, isTaskView } from '../../utils/taskView';
 import AddItemButton from './AddItemButton';
@@ -393,6 +394,15 @@ export default function BoardPage() {
           </span>
           Kompakt
         </button>
+        <a
+          href={exportUrls.boardCsv(projectId)}
+          download
+          title="Alle Tasks des Boards als CSV-Datei für Excel"
+          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-fg-muted hover:bg-surface-strong"
+        >
+          <DownloadIcon className="size-3.5" />
+          CSV
+        </a>
       </div>
 
       <DndContext

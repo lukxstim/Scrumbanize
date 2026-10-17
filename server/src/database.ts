@@ -4,6 +4,10 @@ import Database from 'better-sqlite3';
 
 export type Db = Database.Database;
 
+/** The database file and the folder of attachment files, both in the data directory. */
+export const DB_FILE_NAME = 'scrumbanize.db';
+export const UPLOADS_DIR_NAME = 'uploads';
+
 // Each entry upgrades the schema by one version; the resulting version is stored in PRAGMA user_version.
 // Append new migrations, never edit existing ones.
 export const migrations: string[] = [

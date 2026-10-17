@@ -25,7 +25,7 @@ describe('sample project', () => {
     expect(projects.map((p) => p.name)).toEqual(['Allgemein', SAMPLE_PROJECT_NAME]);
     const sample = projects[1]!;
     expect(sample).toMatchObject({ noteCount: 1, taskCount: 7 });
-    expect((await api.get('/api/meta')).body).toEqual({ sampleProjectId: sample.id, desktop: null });
+    expect((await api.get('/api/meta')).body).toEqual({ sampleProjectId: sample.id, desktop: null, restoredAt: null });
   });
 
   it('spreads tasks over the board with priorities, dates, a checklist, a link and the source note', async () => {
@@ -59,9 +59,9 @@ describe('sample project', () => {
   it('is no longer reported once it is in the trash or deleted', async () => {
     const id = (await api.get('/api/meta')).body.sampleProjectId;
     await api.delete(`/api/projects/${id}`);
-    expect((await api.get('/api/meta')).body).toEqual({ sampleProjectId: null, desktop: null });
+    expect((await api.get('/api/meta')).body).toEqual({ sampleProjectId: null, desktop: null, restoredAt: null });
     await api.post(`/api/trash/project/${id}/restore`);
-    expect((await api.get('/api/meta')).body).toEqual({ sampleProjectId: id, desktop: null });
+    expect((await api.get('/api/meta')).body).toEqual({ sampleProjectId: id, desktop: null, restoredAt: null });
   });
 });
 
@@ -106,6 +106,6 @@ describe('first start', () => {
 
     server = await startServer({ port: 0, host: '127.0.0.1', dataDir: dir });
     expect(await projectNames()).toEqual(['Allgemein']);
-    expect(await (await fetch(`${server.url}/api/meta`)).json()).toEqual({ sampleProjectId: null, desktop: null });
+    expect(await (await fetch(`${server.url}/api/meta`)).json()).toEqual({ sampleProjectId: null, desktop: null, restoredAt: null });
   });
 });

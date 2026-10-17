@@ -16,6 +16,7 @@ import {
   CalendarIcon,
   ChartIcon,
   GraphIcon,
+  SettingsIcon,
   TrashIcon,
   CheckIcon,
   HistoryIcon,
@@ -189,6 +190,13 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
           keywords: 'aktivität verlauf history protokoll log gehe zu',
           icon: <HistoryIcon />,
           run: () => navigate(withActivityDrawer(location.pathname, location.search)),
+        },
+        {
+          id: 'go-settings',
+          label: 'Einstellungen: Backup, Wiederherstellung, Import, Export',
+          keywords: 'einstellungen settings backup sicherung wiederherstellen restore import export obsidian notion csv markdown zip',
+          icon: <SettingsIcon />,
+          run: () => navigate(paths.settings(activeProject.id)),
         },
         {
           id: 'go-trash',

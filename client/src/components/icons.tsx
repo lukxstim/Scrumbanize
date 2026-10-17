@@ -215,3 +215,10 @@ export const FitIcon = (props: SVGProps<SVGSVGElement>) => (
     <path d="M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3" />
   </Icon>
 );
+
+export const SettingsIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <circle cx="8" cy="8" r="2" />
+    <path d="M8 1.75v1.5M8 12.75v1.5M14.25 8h-1.5M3.25 8h-1.5M12.42 3.58l-1.06 1.06M4.64 11.36l-1.06 1.06M12.42 12.42l-1.06-1.06M4.64 4.64 3.58 3.58" />
+  </Icon>
+);

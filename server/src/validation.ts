@@ -169,3 +169,22 @@ export const analyticsQuerySchema = z
     message: `the range must not be longer than ${MAX_ANALYTICS_DAYS} days`,
     path: ['to'],
   });
+
+export const exportQuerySchema = z.object({
+  format: z.enum(['md', 'html']).default('md'),
+});
+
+/** Notes per import request; the wizard sends larger imports in several batches. */
+export const MAX_IMPORT_BATCH = 50;
+
+export const importNotesSchema = z.object({
+  notes: z
+    .array(
+      noteInputSchema.extend({
+        title: z.string().trim().min(1).max(200),
+        /** From the file's front matter. */
+        createdAt: z.iso.datetime({ offset: true }).optional(),
+      }),
+    )
+    .max(MAX_IMPORT_BATCH),
+});

@@ -66,7 +66,15 @@ Aus Versehen gelöscht? Kein Problem: Gelöschtes landet zuerst im Papierkorb un
 
 ![Papierkorb mit wiederherstellbaren Einträgen](docs/screenshots/papierkorb.png)
 
+### Sichern, Importieren, Exportieren
+Über das Zahnrad oben rechts (**Einstellungen**):
+- **Backup mit einem Klick** – eine ZIP-Datei mit allen Projekten, Notizen, Tasks und Anhängen – und **Wiederherstellen** aus so einem Backup. Vor dem Wiederherstellen sichert Scrumbanize den jetzigen Stand automatisch.
+- **Notizen importieren** aus Markdown-Dateien, ganzen Ordnern (z. B. Obsidian) oder ZIP-Exporten (z. B. Notion). Titel, Tags und Erstelldatum werden übernommen; Bilder noch nicht.
+- **Exportieren**: alle Notizen als Markdown oder HTML (ZIP, mit Anhängen), das Board als CSV-Datei für Excel. Einzelne Notizen lassen sich auch direkt im Editor exportieren.
+
 ### Und außerdem
+- **Statistiken** zu erledigten Tasks, Durchlaufzeiten und WIP-Limits.
+- **Graph und Mindmap**: Notizen und Tasks als Netzwerk ansehen, eine gegliederte Notiz als Mindmap (Export als SVG oder PNG).
 - **Projekte**, um Privates, Arbeit oder Schule zu trennen – jedes mit eigener Farbe.
 - **Suche über alles** mit `Strg` + `K`.
 - **Heller und dunkler Modus.**
@@ -75,7 +83,7 @@ Aus Versehen gelöscht? Kein Problem: Gelöschtes landet zuerst im Papierkorb un
 ## Deine Daten
 
 - Alles bleibt **auf deinem Computer** – es gibt kein Konto, keine Cloud und keine Werbung. Internet brauchst du nur zum Herunterladen.
-- Gespeichert wird im Ordner `%APPDATA%\Scrumbanize` (in die Adresszeile des Explorers eintippen). **Zum Sichern** Scrumbanize schließen und diesen Ordner z. B. auf einen USB-Stick kopieren.
+- Gespeichert wird im Ordner `%APPDATA%\Scrumbanize` (in die Adresszeile des Explorers eintippen). **Zum Sichern** in den Einstellungen (Zahnrad oben rechts) auf „Backup herunterladen“ klicken und die Datei z. B. auf einen USB-Stick kopieren.
 - Jede Person am Computer hat mit ihrem eigenen Windows-Konto auch ihre eigenen Notizen.
 
 ## Neue Version installieren
@@ -146,8 +154,10 @@ Notizen, Tasks und Einstellungen liegen in **`%APPDATA%\Scrumbanize\`** (z. B. `
 | `uploads\` | Die Dateien der Anhänge (unter zufälligen Namen; die Originalnamen stehen in der Datenbank) |
 | `window-state.json` | Fenstergröße und -position |
 | `logs\main.log` | Protokoll für die Fehlersuche |
+| `backups\` | Automatische Sicherungen vor jeder Wiederherstellung (die letzten 5) |
 
-- **Backup:** Scrumbanize beenden und `scrumbanize.db` **und den Ordner `uploads`** kopieren.
+- **Backup:** in den Einstellungen „Backup herunterladen“ (geht auch während der Arbeit). Von Hand: Scrumbanize beenden und `scrumbanize.db` **und den Ordner `uploads`** kopieren.
+- **Wiederherstellen:** in den Einstellungen ein Backup auswählen; Scrumbanize zeigt vorher, was es enthält, und sichert den jetzigen Stand.
 - **Daten übernehmen** (z. B. von Docker oder aus der Entwicklung): Scrumbanize beenden und die vorhandene `scrumbanize.db` samt `uploads`-Ordner in diesen Ordner kopieren (bestehende Datei vorher sichern). Die Datenbank wird beim nächsten Start automatisch auf den aktuellen Stand gebracht.
 - **Update:** neue Version einfach installieren bzw. die neue portable Datei verwenden – die Daten bleiben erhalten, auch beim Deinstallieren.
 
@@ -187,7 +197,13 @@ docker compose up -d --build
 
 Die App läuft danach auf <http://localhost:3000>. Ein anderer Port lässt sich mit `SCRUMBANIZE_PORT=8080 docker compose up -d` setzen.
 
-Die SQLite-Datenbank und die Anhänge liegen im Volume `scrumbanize-data` (im Container unter `/data/scrumbanize.db` und `/data/uploads/`) und bleibt bei Neustarts und Updates erhalten. Backup, während der Container läuft:
+Die SQLite-Datenbank und die Anhänge liegen im Volume `scrumbanize-data` (im Container unter `/data/scrumbanize.db` und `/data/uploads/`) und bleibt bei Neustarts und Updates erhalten. Backup und Wiederherstellung gehen in der App über **Einstellungen** (Zahnrad oben rechts); Sicherungen vor einer Wiederherstellung landen unter `/data/backups/`. Ohne Browser, z. B. für ein nächtliches Backup:
+
+```sh
+curl -o scrumbanize-backup.zip http://localhost:3000/api/backup
+```
+
+Oder direkt im Container, während er läuft:
 
 ```sh
 docker compose exec scrumbanize node -e "require('better-sqlite3')('/data/scrumbanize.db').backup('/data/backup.db')"
@@ -234,7 +250,7 @@ Listen und Neuanlagen gehören zu einem Projekt (`/api/projects/:projectId/…`)
 | Methode | Pfad              | Beschreibung |
 |---------|-------------------|--------------|
 | GET     | `/api/health`     | Health-Check |
-| GET     | `/api/meta`       | Angaben zur Installation: `{ "sampleProjectId" }` – das Beispielprojekt des ersten Starts, `null` wenn es (nicht mehr) existiert oder im Papierkorb liegt |
+| GET     | `/api/meta`       | Angaben zur Installation: `{ "sampleProjectId", "desktop", "restoredAt" }` – das Beispielprojekt des ersten Starts (`null`, wenn es (nicht mehr) existiert oder im Papierkorb liegt), Version der Desktop-App (sonst `null`) und Zeitpunkt der letzten Wiederherstellung eines Backups (sonst `null`) |
 | GET     | `/api/projects`   | Alle Projekte, alphabetisch, mit `noteCount` und `taskCount` |
 | POST    | `/api/projects`   | Projekt anlegen: `{ "name", "color" }` – Farben: `slate`, `red`, `amber`, `emerald`, `sky`, `indigo`, `violet`, `pink`. Namen sind eindeutig (ohne Groß-/Kleinschreibung), sonst 409 |
 | PATCH   | `/api/projects/:id` | Name und/oder Farbe ändern |
@@ -262,6 +278,14 @@ Listen und Neuanlagen gehören zu einem Projekt (`/api/projects/:projectId/…`)
 | GET     | `/api/attachments/:id/file?download=1` | Die Datei mit Originalnamen: Bilder und PDFs zur Anzeige im Browser, alles andere (und mit `download`) als Download. Immer mit `nosniff`, außer bei PDFs auch mit `Content-Security-Policy: sandbox` |
 | DELETE  | `/api/attachments/:id` | Anhang samt Datei endgültig löschen |
 | DELETE  | `/api/tasks/:id`  | Task in den Papierkorb verschieben |
+| GET     | `/api/backup` | Backup als ZIP: `manifest.json` (`{ app, format, schemaVersion, createdAt, counts }`), `scrumbanize.db` (konsistenter Schnappschuss per `VACUUM INTO`) und `uploads/` |
+| POST    | `/api/backup/restore` | Schritt 1 der Wiederherstellung: `multipart/form-data` mit dem Feld `file` (max. 2 GB). Entpackt und prüft (nur erwartete Dateien, Integrität, Schema-Version), ersetzt noch nichts. Antwort: `{ token, manifest, counts, missingFiles }`. 400 `invalid_backup` bzw. `backup_too_new` |
+| POST    | `/api/backup/restore/:token` | Schritt 2: sichert den jetzigen Stand nach `backups/` (die letzten 5 bleiben) und ersetzt dann alle Daten in einer Transaktion. Antwort: `{ counts, safetyCopy }`. Andere Fenster erkennen das an `restoredAt` in `/api/meta` |
+| DELETE  | `/api/backup/restore/:token` | Geprüftes Backup verwerfen |
+| GET     | `/api/notes/:id/export?format=md\|html` | Eine Notiz als Markdown (mit Front Matter) oder druckbares HTML |
+| GET     | `/api/projects/:projectId/export/notes?format=md\|html` | Alle Notizen des Projekts als ZIP, Anhänge unter `Anhänge/<Notiz>/` |
+| GET     | `/api/projects/:projectId/export/board.csv` | Alle Tasks als CSV für Excel (UTF-8 mit BOM, Semikolon, Datum `TT.MM.JJJJ`) |
+| POST    | `/api/projects/:projectId/import/notes` | `{ notes: [{ title, content, tags, createdAt? }] }` (bis zu 50 je Anfrage). Vorhandene Titel bekommen eine Nummer („Titel (2)“). Ein Eintrag im Verlauf je Import. Antwort 201: `{ created: [{ id, title }] }` |
 | GET     | `/api/trash?project=` | Papierkorb, zuletzt gelöschte zuerst: `[{ type, id, projectId, projectName, projectColor, title, deletedAt, snippet?, columnName?, noteCount?, taskCount? }]` mit `type` `note`, `task` oder `project`. `project` beschränkt Notizen und Tasks auf ein Projekt; gelöschte Projekte sind immer dabei, Notizen und Tasks gelöschter Projekte nie einzeln |
 | POST    | `/api/trash/:type/:id/restore` | Wiederherstellen: `{ type, item, renamedFrom? }` – `item` ist die Notiz, der Task bzw. das Projekt; `renamedFrom`, wenn der Projektname inzwischen vergeben war |
 | DELETE  | `/api/trash/:type/:id` | Endgültig löschen (Projekte mit allen Inhalten und ihrem Aktivitätsprotokoll) |

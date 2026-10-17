@@ -6,7 +6,7 @@ import CommandPalette from './components/CommandPalette';
 import ActivityDrawer from './components/activity/ActivityDrawer';
 import CalendarPage from './components/calendar/CalendarPage';
 import TrashPage from './components/trash/TrashPage';
-import { BoardIcon, CalendarIcon, ChartIcon, HistoryIcon, NoteIcon, SearchIcon, TrashIcon } from './components/icons';
+import { BoardIcon, CalendarIcon, ChartIcon, HistoryIcon, SettingsIcon, NoteIcon, SearchIcon, TrashIcon } from './components/icons';
 import NotesPage from './components/notes/NotesPage';
 import ProjectLayout from './components/projects/ProjectLayout';
 import ProjectSwitcher from './components/projects/ProjectSwitcher';
@@ -16,6 +16,7 @@ import ThemeSwitcher from './components/ThemeSwitcher';
 import Kbd, { modKey } from './components/ui/Kbd';
 import { useProjects } from './hooks/useProjects';
 import { useStoredState } from './hooks/useStoredState';
+import { useRestoreNotice } from './hooks/useRestoreNotice';
 import { useToast } from './hooks/useToast';
 import { useTrashCount } from './hooks/useTrash';
 import { onTourStartRequest } from './utils/appEvents';
@@ -26,6 +27,7 @@ import { ACTIVITY_PARAM, paths, withActivityDrawer } from './utils/paths';
 // Loaded on first visit, so the charting library stays out of the main bundle.
 const AnalyticsPage = lazy(() => import('./components/analytics/AnalyticsPage'));
 const GraphPage = lazy(() => import('./components/graph/GraphPage'));
+const SettingsPage = lazy(() => import('./components/settings/SettingsPage'));
 
 
 /** Round icon buttons at the right of the header (activity, trash). */
@@ -58,7 +60,8 @@ export default function App() {
   // The graph is a view of the notes area, so the Notes tab stays active there.
   const onGraph = useMatch('/p/:projectId/graph') !== null;
   const onTrash = useMatch('/p/:projectId/trash') !== null;
-  const section = onTrash ? 'trash' : onAnalytics ? 'analytics' : onCalendar ? 'calendar' : onBoard ? 'board' : onGraph ? 'graph' : 'notes';
+  const onSettings = useMatch('/p/:projectId/settings') !== null;
+  const section = onSettings ? 'settings' : onTrash ? 'trash' : onAnalytics ? 'analytics' : onCalendar ? 'calendar' : onBoard ? 'board' : onGraph ? 'graph' : 'notes';
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -71,6 +74,7 @@ export default function App() {
     navigate(`${location.pathname}${search ? `?${search}` : ''}`, { replace: true });
   }
   const trashCount = useTrashCount(activeProject?.id);
+  useRestoreNotice();
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   // The onboarding tour starts by itself once the first project is shown, unless it was dismissed for good
@@ -202,6 +206,15 @@ export default function App() {
               )}
             </Link>
             <Link
+              to={paths.settings(activeProject.id)}
+              className={headerIconClass(onSettings)}
+              aria-current={onSettings ? 'page' : undefined}
+              aria-label="Einstellungen"
+              title="Einstellungen: Backup, Import, Export"
+            >
+              <SettingsIcon />
+            </Link>
+            <Link
               to={withActivityDrawer(location.pathname, location.search)}
               className={headerIconClass(activityOpen)}
               aria-label="Aktivität"
@@ -241,6 +254,14 @@ export default function App() {
           />
           <Route path="activity" element={<ActivityRedirect />} />
           <Route path="trash" element={<TrashPage />} />
+          <Route
+            path="settings"
+            element={
+              <Suspense fallback={null}>
+                <SettingsPage />
+              </Suspense>
+            }
+          />
         </Route>
         {/* Addresses from before projects existed, and anything unknown, open the last project. */}
         <Route path="/board" element={<RedirectToProject section="board" />} />

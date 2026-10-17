@@ -48,7 +48,8 @@ export interface DesktopInfo {
 
 export const metaApi = {
   /** Facts about the installation; `sampleProjectId` is null if there is no sample project (any more). */
-  get: () => request<{ sampleProjectId: number | null; desktop: DesktopInfo | null }>('/meta'),
+  /** `restoredAt`: when a backup was last restored (another window may still show the old data). */
+  get: () => request<{ sampleProjectId: number | null; desktop: DesktopInfo | null; restoredAt: string | null }>('/meta'),
 };
 
 export const projectsApi = {
@@ -201,3 +202,86 @@ export const activitiesApi = {
     return request<ActivityPage>(`/projects/${projectId}/activities${query ? `?${query}` : ''}`);
   },
 };
+
+export interface BackupCounts {
+  projects: number;
+  notes: number;
+  tasks: number;
+  attachments: number;
+}
+
+/** A checked backup waiting to be restored (see backupApi.prepareRestore). */
+export interface PreparedRestore {
+  token: string;
+  /** Null for archives made by hand (database and uploads folder only). */
+  manifest: { createdAt: string; schemaVersion: number } | null;
+  counts: BackupCounts;
+  /** Attachments whose file is not in the archive. */
+  missingFiles: number;
+}
+
+export const backupApi = {
+  /** The whole instance as ZIP; the browser downloads it. */
+  downloadUrl: '/api/backup',
+  /** Uploads and checks a backup; nothing is replaced yet. `onProgress` gets 0…1. */
+  prepareRestore(file: File, onProgress?: (share: number) => void): Promise<PreparedRestore> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/backup/restore');
+      xhr.responseType = 'json';
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) onProgress?.(event.loaded / event.total);
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response as PreparedRestore);
+        else {
+          const error = (xhr.response as { error?: { code?: string; message?: string } } | null)?.error;
+          reject(new ApiError(xhr.status, error?.code ?? 'unknown', error?.message ?? xhr.statusText));
+        }
+      };
+      xhr.onerror = () => reject(new ApiError(0, 'network', 'Network error'));
+      xhr.send(form);
+    });
+  },
+  /** Replaces all data with the prepared backup (after a safety copy on the server). */
+  restore: (token: string) =>
+    request<{ counts: BackupCounts; safetyCopy: string }>(`/backup/restore/${encodeURIComponent(token)}`, { method: 'POST' }),
+  cancelRestore: (token: string) => request<void>(`/backup/restore/${encodeURIComponent(token)}`, { method: 'DELETE' }),
+};
+
+export type ExportFormat = 'md' | 'html';
+
+/** Addresses of downloads; the server names the files. */
+export const exportUrls = {
+  note: (noteId: number, format: ExportFormat) => `/api/notes/${noteId}/export?format=${format}`,
+  projectNotes: (projectId: number, format: ExportFormat) => `/api/projects/${projectId}/export/notes?format=${format}`,
+  boardCsv: (projectId: number) => `/api/projects/${projectId}/export/board.csv`,
+};
+
+export interface ImportedNoteInput {
+  title: string;
+  content: string;
+  tags: string[];
+  createdAt?: string;
+}
+
+export const importApi = {
+  /** One batch (at most 50 notes); titles that exist get a number, e.g. "Plan (2)". */
+  notes: (projectId: number, notes: ImportedNoteInput[]) =>
+    request<{ created: { id: number; title: string }[] }>(`/projects/${projectId}/import/notes`, {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
+    }),
+};
+
+/** Starts a download of a server file (the desktop app asks where to save it). */
+export function startDownload(url: string): void {
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = '';
+  document.body.append(link);
+  link.click();
+  link.remove();
+}

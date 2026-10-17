@@ -1,7 +1,7 @@
 import { createServer, type Server } from 'node:http';
 import path from 'node:path';
 import { createApp, type DesktopInfo } from './app.js';
-import { openDatabase } from './database.js';
+import { DB_FILE_NAME, openDatabase, UPLOADS_DIR_NAME } from './database.js';
 import { seedSampleProject } from './sampleProject.js';
 import { loopbackHosts } from './hostGuard.js';
 
@@ -34,9 +34,7 @@ export interface RunningServer {
   close: () => Promise<void>;
 }
 
-export const DB_FILE_NAME = 'scrumbanize.db';
-/** Attachment files, next to the database. */
-export const UPLOADS_DIR_NAME = 'uploads';
+export { DB_FILE_NAME, UPLOADS_DIR_NAME } from './database.js';
 
 /**
  * Opens the database and starts the HTTP server. Used by the CLI entry point (index.ts: dev, Docker,

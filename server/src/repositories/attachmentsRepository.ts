@@ -94,6 +94,9 @@ export function createAttachmentsRepository(db: Db, uploadsDir: string) {
   );
   const deleteRow = db.prepare<[number]>(`DELETE FROM attachments WHERE id = ?`);
   const selectStoredNames = db.prepare<[], { stored_name: string }>(`SELECT stored_name FROM attachments`);
+  const selectProjectNoteFiles = db.prepare<[number], AttachmentRow>(
+    `SELECT a.* FROM attachments a JOIN live_notes n ON n.id = a.note_id WHERE n.project_id = ? ORDER BY a.id`,
+  );
 
   const filePath = (storedName: string) => path.join(uploadsDir, storedName);
   // Created when the first upload arrives (see ensureFolders), so a server without attachments leaves no folders.
@@ -156,6 +159,16 @@ export function createAttachmentsRepository(db: Db, uploadsDir: string) {
       });
       return rows.map(toAttachment);
     }),
+
+    /** The files of all notes of a project outside the trash, by note id, oldest first (for the notes export). */
+    noteFiles(projectId: number): Map<number, { fileName: string; path: string }[]> {
+      const byNote = new Map<number, { fileName: string; path: string }[]>();
+      for (const row of selectProjectNoteFiles.all(projectId)) {
+        if (!fs.existsSync(filePath(row.stored_name))) continue;
+        byNote.set(row.note_id!, [...(byNote.get(row.note_id!) ?? []), { fileName: row.file_name, path: filePath(row.stored_name) }]);
+      }
+      return byNote;
+    },
 
     /** The attachment and where its file is; undefined if it does not exist or its owner is in the trash. */
     file(id: number): { attachment: Attachment; path: string } | undefined {

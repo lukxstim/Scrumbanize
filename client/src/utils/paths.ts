@@ -8,10 +8,12 @@ export const paths = {
   calendar: (projectId: number) => `/p/${projectId}/calendar`,
   analytics: (projectId: number) => `/p/${projectId}/analytics`,
   trash: (projectId: number) => `/p/${projectId}/trash`,
+  /** Settings of the whole installation; inside a project, so the header and its navigation stay. */
+  settings: (projectId: number) => `/p/${projectId}/settings`,
 };
 
 /** The top-level pages of a project (the header tabs). */
-export type Section = 'notes' | 'graph' | 'board' | 'calendar' | 'analytics' | 'trash';
+export type Section = 'notes' | 'graph' | 'board' | 'calendar' | 'analytics' | 'trash' | 'settings';
 
 /** The start page of a section, e.g. to keep the section when switching projects. */
 export function sectionPath(projectId: number, section: Section): string {

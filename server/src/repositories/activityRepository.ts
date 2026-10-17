@@ -1,4 +1,4 @@
-import type { EditSummary } from '../activityText.js';
+import { text, type EditSummary } from '../activityText.js';
 import type { Db } from '../database.js';
 
 export const ENTITY_TYPES = ['note', 'task', 'board', 'project'] as const;
@@ -90,6 +90,9 @@ export function createActivityRepository(db: Db) {
     `SELECT * FROM activities WHERE entity_type = ? AND entity_id = ? ORDER BY id DESC LIMIT 1`,
   );
   const deleteActivity = db.prepare<[number]>(`DELETE FROM activities WHERE id = ?`);
+  const selectLatestOfProject = db.prepare<[number], ActivityRow>(
+    `SELECT * FROM activities WHERE project_id = ? ORDER BY id DESC LIMIT 1`,
+  );
 
   function record(input: ActivityInput, now = new Date()): void {
     insert.run(
@@ -155,6 +158,27 @@ export function createActivityRepository(db: Db) {
           now,
         );
       }
+    },
+
+    /**
+     * Logs notes imported into a project. An import arrives in several batches; while the project's latest entry is
+     * an import from within AGGREGATE_WINDOW_MS, it is replaced by one with the sum, so one import is one entry.
+     */
+    recordImport(projectId: number, count: number, now = new Date()): void {
+      const latest = selectLatestOfProject.get(projectId);
+      const previous = latest ? (JSON.parse(latest.metadata) as { imported?: number }) : {};
+      const recent =
+        latest &&
+        latest.entity_type === 'note' &&
+        latest.entity_id === null &&
+        typeof previous.imported === 'number' &&
+        now.getTime() - new Date(latest.created_at).getTime() <= AGGREGATE_WINDOW_MS;
+      const total = count + (recent ? previous.imported! : 0);
+      if (recent) deleteActivity.run(latest.id);
+      record(
+        { projectId, entityType: 'note', entityId: null, actionType: 'create', description: text.notesImported(total), metadata: { imported: total } },
+        now,
+      );
     },
 
     /** Newest first; `before` is the id of the last entry of the previous page. */

@@ -5,10 +5,12 @@ import type { Attachment } from '../../types/attachment';
 import type { Note, NoteInput } from '../../types/note';
 import type { Task } from '../../types/task';
 import { buildTaskDraft, UNTITLED_NOTE, type TaskDraft } from '../../utils/taskFromNote';
-import { BoardIcon, MindmapIcon } from '../icons';
+import { exportUrls, startDownload, type ExportFormat } from '../../utils/api';
+import { BoardIcon, DownloadIcon, MindmapIcon } from '../icons';
+import Menu from '../Menu';
 import AttachmentsPanel from '../attachments/AttachmentsPanel';
 import MarkdownEditor from '../editor/MarkdownEditor';
-import Button from '../ui/Button';
+import Button, { buttonClass } from '../ui/Button';
 import ConvertToTaskDialog from './ConvertToTaskDialog';
 import LinkedTasks from './LinkedTasks';
 import TagInput from './TagInput';
@@ -64,6 +66,12 @@ export default function NoteEditor({
     }
   }
 
+  // Saves pending edits first, so the file has what the editor shows.
+  async function download(format: ExportFormat) {
+    await flush();
+    startDownload(exportUrls.note(note.id, format));
+  }
+
   function startConversion() {
     setConversion({ draft: buildTaskDraft(draft, selection), fromSelection: selection !== '' });
     void flush();
@@ -113,6 +121,21 @@ export default function NoteEditor({
           <MindmapIcon className="size-3.5" />
           Als Mindmap
         </Button>
+        <Menu
+          label="Notiz exportieren"
+          align="left"
+          triggerClassName={buttonClass('ghost', 'sm')}
+          trigger={
+            <>
+              <DownloadIcon className="size-3.5" />
+              Exportieren
+            </>
+          }
+          items={[
+            { label: 'Als Markdown (.md)', onSelect: () => void download('md') },
+            { label: 'Als HTML (druckbar)', onSelect: () => void download('html') },
+          ]}
+        />
         <div className="flex-1" />
         <SaveIndicator status={status} onRetry={() => void flush()} />
         <Button variant="danger-ghost" size="sm" onClick={() => void moveToTrash()}>

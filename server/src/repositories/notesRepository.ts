@@ -49,6 +49,11 @@ interface NoteRow {
   updated_at: string;
 }
 
+export interface ImportedNote extends NoteInput {
+  /** From the file's front matter; otherwise the time of the import. */
+  createdAt?: string;
+}
+
 export type NotesRepository = ReturnType<typeof createNotesRepository>;
 
 export function createNotesRepository(db: Db) {
@@ -61,6 +66,10 @@ export function createNotesRepository(db: Db) {
     `UPDATE notes SET title = ?, content = ?, updated_at = ? WHERE id = ? RETURNING *`,
   );
   const deleteNote = db.prepare<[number]>(`DELETE FROM notes WHERE id = ?`);
+  const insertImported = db.prepare<[number, string, string, string, string], { id: number }>(
+    `INSERT INTO notes (project_id, title, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?) RETURNING id`,
+  );
+  const selectTitles = db.prepare<[number], { title: string }>(`SELECT title FROM live_notes WHERE project_id = ?`);
   // Reads go through live_notes and live_tasks, which leave out the trash and the contents of trashed projects.
   const selectNote = db.prepare<[number], NoteRow>(`SELECT * FROM live_notes WHERE id = ?`);
   // A note in the trash of a project that is not itself in the trash: the ones that can be restored or purged.
@@ -202,6 +211,26 @@ export function createNotesRepository(db: Db) {
         metadata: { title: input.title },
       });
       return withRelations(row);
+    }),
+
+    /**
+     * Creates imported notes. A title the project already has (or the import had before) gets a number, "Plan (2)",
+     * so nothing is overwritten or mixed up. One log entry for the whole import (see recordImport).
+     */
+    importMany: db.transaction((projectId: number, inputs: ImportedNote[], now = new Date()): { id: number; title: string }[] => {
+      const taken = new Set(selectTitles.all(projectId).map((r) => r.title.toLocaleLowerCase('de')));
+      const created = inputs.map((input) => {
+        let title = input.title;
+        for (let n = 2; taken.has(title.toLocaleLowerCase('de')); n++) title = `${input.title} (${n})`;
+        taken.add(title.toLocaleLowerCase('de'));
+        const createdAt = input.createdAt ?? now.toISOString();
+        // Shown as recently changed, so the imported notes appear on top of the list.
+        const id = insertImported.get(projectId, title, input.content, createdAt, now.toISOString())!.id;
+        setTags(id, input.tags);
+        return { id, title };
+      });
+      activities.recordImport(projectId, created.length, now);
+      return created;
     }),
 
     /** Replaces title, content and tags. Returns undefined if the note does not exist. */
