@@ -12,16 +12,19 @@ import { createAnalyticsRepository } from './repositories/analyticsRepository.js
 import { createAttachmentsRepository } from './repositories/attachmentsRepository.js';
 import { createBoardRepository } from './repositories/boardRepository.js';
 import { createGraphRepository } from './repositories/graphRepository.js';
+import { createLabelsRepository } from './repositories/labelsRepository.js';
 import { createMetaRepository } from './repositories/metaRepository.js';
 import { createNotesRepository } from './repositories/notesRepository.js';
 import { createProjectsRepository } from './repositories/projectsRepository.js';
 import { createSearchRepository } from './repositories/searchRepository.js';
 import { createTasksRepository } from './repositories/tasksRepository.js';
+import { createTemplatesRepository } from './repositories/templatesRepository.js';
 import { createTrashRepository } from './repositories/trashRepository.js';
 import { attachmentsRouter } from './routes/attachments.js';
 import { backupRouter } from './routes/backup.js';
 import { columnsRouter, lanesRouter } from './routes/board.js';
 import { exportsRouter } from './routes/exports.js';
+import { labelsRouter } from './routes/labels.js';
 import { notesRouter } from './routes/notes.js';
 import { projectScopedRouter } from './routes/projectScoped.js';
 import { projectsRouter } from './routes/projects.js';
@@ -55,6 +58,8 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   const activities = createActivityRepository(db);
   const analytics = createAnalyticsRepository(db);
   const graph = createGraphRepository(db);
+  const labels = createLabelsRepository(db);
+  const templates = createTemplatesRepository(db);
   const trash = createTrashRepository(db);
   const meta = createMetaRepository(db);
   // Backups and restores work next to the uploads folder (in the data directory), so the fallback gets its own parent.
@@ -87,11 +92,12 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
     res.json({ sampleProjectId: meta.sampleProjectId(), desktop: options.desktop ?? null, restoredAt: meta.get('restored_at') ?? null });
   });
   api.use('/projects', projectsRouter(projects));
-  api.use('/projects/:projectId', projectScopedRouter({ activities, analytics, graph, projects, notes, tasks, board }));
+  api.use('/projects/:projectId', projectScopedRouter({ activities, analytics, graph, labels, templates, projects, notes, tasks, board }));
   api.use('/notes', notesRouter(notes));
   api.use('/tasks', tasksRouter(tasks));
   api.use('/columns', columnsRouter(board));
   api.use('/lanes', lanesRouter(board));
+  api.use('/labels', labelsRouter(labels));
   api.use('/search', searchRouter(search));
   api.use('/trash', trashRouter(trash, projects, () => attachments.sweep()));
   api.use(attachmentsRouter(attachments));

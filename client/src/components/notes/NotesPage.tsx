@@ -1,13 +1,20 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { useNotes } from '../../hooks/useNotes';
+import { useProjects } from '../../hooks/useProjects';
+import { useTemplates } from '../../hooks/useTemplates';
+import type { NoteTemplate, TemplateInput } from '../../types/template';
+import { noteFromTemplate } from '../../utils/templates';
+import Menu from '../Menu';
+import TemplateDialog from '../templates/TemplateDialog';
+import { buttonClass } from '../ui/Button';
 import { useToast } from '../../hooks/useToast';
 import { trashApi } from '../../utils/api';
 import { isCreateRequest } from '../../utils/appEvents';
 import { filterNotes, sortByUpdated } from '../../utils/filterNotes';
 import { paths } from '../../utils/paths';
 import { countTags } from '../../utils/tags';
-import { NoteIcon, PlusIcon } from '../icons';
+import { ChevronDownIcon, NoteIcon, PlusIcon } from '../icons';
 import Button from '../ui/Button';
 import Kbd, { modKey } from '../ui/Kbd';
 import Skeleton from '../ui/Skeleton';
@@ -29,6 +36,10 @@ export default function NotesPage() {
   const deferredQuery = useDeferredValue(query);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [newNoteId, setNewNoteId] = useState<number | null>(null);
+  const { projects } = useProjects();
+  const projectName = projects.find((p) => p.id === projectId)?.name ?? '';
+  const { noteTemplates, reload: reloadTemplates } = useTemplates(projectId);
+  const [templateDraft, setTemplateDraft] = useState<TemplateInput | null>(null);
 
   const tagCounts = useMemo(() => countTags(notes), [notes]);
   // A selected tag disappears from the filter once no note uses it anymore.
@@ -42,9 +53,10 @@ export default function NotesPage() {
   );
   const selectedNote = notes.find((note) => note.id === selectedId);
 
-  async function handleCreate(title = '') {
+  async function handleCreate(title = '', template?: NoteTemplate) {
     try {
-      const note = await createNote(title);
+      const filled = template ? noteFromTemplate(template, { now: new Date(), projectName }) : undefined;
+      const note = await createNote(title || filled?.title || '', filled?.content, filled?.tags);
       setQuery('');
       setSelectedTags([]);
       navigate(paths.notes(projectId, note.id), { replace: true });
@@ -59,8 +71,11 @@ export default function NotesPage() {
   useEffect(() => {
     if (status !== 'ready' || !isCreateRequest(location.state) || location.state.create !== 'note') return;
     if (handledRequest.current === location.state) return;
+    const template = noteTemplates.find((t) => t.id === location.state.templateId);
+    // A request for a template waits until the templates are loaded.
+    if (location.state.templateId !== undefined && !template) return;
     handledRequest.current = location.state;
-    void handleCreate(location.state.title);
+    void handleCreate(location.state.title, template);
   });
 
   // Deleting moves the note to the trash right away; the toast can take it back.
@@ -92,13 +107,32 @@ export default function NotesPage() {
     <div className="flex min-h-0 flex-1">
       <aside className="flex w-80 shrink-0 flex-col border-r border-line bg-surface">
         <div className="space-y-3 border-b border-line p-4">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
             <h1 className="text-sm font-semibold text-fg">Notizen</h1>
-            <NotesViewSwitch projectId={projectId} view="list" />
-            <Button variant="primary" size="sm" onClick={() => void handleCreate()}>
-              <PlusIcon className="size-3.5" />
-              Neue Notiz
-            </Button>
+            {/* Icons only: title, switch and the split button share the sidebar's width. */}
+            <NotesViewSwitch projectId={projectId} view="list" compact />
+            {/* One split button: "Neue Notiz" and, joined to it, the arrow for templates. */}
+            <div className="ml-auto flex shrink-0 items-stretch rounded-md shadow-sm">
+              <Button variant="primary" size="sm" className="rounded-r-none !shadow-none active:!scale-100" onClick={() => void handleCreate()}>
+                <PlusIcon className="size-3.5" />
+                Neue Notiz
+              </Button>
+              <Menu
+                label="Neue Notiz aus Vorlage"
+                triggerClassName={buttonClass('primary', 'sm', 'w-7 !px-0 rounded-l-none border-l border-accent-fg/30 !shadow-none active:!scale-100')}
+                trigger={<ChevronDownIcon className="size-3.5" />}
+                items={[
+                  ...noteTemplates.map((template) => ({
+                    label: `${template.name}${template.scope === 'global' ? '' : ' (Projekt)'}`,
+                    onSelect: () => void handleCreate('', template),
+                  })),
+                  {
+                    label: 'Neue Vorlage …',
+                    onSelect: () => setTemplateDraft({ kind: 'note', scope: 'project', name: '', title: '', content: '', defaults: { tags: [] } }),
+                  },
+                ]}
+              />
+            </div>
           </div>
           <SearchBar value={query} onChange={setQuery} />
           <TagFilter tags={tagCounts} selected={activeTags} onToggle={toggleTag} onClear={() => setSelectedTags([])} />
@@ -146,6 +180,9 @@ export default function NotesPage() {
             onCreateTask={createTaskFromNote}
             onDiscardTask={discardTask}
             onUpdateAttachments={updateAttachments}
+            onSaveAsTemplate={(input) =>
+              setTemplateDraft({ kind: 'note', scope: 'project', name: input.title || 'Neue Vorlage', title: input.title, content: input.content, defaults: { tags: input.tags } })
+            }
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
@@ -169,6 +206,19 @@ export default function NotesPage() {
           </div>
         )}
       </main>
+      {templateDraft && (
+        <TemplateDialog
+          projectId={projectId}
+          template={templateDraft}
+          board={{ labels: [], columns: [], lanes: [], tags: tagCounts.map((t) => t.name) }}
+          onSaved={(template) => {
+            setTemplateDraft(null);
+            void reloadTemplates();
+            toast({ message: `Vorlage „${template.name}“ gespeichert.` });
+          }}
+          onClose={() => setTemplateDraft(null)}
+        />
+      )}
     </div>
   );
 }

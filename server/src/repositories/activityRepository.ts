@@ -59,24 +59,44 @@ export interface EditInput {
 }
 
 const isEmpty = (changes: EditSummary) =>
-  changes.fields.length === 0 && changes.tagsAdded.length === 0 && changes.tagsRemoved.length === 0;
+  changes.fields.length === 0 &&
+  changes.tagsAdded.length === 0 &&
+  changes.tagsRemoved.length === 0 &&
+  !changes.labelsAdded?.length &&
+  !changes.labelsRemoved?.length;
 
-/** Combines two edits; a tag added and removed again within the window cancels out. */
+/** Net additions and removals of two edits; something added and removed again cancels out. */
+function mergeSets(earlier: { added: string[]; removed: string[] }, later: { added: string[]; removed: string[] }) {
+  const added = new Set(earlier.added);
+  const removed = new Set(earlier.removed);
+  for (const item of later.added) {
+    if (removed.has(item)) removed.delete(item);
+    else added.add(item);
+  }
+  for (const item of later.removed) {
+    if (added.has(item)) added.delete(item);
+    else removed.add(item);
+  }
+  return { added: [...added], removed: [...removed] };
+}
+
+/** Combines two edits; a tag or label added and removed again within the window cancels out. */
 export function mergeChanges(earlier: EditSummary, later: EditSummary): EditSummary {
   const fields = [...new Set([...earlier.fields, ...later.fields])];
-  const added = new Set(earlier.tagsAdded);
-  const removed = new Set(earlier.tagsRemoved);
-  for (const tag of later.tagsAdded) {
-    if (removed.has(tag)) removed.delete(tag);
-    else added.add(tag);
-  }
-  for (const tag of later.tagsRemoved) {
-    if (added.has(tag)) added.delete(tag);
-    else removed.add(tag);
-  }
+  const tags = mergeSets({ added: earlier.tagsAdded, removed: earlier.tagsRemoved }, { added: later.tagsAdded, removed: later.tagsRemoved });
+  const labels = mergeSets(
+    { added: earlier.labelsAdded ?? [], removed: earlier.labelsRemoved ?? [] },
+    { added: later.labelsAdded ?? [], removed: later.labelsRemoved ?? [] },
+  );
   // The later value of a field wins ("Fällig" moved twice shows the final date).
   const values = { ...earlier.values, ...later.values };
-  return { fields, tagsAdded: [...added], tagsRemoved: [...removed], ...(Object.keys(values).length ? { values } : {}) };
+  return {
+    fields,
+    tagsAdded: tags.added,
+    tagsRemoved: tags.removed,
+    ...(labels.added.length || labels.removed.length ? { labelsAdded: labels.added, labelsRemoved: labels.removed } : {}),
+    ...(Object.keys(values).length ? { values } : {}),
+  };
 }
 
 export type ActivityRepository = ReturnType<typeof createActivityRepository>;

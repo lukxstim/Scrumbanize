@@ -6,9 +6,9 @@ const graph: GraphData = {
   nodes: [
     { id: 'note:1', type: 'note', entityId: 1, title: 'Meeting', tags: ['team'] },
     { id: 'note:2', type: 'note', entityId: 2, title: 'Idee', tags: [] },
-    { id: 'task:1', type: 'task', entityId: 1, title: 'Agenda', columnName: 'To Do', done: false, priority: null },
-    { id: 'task:2', type: 'task', entityId: 2, title: 'Protokoll', columnName: 'Done', done: true, priority: 'high' },
-    { id: 'task:3', type: 'task', entityId: 3, title: 'Allein', columnName: 'Backlog', done: false, priority: null },
+    { id: 'task:1', type: 'task', entityId: 1, title: 'Agenda', columnName: 'To Do', done: false, priority: null, labels: [] },
+    { id: 'task:2', type: 'task', entityId: 2, title: 'Protokoll', columnName: 'Done', done: true, priority: 'high', labels: [{ name: 'Bug', color: 'red' }] },
+    { id: 'task:3', type: 'task', entityId: 3, title: 'Allein', columnName: 'Backlog', done: false, priority: null, labels: [] },
   ],
   edges: [
     { source: 'note:1', target: 'task:1', kind: 'converted' },
@@ -50,6 +50,7 @@ describe('neighbors, degrees and search', () => {
     expect([...searchGraph(graph.nodes, 'team')]).toEqual(['note:1']);
     expect([...searchGraph(graph.nodes, 'proto')]).toEqual(['task:2']);
     expect([...searchGraph(graph.nodes, 'backlog')]).toEqual(['task:3']);
+    expect([...searchGraph(graph.nodes, 'bug')]).toEqual(['task:2']);
     expect(searchGraph(graph.nodes, '  ').size).toBe(0);
   });
 

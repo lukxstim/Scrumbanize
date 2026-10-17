@@ -1,3 +1,4 @@
+import { LabelDots } from '../tasks/LabelChip';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import type { KeyboardEvent } from 'react';
 import type { Task } from '../../types/task';
@@ -61,6 +62,7 @@ function UnscheduledItem({ task, onOpen }: { task: Task; onOpen: (id: number) =>
           <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1 ${PRIORITY_STYLES[task.priority].stripe}`} />
         )}
         <span className="min-w-0 flex-1 truncate">{task.title}</span>
+        <LabelDots labels={task.labels} />
         <span className="font-mono text-[10px] text-fg-subtle">#{task.id}</span>
       </div>
     </li>

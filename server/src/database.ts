@@ -286,6 +286,63 @@ export const migrations: string[] = [
     value TEXT NOT NULL
   );
   `,
+  // Colored task labels per project, and templates for new notes and tasks: per project, or for all projects
+  // (project_id NULL). Template defaults name labels, column and lane instead of pointing at them, so a template for
+  // all projects works wherever such a label or column exists. Three templates for all projects to start with.
+  `
+  CREATE TABLE labels (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    name       TEXT NOT NULL,
+    color      TEXT NOT NULL,
+    position   REAL NOT NULL,
+    created_at TEXT NOT NULL
+  );
+  CREATE UNIQUE INDEX idx_labels_project_name ON labels(project_id, name COLLATE NOCASE);
+
+  CREATE TABLE task_labels (
+    task_id  INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    label_id INTEGER NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
+    PRIMARY KEY (task_id, label_id)
+  );
+  CREATE INDEX idx_task_labels_label ON task_labels(label_id);
+
+  CREATE TABLE templates (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+    kind       TEXT NOT NULL CHECK (kind IN ('note', 'task')),
+    name       TEXT NOT NULL,
+    title      TEXT NOT NULL DEFAULT '',
+    content    TEXT NOT NULL DEFAULT '',
+    defaults   TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(defaults)),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE UNIQUE INDEX idx_templates_scope_kind_name ON templates(ifnull(project_id, 0), kind, name COLLATE NOCASE);
+
+  INSERT INTO templates (project_id, kind, name, title, content, defaults, created_at, updated_at) VALUES
+    (NULL, 'note', 'Meeting-Protokoll', 'Meeting {{datum}}',
+     '**Datum:** {{wochentag}}, {{datum}}, {{uhrzeit}} Uhr' || char(10) || '**Teilnehmende:** ' || char(10) || char(10) ||
+     '## Agenda' || char(10) || char(10) || '- ' || char(10) || char(10) ||
+     '## Notizen' || char(10) || char(10) ||
+     '## Entscheidungen' || char(10) || char(10) || '- ' || char(10) || char(10) ||
+     '## Aufgaben' || char(10) || char(10) || '- [ ] ',
+     '{"tags":["meeting"]}', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    (NULL, 'note', 'Sprint-Planning', 'Sprint-Planning KW {{kw}}',
+     '## Sprint-Ziel' || char(10) || char(10) ||
+     '## Kapazität' || char(10) || char(10) || '- ' || char(10) || char(10) ||
+     '## Ausgewählte Aufgaben' || char(10) || char(10) || '- [ ] ' || char(10) || char(10) ||
+     '## Risiken' || char(10) || char(10) || '- ',
+     '{"tags":["sprint"]}', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    (NULL, 'task', 'Bug-Report', 'Bug: ',
+     '## Beschreibung' || char(10) || char(10) ||
+     '## Schritte zum Nachstellen' || char(10) || char(10) || '1. ' || char(10) || char(10) ||
+     '## Erwartet' || char(10) || char(10) ||
+     '## Tatsächlich' || char(10) || char(10) ||
+     '## Umgebung' || char(10),
+     '{"priority":"high","labels":["Bug"],"column":null,"lane":null,"dueInDays":null}',
+     strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+  `,
 ];
 
 export interface OpenOptions {

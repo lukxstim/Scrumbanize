@@ -6,6 +6,8 @@ import { cellTasks, findTask, type Cells } from './board';
 export type TaskSort = 'manual' | 'priority' | 'due';
 export type DueFilter = 'all' | 'overdue' | 'today' | 'week' | 'scheduled' | 'none';
 export type PriorityFilter = TaskPriority | 'none';
+/** A label id, or tasks without any label. */
+export type LabelFilter = number | 'none';
 
 /** How the board shows its tasks. Display only: it never changes the stored order. */
 export interface TaskView {
@@ -13,9 +15,11 @@ export interface TaskView {
   /** Empty means all priorities. */
   priorities: PriorityFilter[];
   due: DueFilter;
+  /** Tasks with at least one of these; empty means all. Optional: views stored before labels existed lack it. */
+  labels?: LabelFilter[];
 }
 
-export const DEFAULT_VIEW: TaskView = { sort: 'manual', priorities: [], due: 'all' };
+export const DEFAULT_VIEW: TaskView = { sort: 'manual', priorities: [], due: 'all', labels: [] };
 
 export const SORT_LABELS: Record<TaskSort, string> = { manual: 'Manuell', priority: 'Priorität', due: 'Fälligkeit' };
 
@@ -37,15 +41,21 @@ export function isTaskView(value: unknown): value is TaskView {
     typeof view.due === 'string' &&
     view.due in DUE_FILTER_LABELS &&
     Array.isArray(view.priorities) &&
-    view.priorities.every((p) => p === 'none' || (TASK_PRIORITIES as readonly unknown[]).includes(p))
+    view.priorities.every((p) => p === 'none' || (TASK_PRIORITIES as readonly unknown[]).includes(p)) &&
+    (view.labels === undefined || (Array.isArray(view.labels) && view.labels.every((l) => l === 'none' || Number.isInteger(l))))
   );
 }
 
-export const isFiltered = (view: TaskView) => view.priorities.length > 0 || view.due !== 'all';
+export const isFiltered = (view: TaskView) => view.priorities.length > 0 || view.due !== 'all' || (view.labels?.length ?? 0) > 0;
 
 /** Whether a task passes the view's filters. `done` tasks are never overdue. */
 export function matchesView(task: Task, view: TaskView, today: string, done: boolean): boolean {
   if (view.priorities.length > 0 && !view.priorities.includes(task.priority ?? 'none')) return false;
+  const labels = view.labels ?? [];
+  if (labels.length > 0) {
+    const own = task.labels.length === 0 ? ['none' as const] : task.labels.map((l) => l.id);
+    if (!own.some((l) => labels.includes(l))) return false;
+  }
   const due = task.dueDate;
   switch (view.due) {
     case 'all':

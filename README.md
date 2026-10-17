@@ -72,6 +72,10 @@ Aus Versehen gelöscht? Kein Problem: Gelöschtes landet zuerst im Papierkorb un
 - **Notizen importieren** aus Markdown-Dateien, ganzen Ordnern (z. B. Obsidian) oder ZIP-Exporten (z. B. Notion). Titel, Tags und Erstelldatum werden übernommen; Bilder noch nicht.
 - **Exportieren**: alle Notizen als Markdown oder HTML (ZIP, mit Anhängen), das Board als CSV-Datei für Excel. Einzelne Notizen lassen sich auch direkt im Editor exportieren.
 
+### Labels und Vorlagen
+- **Farbige Labels** für Tasks (neue Projekte starten mit *Bug*, *Feature* und *Dringend*): auf den Karten, im Kalender und im Graph sichtbar, das Board lässt sich danach filtern. Verwalten über „Labels ▾“ in der Leiste über dem Board.
+- **Vorlagen** für Notizen und Tasks, für ein Projekt oder für alle (dabei: *Meeting-Protokoll*, *Sprint-Planning*, *Bug-Report*). Platzhalter wie `{{datum}}`, `{{wochentag}}`, `{{uhrzeit}}`, `{{kw}}` und `{{projekt}}` werden beim Anlegen ausgefüllt; Taskvorlagen setzen auch Priorität, Labels, Spalte, Swimlane und einen Fälligkeitstermin („+7 Tage“). Auswählen beim Anlegen (Pfeil neben „Neue Notiz“, Vorlage unter „+ Task“, `Strg` + `K`), verwalten in den Einstellungen oder per „Als Vorlage speichern“.
+
 ### Und außerdem
 - **Statistiken** zu erledigten Tasks, Durchlaufzeiten und WIP-Limits.
 - **Graph und Mindmap**: Notizen und Tasks als Netzwerk ansehen, eine gegliederte Notiz als Mindmap (Export als SVG oder PNG).
@@ -286,6 +290,10 @@ Listen und Neuanlagen gehören zu einem Projekt (`/api/projects/:projectId/…`)
 | GET     | `/api/projects/:projectId/export/notes?format=md\|html` | Alle Notizen des Projekts als ZIP, Anhänge unter `Anhänge/<Notiz>/` |
 | GET     | `/api/projects/:projectId/export/board.csv` | Alle Tasks als CSV für Excel (UTF-8 mit BOM, Semikolon, Datum `TT.MM.JJJJ`) |
 | POST    | `/api/projects/:projectId/import/notes` | `{ notes: [{ title, content, tags, createdAt? }] }` (bis zu 50 je Anfrage). Vorhandene Titel bekommen eine Nummer („Titel (2)“). Ein Eintrag im Verlauf je Import. Antwort 201: `{ created: [{ id, title }] }` |
+| GET/POST | `/api/projects/:projectId/labels` | Labels des Projekts (`[{ id, name, color }]`, Farben wie bei Projekten) bzw. neues Label `{ name, color }`. 409 bei doppeltem Namen oder mehr als 30 Labels |
+| PATCH/DELETE | `/api/labels/:id` | Label umbenennen/umfärben bzw. löschen (wird von allen Tasks entfernt). `POST /api/labels/:id/move` mit `{ index }` sortiert, `GET /api/labels/:id/usage` zählt die Tasks |
+| GET/POST | `/api/projects/:projectId/templates?kind=note\|task` | Vorlagen des Projekts und für alle Projekte bzw. neue Vorlage `{ kind, scope: "project"\|"global", name, title, content, defaults }`; `defaults` für Tasks: `{ priority, labels, column, lane, dueInDays }` (Labels, Spalte, Swimlane als Namen) |
+| PATCH/DELETE | `/api/projects/:projectId/templates/:id` | Vorlage ändern bzw. löschen; protokolliert im Projekt der Anfrage |
 | GET     | `/api/trash?project=` | Papierkorb, zuletzt gelöschte zuerst: `[{ type, id, projectId, projectName, projectColor, title, deletedAt, snippet?, columnName?, noteCount?, taskCount? }]` mit `type` `note`, `task` oder `project`. `project` beschränkt Notizen und Tasks auf ein Projekt; gelöschte Projekte sind immer dabei, Notizen und Tasks gelöschter Projekte nie einzeln |
 | POST    | `/api/trash/:type/:id/restore` | Wiederherstellen: `{ type, item, renamedFrom? }` – `item` ist die Notiz, der Task bzw. das Projekt; `renamedFrom`, wenn der Projektname inzwischen vergeben war |
 | DELETE  | `/api/trash/:type/:id` | Endgültig löschen (Projekte mit allen Inhalten und ihrem Aktivitätsprotokoll) |

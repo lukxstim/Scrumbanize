@@ -1,3 +1,4 @@
+import { LabelChips, LabelDots } from '../tasks/LabelChip';
 import { useDraggable } from '@dnd-kit/core';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { Link } from 'react-router';
@@ -119,7 +120,12 @@ export function TaskCardBody({
   const blockers = openBlockers(task);
   const checklist = checklistProgress(task.description);
   const hasBadges =
-    task.dueDate || (task.priority && !compact) || task.links.length > 0 || task.attachments.length > 0 || checklist.total > 0;
+    task.dueDate ||
+    (task.priority && !compact) ||
+    task.links.length > 0 ||
+    task.attachments.length > 0 ||
+    checklist.total > 0 ||
+    task.labels.length > 0;
 
   return (
     <article
@@ -156,7 +162,8 @@ export function TaskCardBody({
         </div>
       </div>
       {hasBadges && (
-        <div className="mt-1.5 flex flex-wrap gap-1">
+        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+          {compact ? <LabelDots labels={task.labels} className="mr-0.5" /> : <LabelChips labels={task.labels} />}
           {blockers.length > 0 && (
             <span
               className="inline-flex items-center rounded bg-danger-muted px-1.5 py-px text-[11px] font-medium text-danger-text ring-1 ring-danger-line ring-inset"

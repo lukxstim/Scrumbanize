@@ -3,6 +3,7 @@ import type { Db } from '../database.js';
 import type { ProjectInput, ProjectPatch } from '../validation.js';
 import { createActivityRepository } from './activityRepository.js';
 import { createBoardRepository } from './boardRepository.js';
+import { createLabelsRepository } from './labelsRepository.js';
 
 /** Preset colors a project can have; the client maps them to Tailwind colors. */
 export const PROJECT_COLORS = ['slate', 'red', 'amber', 'emerald', 'sky', 'indigo', 'violet', 'pink'] as const;
@@ -60,6 +61,7 @@ export function createProjectsRepository(db: Db) {
     `INSERT INTO projects (name, color, created_at, updated_at) VALUES (?, ?, ?, ?) RETURNING id`,
   );
   const board = createBoardRepository(db);
+  const labels = createLabelsRepository(db);
   const activities = createActivityRepository(db);
   const updateProject = db.prepare<[string | null, string | null, string, number]>(
     `UPDATE projects SET name = COALESCE(?, name), color = COALESCE(?, color), updated_at = ? WHERE id = ?`,
@@ -117,6 +119,7 @@ export function createProjectsRepository(db: Db) {
       const now = new Date().toISOString();
       const { id } = insertProject.get(input.name, input.color, now, now)!;
       board.createDefaults(id);
+      labels.createStarters(id);
       activities.record({
         projectId: id,
         entityType: 'project',

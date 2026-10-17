@@ -1,3 +1,4 @@
+import { LABEL_STYLES } from '../../utils/labels';
 import { useDeferredValue, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useGraph } from '../../hooks/useGraph';
@@ -162,6 +163,16 @@ function NodeCard({ node }: { node: GraphNode }) {
     <div className="pointer-events-none absolute right-3 bottom-3 max-w-72 rounded-lg border border-line bg-surface px-3 py-2 shadow-popover">
       <p className="truncate text-sm font-medium text-fg">{node.title || (node.type === 'note' ? 'Unbenannte Notiz' : 'Ohne Titel')}</p>
       <p className="mt-0.5 truncate text-xs text-fg-subtle">{detail}</p>
+      {node.type === 'task' && node.labels.length > 0 && (
+        <p className="mt-1 flex flex-wrap gap-1">
+          {node.labels.map((label) => (
+            <span key={label.name} className={`inline-flex items-center gap-1 rounded px-1.5 py-px text-[11px] text-fg ring-1 ring-inset ${LABEL_STYLES[label.color].chip}`}>
+              <span aria-hidden="true" className={`size-1.5 rounded-full ${LABEL_STYLES[label.color].dot}`} />
+              {label.name}
+            </span>
+          ))}
+        </p>
+      )}
       <p className="mt-1 text-[11px] text-fg-faint">Klicken zum Öffnen</p>
     </div>
   );

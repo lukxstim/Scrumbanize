@@ -4,6 +4,8 @@ import { ENTITY_TYPES } from './repositories/activityRepository.js';
 import { PROJECT_COLORS } from './repositories/projectsRepository.js';
 
 export const MAX_TAG_LENGTH = 32;
+export const MAX_LABELS_PER_PROJECT = 30;
+export const MAX_TEMPLATES = 50;
 export const MAX_TAGS_PER_NOTE = 50;
 
 /** Keep in sync with normalizeTag in client/src/utils/tags.ts. */
@@ -73,6 +75,9 @@ export const taskInputSchema = z
     sourceNoteId: z.number().int().positive().optional(),
     /** The lane to create the task in; the first lane if omitted. */
     laneId: z.number().int().positive().optional(),
+    /** The column to create the task in (e.g. from a template); the first column if omitted. */
+    columnId: z.number().int().positive().optional(),
+    labelIds: z.array(z.number().int().positive()).max(MAX_LABELS_PER_PROJECT).optional(),
     ...scheduleFields,
   })
   .superRefine((input, ctx) => {
@@ -86,6 +91,8 @@ export type TaskInput = z.infer<typeof taskInputSchema>;
 export const taskPatchSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   description: z.string().max(1_000_000).optional(),
+  /** Replaces the task's labels. */
+  labelIds: z.array(z.number().int().positive()).max(MAX_LABELS_PER_PROJECT).optional(),
   ...scheduleFields,
 });
 
@@ -187,4 +194,70 @@ export const importNotesSchema = z.object({
       }),
     )
     .max(MAX_IMPORT_BATCH),
+});
+
+export const labelInputSchema = z.object({
+  name: z.string().trim().min(1).max(30),
+  color: z.enum(PROJECT_COLORS),
+});
+
+export const labelPatchSchema = labelInputSchema.partial();
+
+export type LabelInput = z.infer<typeof labelInputSchema>;
+export type LabelPatch = z.infer<typeof labelPatchSchema>;
+
+/** What a new note or task gets besides title and text. Labels, column and lane are matched by name in the project. */
+export const noteTemplateDefaultsSchema = z.object({
+  tags: z
+    .array(z.string())
+    .max(MAX_TAGS_PER_NOTE)
+    .transform((tags) => [...new Set(tags.map(normalizeTag).filter(Boolean))])
+    .default([]),
+});
+
+export const taskTemplateDefaultsSchema = z.object({
+  priority: z.enum(TASK_PRIORITIES).nullable().default(null),
+  labels: z.array(z.string().trim().min(1).max(30)).max(MAX_LABELS_PER_PROJECT).default([]),
+  column: z.string().trim().min(1).max(60).nullable().default(null),
+  lane: z.string().trim().min(1).max(60).nullable().default(null),
+  /** Due this many days after the task is created ("+7 Tage"); 0 is the same day. */
+  dueInDays: z.number().int().min(0).max(365).nullable().default(null),
+});
+
+export type NoteTemplateDefaults = z.infer<typeof noteTemplateDefaultsSchema>;
+export type TaskTemplateDefaults = z.infer<typeof taskTemplateDefaultsSchema>;
+
+const templateBase = {
+  name: z.string().trim().min(1).max(60),
+  /** May contain placeholders like {{datum}}; filled in when the template is used. */
+  title: z.string().max(200).default(''),
+  content: z.string().max(1_000_000).default(''),
+  /** "global": usable in every project. */
+  scope: z.enum(['project', 'global']).default('project'),
+};
+
+export const templateInputSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('note'), ...templateBase, defaults: noteTemplateDefaultsSchema.default({ tags: [] }) }),
+  z.object({
+    kind: z.literal('task'),
+    ...templateBase,
+    defaults: taskTemplateDefaultsSchema.default({ priority: null, labels: [], column: null, lane: null, dueInDays: null }),
+  }),
+]);
+
+export type TemplateInput = z.infer<typeof templateInputSchema>;
+
+/** The kind stays; the defaults are checked against it in the repository. */
+export const templatePatchSchema = z.object({
+  name: templateBase.name.optional(),
+  title: z.string().max(200).optional(),
+  content: z.string().max(1_000_000).optional(),
+  scope: z.enum(['project', 'global']).optional(),
+  defaults: z.record(z.string(), z.unknown()).optional(),
+});
+
+export type TemplatePatch = z.infer<typeof templatePatchSchema>;
+
+export const templateQuerySchema = z.object({
+  kind: z.enum(['note', 'task']).optional(),
 });

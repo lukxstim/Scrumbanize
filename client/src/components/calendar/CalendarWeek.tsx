@@ -1,3 +1,4 @@
+import { LabelDots } from '../tasks/LabelChip';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import type { KeyboardEvent } from 'react';
 import type { Task } from '../../types/task';
@@ -172,7 +173,12 @@ function CalendarBarItem({ bar, today, done, onOpen }: { bar: CalendarBar; today
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `task:${task.id}`, data: { task } });
   const look = barLook(task, today, done);
   const range = task.startDate ? `${formatDateLong(task.startDate)} – ${formatDateLong(task.dueDate!)}` : formatDateLong(task.dueDate!);
-  const details = [task.priority && `Priorität ${PRIORITY_LABELS[task.priority]}`, look === 'overdue' && 'überfällig', done && 'erledigt']
+  const details = [
+    task.priority && `Priorität ${PRIORITY_LABELS[task.priority]}`,
+    task.labels.length > 0 && `Labels: ${task.labels.map((l) => l.name).join(', ')}`,
+    look === 'overdue' && 'überfällig',
+    done && 'erledigt',
+  ]
     .filter(Boolean)
     .join(', ');
 
@@ -198,6 +204,7 @@ function CalendarBarItem({ bar, today, done, onOpen }: { bar: CalendarBar; today
     >
       {task.priority && <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${PRIORITY_STYLES[task.priority].dot}`} />}
       <span className="truncate">{task.title}</span>
+      <LabelDots labels={task.labels} className="ml-auto shrink-0" />
     </div>
   );
 }

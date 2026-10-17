@@ -14,9 +14,15 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useMatch, useNavigate, useParams } from 'react-router';
 import { useBoard } from '../../hooks/useBoard';
+import { useProjects } from '../../hooks/useProjects';
+import { useTemplates } from '../../hooks/useTemplates';
 import { useStoredState } from '../../hooks/useStoredState';
 import { useToast } from '../../hooks/useToast';
-import type { BoardColumn } from '../../types/task';
+import type { BoardColumn, Task } from '../../types/task';
+import type { TaskTemplate, TemplateInput } from '../../types/template';
+import { taskFromTemplate } from '../../utils/templates';
+import TemplateDialog, { EMPTY_TASK_DEFAULTS } from '../templates/TemplateDialog';
+import LabelsDialog from './LabelsDialog';
 import {
   applyMove,
   cellTasks,
@@ -58,6 +64,36 @@ type Dragging = { type: 'task'; id: number } | { type: 'column'; id: number } | 
 export default function BoardPage() {
   const projectId = Number(useParams().projectId);
   const board = useBoard(projectId);
+  const { projects } = useProjects();
+  const projectName = projects.find((p) => p.id === projectId)?.name ?? '';
+  const { taskTemplates, reload: reloadTemplates } = useTemplates(projectId);
+  const [labelsOpen, setLabelsOpen] = useState(false);
+  const [templateDraft, setTemplateDraft] = useState<TemplateInput | null>(null);
+
+  /** A task from a template, in `laneId` unless the template names a lane; opens it, since it usually needs details. */
+  async function createFromTemplate(template: TaskTemplate, laneId: number, title = ''): Promise<Task> {
+    const { input, missing } = taskFromTemplate(template, board, { now: new Date(), projectName, title, laneId });
+    const task = await board.createTask(input.title, input.laneId ?? laneId, input);
+    if (missing.length) toast({ message: `Nicht in diesem Projekt vorhanden und weggelassen: ${missing.join(', ')}.`, tone: 'info' });
+    navigate(paths.task(projectId, task.id));
+    return task;
+  }
+
+  function saveTaskAsTemplate(task: Task) {
+    setTemplateDraft({
+      kind: 'task',
+      scope: 'project',
+      name: task.title,
+      title: task.title,
+      content: task.description,
+      defaults: {
+        ...EMPTY_TASK_DEFAULTS,
+        priority: task.priority,
+        labels: task.labels.map((l) => l.name),
+        column: board.columns.find((c) => c.id === task.columnId)?.name ?? null,
+      },
+    });
+  }
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
@@ -186,11 +222,21 @@ export default function BoardPage() {
     const state = location.state;
     if (board.status !== 'ready' || !isCreateRequest(state) || state.create !== 'task') return;
     if (handledRequest.current === state) return;
+    // A request for a template waits until the templates are loaded.
+    if (state.templateId !== undefined && !taskTemplates.some((t) => t.id === state.templateId)) return;
     handledRequest.current = state;
     const firstLane = board.lanes[0];
     if (!state.title || !firstLane) {
       setNewTaskRequest((n) => n + 1);
       navigate(location.pathname, { replace: true, state: null });
+      return;
+    }
+    const template = state.templateId === undefined ? undefined : taskTemplates.find((t) => t.id === state.templateId);
+    if (template) {
+      navigate(location.pathname, { replace: true, state: null });
+      createFromTemplate(template, firstLane.id, state.title).catch(() =>
+        toast({ message: 'Der Task konnte nicht angelegt werden.', tone: 'error' }),
+      );
       return;
     }
     board
@@ -375,6 +421,8 @@ export default function BoardPage() {
         <BoardViewBar
           view={view}
           onChange={setView}
+          labels={board.labels}
+          onManageLabels={() => setLabelsOpen(true)}
           shown={Object.values(shown).reduce((sum, list) => sum + list.length, 0)}
           total={Object.values(cells).reduce((sum, list) => sum + list.length, 0)}
         />
@@ -490,6 +538,8 @@ export default function BoardPage() {
                                   key={laneIndex === 0 ? newTaskRequest : 0}
                                   defaultOpen={laneIndex === 0 && newTaskRequest > 0}
                                   onCreate={(title) => board.createTask(title, lane.id)}
+                                  templates={taskTemplates}
+                                  onCreateFromTemplate={(template, title) => createFromTemplate(template, lane.id, title)}
                                 />
                               ) : undefined
                             }
@@ -536,6 +586,40 @@ export default function BoardPage() {
         />
       )}
 
+      {labelsOpen && (
+        <LabelsDialog
+          labels={board.labels}
+          error={board.actionError}
+          onCreate={board.createLabel}
+          onUpdate={board.updateLabel}
+          onMove={board.moveLabel}
+          onDelete={board.deleteLabel}
+          onClose={() => {
+            setLabelsOpen(false);
+            board.dismissError();
+          }}
+        />
+      )}
+
+      {templateDraft && (
+        <TemplateDialog
+          projectId={projectId}
+          template={templateDraft}
+          board={{
+            labels: board.labels,
+            columns: board.columns.map((c) => c.name),
+            lanes: board.lanes.map((l) => l.name),
+            tags: [],
+          }}
+          onSaved={(template) => {
+            setTemplateDraft(null);
+            void reloadTemplates();
+            toast({ message: `Vorlage „${template.name}“ gespeichert.` });
+          }}
+          onClose={() => setTemplateDraft(null)}
+        />
+      )}
+
       {openTask && (
         <TaskDetailDialog
           key={openTask.id}
@@ -549,6 +633,9 @@ export default function BoardPage() {
           onAddLink={board.addLink}
           onRemoveLink={board.removeLink}
           onUpdateAttachments={board.updateAttachments}
+          labels={board.labels}
+          onCreateLabel={board.createLabel}
+          onSaveAsTemplate={saveTaskAsTemplate}
           onOpenTask={(id) => navigate(paths.task(projectId, id))}
           onDelete={async (id) => {
             await board.deleteTask(id);

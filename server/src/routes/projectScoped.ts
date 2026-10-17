@@ -4,25 +4,34 @@ import type { ActivityRepository } from '../repositories/activityRepository.js';
 import type { AnalyticsRepository } from '../repositories/analyticsRepository.js';
 import type { BoardRepository } from '../repositories/boardRepository.js';
 import type { GraphRepository } from '../repositories/graphRepository.js';
+import type { LabelsRepository } from '../repositories/labelsRepository.js';
 import type { NotesRepository } from '../repositories/notesRepository.js';
 import type { ProjectsRepository } from '../repositories/projectsRepository.js';
 import type { TasksRepository } from '../repositories/tasksRepository.js';
+import type { TemplatesRepository } from '../repositories/templatesRepository.js';
 import {
   activityQuerySchema,
   analyticsQuerySchema,
   columnInputSchema,
   idParamSchema,
+  labelInputSchema,
   laneInputSchema,
   noteInputSchema,
   noteListQuerySchema,
   taskInputSchema,
+  templateInputSchema,
+  templatePatchSchema,
+  templateQuerySchema,
 } from '../validation.js';
 import { unwrapBoard } from './board.js';
+import { unwrapLabel, unwrapTemplate } from './labels.js';
 
 interface Repositories {
   activities: ActivityRepository;
   analytics: AnalyticsRepository;
   graph: GraphRepository;
+  labels: LabelsRepository;
+  templates: TemplatesRepository;
   projects: ProjectsRepository;
   notes: NotesRepository;
   tasks: TasksRepository;
@@ -32,7 +41,7 @@ interface Repositories {
 const projectIdOf = (res: Response) => res.locals.projectId as number;
 
 /** Lists and creation inside one project, mounted at /api/projects/:projectId. */
-export function projectScopedRouter({ activities, analytics, graph, projects, notes, tasks, board }: Repositories): Router {
+export function projectScopedRouter({ activities, analytics, graph, labels, templates, projects, notes, tasks, board }: Repositories): Router {
   const router = Router({ mergeParams: true });
 
   router.use((req, res, next) => {
@@ -82,12 +91,23 @@ export function projectScopedRouter({ activities, analytics, graph, projects, no
     if (input.laneId !== undefined && board.laneProjectId(input.laneId) !== projectIdOf(res)) {
       throw new HttpError(400, 'invalid_input', 'The lane belongs to another project');
     }
+    if (input.columnId !== undefined && board.columnProjectId(input.columnId) !== projectIdOf(res)) {
+      throw new HttpError(400, 'invalid_input', 'The column belongs to another project');
+    }
+    if (input.labelIds && !labels.allInProject(projectIdOf(res), input.labelIds)) {
+      throw new HttpError(400, 'invalid_input', 'A label belongs to another project');
+    }
     res.status(201).json(tasks.create(projectIdOf(res), input));
   });
 
   router.get('/board', (_req, res) => {
     const projectId = projectIdOf(res);
-    res.json({ columns: board.listColumns(projectId), lanes: board.listLanes(projectId), tasks: tasks.list(projectId) });
+    res.json({
+      columns: board.listColumns(projectId),
+      lanes: board.listLanes(projectId),
+      labels: labels.list(projectId),
+      tasks: tasks.list(projectId),
+    });
   });
 
   router.post('/columns', (req, res) => {
@@ -97,6 +117,34 @@ export function projectScopedRouter({ activities, analytics, graph, projects, no
   router.post('/lanes', (req, res) => {
     const { name } = laneInputSchema.parse(req.body);
     res.status(201).json(unwrapBoard(board.createLane(projectIdOf(res), name), 'Lane'));
+  });
+
+  router.get('/labels', (_req, res) => {
+    res.json(labels.list(projectIdOf(res)));
+  });
+
+  router.post('/labels', (req, res) => {
+    res.status(201).json(unwrapLabel(labels.create(projectIdOf(res), labelInputSchema.parse(req.body))));
+  });
+
+  // Templates: the project's own and those for all projects. Changes go through a project, which is where they are logged.
+  router.get('/templates', (req, res) => {
+    const { kind } = templateQuerySchema.parse(req.query);
+    res.json(templates.list(projectIdOf(res), kind));
+  });
+
+  router.post('/templates', (req, res) => {
+    res.status(201).json(unwrapTemplate(templates.create(projectIdOf(res), templateInputSchema.parse(req.body))));
+  });
+
+  router.patch('/templates/:id', (req, res) => {
+    const id = idParamSchema.parse(req.params.id);
+    res.json(unwrapTemplate(templates.update(projectIdOf(res), id, templatePatchSchema.parse(req.body))));
+  });
+
+  router.delete('/templates/:id', (req, res) => {
+    if (!templates.remove(projectIdOf(res), idParamSchema.parse(req.params.id))) throw notFound('Template not found');
+    res.status(204).end();
   });
 
   return router;

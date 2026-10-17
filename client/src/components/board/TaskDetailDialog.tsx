@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useAutosave, type SaveStatus } from '../../hooks/useAutosave';
-import type { BoardColumn, Lane, LinkKind, Task, TaskPatch } from '../../types/task';
+import type { ProjectColor } from '../../types/project';
+import type { BoardColumn, Label, Lane, LinkKind, Task, TaskPatch } from '../../types/task';
+import LabelPicker from '../tasks/LabelPicker';
 import { formatDate } from '../../utils/format';
 import { paths } from '../../utils/paths';
 import type { Schedule } from '../../utils/schedule';
@@ -33,6 +35,11 @@ interface TaskDetailDialogProps {
   /** Shows another task's details, e.g. a linked one. */
   onOpenTask: (id: number) => void;
   onUpdateAttachments: (id: number, update: (attachments: Attachment[]) => Attachment[]) => void;
+  /** The project's labels, and creating one from the picker. */
+  labels: Label[];
+  onCreateLabel: (name: string, color: ProjectColor) => Promise<Label | undefined>;
+  /** Opens the template editor with this task as starting point; without it, the button is not shown. */
+  onSaveAsTemplate?: (task: Task) => void;
 }
 
 const selectClass = `!w-auto !py-1 ${fieldClass}`;
@@ -50,6 +57,9 @@ export default function TaskDetailDialog({
   onRemoveLink,
   onOpenTask,
   onUpdateAttachments,
+  labels,
+  onCreateLabel,
+  onSaveAsTemplate,
 }: TaskDetailDialogProps) {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
@@ -57,6 +67,21 @@ export default function TaskDetailDialog({
   // Priority and dates are saved right away (no typing involved); a failed save puts the old values back.
   const [dates, setDates] = useState<Schedule>({ priority: task.priority, startDate: task.startDate, dueDate: task.dueDate });
   const [scheduleFailed, setScheduleFailed] = useState(false);
+  // Labels are saved right away, too.
+  const [labelIds, setLabelIds] = useState(task.labels.map((l) => l.id));
+  const [labelsFailed, setLabelsFailed] = useState(false);
+
+  async function changeLabels(next: number[]) {
+    const previous = labelIds;
+    setLabelIds(next);
+    setLabelsFailed(false);
+    try {
+      await onSave(task.id, { labelIds: next });
+    } catch {
+      setLabelIds(previous);
+      setLabelsFailed(true);
+    }
+  }
   const { status, schedule, flush, cancel } = useAutosave<TaskPatch>((patch) => onSave(task.id, patch));
 
   function change(next: { title?: string; description?: string }) {
@@ -174,6 +199,15 @@ export default function TaskDetailDialog({
           )}
         </section>
 
+        <div>
+          <LabelPicker labels={labels} selected={labelIds} onChange={(next) => void changeLabels(next)} onCreate={onCreateLabel} />
+          {labelsFailed && (
+            <p role="alert" className="mt-1 text-xs text-danger-text">
+              Die Labels konnten nicht gespeichert werden.
+            </p>
+          )}
+        </div>
+
         <TaskLinks
           task={task}
           candidates={linkCandidates(task, allTasks)}
@@ -206,6 +240,18 @@ export default function TaskDetailDialog({
         <span>Erstellt {formatDate(task.createdAt)}</span>
         <span>Geändert {formatDate(task.updatedAt)}</span>
         <div className="flex-1" />
+        {onSaveAsTemplate && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              void flush();
+              onSaveAsTemplate({ ...task, title, description, priority: dates.priority, labels: labels.filter((l) => labelIds.includes(l.id)) });
+            }}
+          >
+            Als Vorlage speichern
+          </Button>
+        )}
         <Button variant="danger-ghost" size="sm" onClick={() => void moveToTrash()}>
           Löschen
         </Button>

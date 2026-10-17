@@ -1,3 +1,4 @@
+import type { ProjectColor } from './project';
 import type { TaskPriority } from './task';
 
 /** Mirrors server/src/repositories/graphRepository.ts. Node ids are "note:12" or "task:7". */
@@ -12,6 +13,7 @@ export type GraphNode =
       /** In the project's last column. */
       done: boolean;
       priority: TaskPriority | null;
+      labels: { name: string; color: ProjectColor }[];
     };
 
 /** "converted": the task was created from the note. "blocks" points from the blocking to the blocked task. */

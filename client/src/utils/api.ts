@@ -4,7 +4,9 @@ import type { GraphData } from '../types/graph';
 import type { Attachment, AttachmentOwner } from '../types/attachment';
 import type { Note, NoteInput } from '../types/note';
 import type { Project, ProjectInput } from '../types/project';
-import type { BoardColumn, Lane, LinkKind, Task, TaskInput, TaskPatch } from '../types/task';
+import type { ProjectColor } from '../types/project';
+import type { BoardColumn, Label, Lane, LinkKind, Task, TaskInput, TaskPatch } from '../types/task';
+import type { Template, TemplateInput, TemplateKind } from '../types/template';
 import type { EmptyResult, RestoreResult, TrashItem, TrashType } from '../types/trash';
 import { notifyTrashChanged } from './appEvents';
 
@@ -63,6 +65,8 @@ export const projectsApi = {
 
 export const notesApi = {
   list: (projectId: number) => request<Note[]>(`/projects/${projectId}/notes`),
+  /** The tags of the project's notes, with how many notes use each. */
+  tags: (projectId: number) => request<{ id: number; name: string; noteCount: number }[]>(`/projects/${projectId}/tags`),
   get: (id: number) => request<Note>(`/notes/${id}`),
   create: (projectId: number, input: NoteInput) =>
     request<Note>(`/projects/${projectId}/notes`, { method: 'POST', body: JSON.stringify(input) }),
@@ -91,7 +95,7 @@ export const tasksApi = {
 
 export const boardApi = {
   get: (projectId: number) =>
-    request<{ columns: BoardColumn[]; lanes: Lane[]; tasks: Task[] }>(`/projects/${projectId}/board`),
+    request<{ columns: BoardColumn[]; lanes: Lane[]; labels: Label[]; tasks: Task[] }>(`/projects/${projectId}/board`),
 };
 
 /** Deleting a column or lane that still has tasks needs `moveTasksTo`. */
@@ -107,6 +111,29 @@ export const columnsApi = {
     request<BoardColumn>(`/columns/${id}/move`, { method: 'POST', body: JSON.stringify({ index }) }),
   remove: (id: number, moveTasksTo?: number) =>
     request<void>(`/columns/${id}${deleteQuery(moveTasksTo)}`, { method: 'DELETE' }),
+};
+
+export const labelsApi = {
+  list: (projectId: number) => request<Label[]>(`/projects/${projectId}/labels`),
+  create: (projectId: number, input: { name: string; color: ProjectColor }) =>
+    request<Label>(`/projects/${projectId}/labels`, { method: 'POST', body: JSON.stringify(input) }),
+  update: (id: number, patch: { name?: string; color?: ProjectColor }) =>
+    request<Label>(`/labels/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  /** `index` counts the other labels. */
+  move: (id: number, index: number) => request<Label>(`/labels/${id}/move`, { method: 'POST', body: JSON.stringify({ index }) }),
+  /** How many tasks carry the label (for the confirmation before deleting). */
+  usage: (id: number) => request<{ tasks: number }>(`/labels/${id}/usage`),
+  remove: (id: number) => request<void>(`/labels/${id}`, { method: 'DELETE' }),
+};
+
+/** Templates of the project and those for all projects; changes are logged in `projectId`. */
+export const templatesApi = {
+  list: (projectId: number, kind?: TemplateKind) => request<Template[]>(`/projects/${projectId}/templates${kind ? `?kind=${kind}` : ''}`),
+  create: (projectId: number, input: TemplateInput) =>
+    request<Template>(`/projects/${projectId}/templates`, { method: 'POST', body: JSON.stringify(input) }),
+  update: (projectId: number, id: number, patch: Partial<Omit<TemplateInput, 'kind'>>) =>
+    request<Template>(`/projects/${projectId}/templates/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  remove: (projectId: number, id: number) => request<void>(`/projects/${projectId}/templates/${id}`, { method: 'DELETE' }),
 };
 
 export const lanesApi = {

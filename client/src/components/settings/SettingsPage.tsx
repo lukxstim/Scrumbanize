@@ -8,6 +8,7 @@ import { countLabel } from '../../utils/projects';
 import ConfirmDialog from '../ConfirmDialog';
 import { DownloadIcon, RestoreIcon } from '../icons';
 import Button, { buttonClass } from '../ui/Button';
+import TemplatesSection from './TemplatesSection';
 
 const ImportWizard = lazy(() => import('../import/ImportWizard'));
 
@@ -41,7 +42,7 @@ export default function SettingsPage() {
       <div className="mx-auto max-w-3xl space-y-6 px-6 py-8">
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-fg">Einstellungen</h1>
-          <p className="mt-1 text-sm text-fg-subtle">Sicherung, Wiederherstellung, Import und Export deiner Daten.</p>
+          <p className="mt-1 text-sm text-fg-subtle">Sicherung, Wiederherstellung, Vorlagen, Import und Export deiner Daten.</p>
         </div>
 
         <Section title="Backup" description="Eine ZIP-Datei mit allen Projekten, Notizen, Tasks, dem Aktivitätsprotokoll und allen Anhängen.">
@@ -53,6 +54,8 @@ export default function SettingsPage() {
         </Section>
 
         <RestoreSection />
+
+        {project && <TemplatesSection projectId={project.id} projectName={project.name} />}
 
         <Section title="Import" description="Markdown-Dateien, Ordner (z. B. Obsidian) oder ZIP-Exporte (z. B. Notion) als Notizen übernehmen.">
           <Button size="sm" onClick={() => setImporting(true)}>

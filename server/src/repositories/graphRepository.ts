@@ -12,6 +12,7 @@ export type GraphNode =
       /** In the project's last column. */
       done: boolean;
       priority: TaskPriority | null;
+      labels: { name: string; color: string }[];
     };
 
 /** "converted": the task was created from the note. "blocks" points from the blocking to the blocked task. */
@@ -56,8 +57,17 @@ export function createGraphRepository(db: Db) {
      WHERE s.project_id = ? ORDER BY l.id`,
   );
 
+  const selectLabels = db.prepare<[number], { task_id: number; name: string; color: string }>(
+    `SELECT tl.task_id, l.name, l.color FROM task_labels tl JOIN labels l ON l.id = tl.label_id
+     WHERE l.project_id = ? ORDER BY l.position, l.id`,
+  );
+
   return {
     get(projectId: number): { nodes: GraphNode[]; edges: GraphEdge[] } {
+      const labels = new Map<number, { name: string; color: string }[]>();
+      for (const row of selectLabels.all(projectId)) {
+        labels.set(row.task_id, [...(labels.get(row.task_id) ?? []), { name: row.name, color: row.color }]);
+      }
       const tags = new Map<number, string[]>();
       for (const row of selectTags.all(projectId)) tags.set(row.note_id, [...(tags.get(row.note_id) ?? []), row.name]);
 
@@ -78,6 +88,7 @@ export function createGraphRepository(db: Db) {
           columnName: task.column_name,
           done: task.done === 1,
           priority: task.priority,
+          labels: labels.get(task.id) ?? [],
         });
         if (task.source_note_id !== null) {
           edges.push({ source: noteNodeId(task.source_note_id), target: taskNodeId(task.id), kind: 'converted' });

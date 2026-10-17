@@ -36,6 +36,7 @@ export function tasksRouter(tasks: TasksRepository): Router {
       return;
     }
     if (result.reason === 'not_found') throw notFound('Task not found');
+    if (result.reason === 'invalid_labels') throw new HttpError(400, 'invalid_input', 'A label belongs to another project');
     throw new HttpError(400, 'invalid_schedule', result.message);
   });
 

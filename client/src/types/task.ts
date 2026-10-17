@@ -1,4 +1,5 @@
 import type { Attachment } from './attachment';
+import type { ProjectColor } from './project';
 
 export const TASK_PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const;
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
@@ -11,6 +12,13 @@ export interface TaskLink {
   kind: LinkKind;
   /** `done`: the other task is in the project's last column. */
   task: { id: number; title: string; columnId: number; columnName: string; done: boolean };
+}
+
+/** A colored label of the project's tasks. */
+export interface Label {
+  id: number;
+  name: string;
+  color: ProjectColor;
 }
 
 export interface Task {
@@ -30,6 +38,8 @@ export interface Task {
   links: TaskLink[];
   /** Attached files, oldest first. */
   attachments: Attachment[];
+  /** In the project's label order. */
+  labels: Label[];
   /** Calendar dates YYYY-MM-DD; a start date always comes with a due date on or after it. */
   startDate: string | null;
   dueDate: string | null;
@@ -41,15 +51,18 @@ export interface TaskInput {
   title: string;
   description: string;
   sourceNoteId?: number;
-  /** The lane to create the task in; the first lane if omitted. New tasks always start in the first column. */
+  /** The lane to create the task in; the first lane if omitted. */
   laneId?: number;
+  /** The column to create the task in; the first column if omitted. */
+  columnId?: number;
+  labelIds?: number[];
   priority?: TaskPriority | null;
   startDate?: string | null;
   dueDate?: string | null;
 }
 
-/** Undefined keeps a value, null removes priority or a date. */
-export type TaskPatch = Partial<Pick<Task, 'title' | 'description' | 'priority' | 'startDate' | 'dueDate'>>;
+/** Undefined keeps a value, null removes priority or a date; `labelIds` replaces the labels. */
+export type TaskPatch = Partial<Pick<Task, 'title' | 'description' | 'priority' | 'startDate' | 'dueDate'>> & { labelIds?: number[] };
 
 export interface BoardColumn {
   id: number;

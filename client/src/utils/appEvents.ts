@@ -16,7 +16,7 @@ export function onNewProjectRequest(handler: () => void): () => void {
  * Navigation state that asks the notes page or the board to create something once it has loaded.
  * The palette passes it along with the navigation, so the page's own data stays in sync.
  */
-export type CreateRequest = { create: 'note' | 'task'; title: string };
+export type CreateRequest = { create: 'note' | 'task'; title: string; /** Start from this template. */ templateId?: number };
 
 export function isCreateRequest(state: unknown): state is CreateRequest {
   const s = state as CreateRequest | null;

@@ -2,6 +2,7 @@ import { Command } from 'cmdk';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useProjects } from '../hooks/useProjects';
+import { useTemplates } from '../hooks/useTemplates';
 import { useStoredState } from '../hooks/useStoredState';
 import { useTheme, type ThemeSetting } from '../hooks/useTheme';
 import type { Project } from '../types/project';
@@ -59,6 +60,7 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
   const navigate = useNavigate();
   const location = useLocation();
   const { projects } = useProjects();
+  const { templates } = useTemplates(open ? activeProject?.id : undefined);
   const { setting: themeSetting, setTheme } = useTheme();
   const [compact, setCompact] = useStoredState('scrumbanize.boardCompact', false, isBoolean);
   const [query, setQuery] = useState('');
@@ -144,6 +146,18 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
           { id: 'create-task', label: 'Neuer Task', keywords: 'task anlegen erstellen', icon: <PlusIcon />, run: create({ create: 'task', title: '' }) },
         ];
     createGroup = { heading: trimmed ? 'Neu anlegen' : 'Aktionen', items: actions };
+
+    // "Notiz aus Vorlage …" and "Task aus Vorlage …", found by the template's name.
+    const fromTemplates: Item[] = templates
+      .map((template) => ({
+        id: `template-${template.id}`,
+        label: `${template.kind === 'note' ? 'Notiz' : 'Task'} aus Vorlage „${template.name}“`,
+        keywords: `vorlage template neu anlegen ${template.kind === 'note' ? 'notiz' : 'task aufgabe'}`,
+        icon: template.kind === 'note' ? <NoteIcon /> : <BoardIcon />,
+        run: create({ create: template.kind, title: '', templateId: template.id }),
+      }))
+      .filter((item) => matchesQuery(trimmed, item.label, item.keywords));
+    if (fromTemplates.length > 0) groups.push({ heading: 'Vorlagen', items: fromTemplates });
     if (!trimmed) groups.push(createGroup);
 
     groups.push({

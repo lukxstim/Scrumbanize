@@ -1,30 +1,32 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Attachment } from '../types/attachment';
-import type { BoardColumn, Lane, LinkKind, Task, TaskInput, TaskPatch } from '../types/task';
-import { ApiError, boardApi, columnsApi, lanesApi, tasksApi } from '../utils/api';
+import type { ProjectColor } from '../types/project';
+import type { BoardColumn, Label, Lane, LinkKind, Task, TaskInput, TaskPatch } from '../types/task';
+import { ApiError, boardApi, columnsApi, labelsApi, lanesApi, tasksApi } from '../utils/api';
 import { addTask, applyMove, groupByCell, removeTask, reorder, replaceTask, type Cells } from '../utils/board';
 import { dropLinksTo, refreshLinkedTask } from '../utils/links';
 import type { LoadStatus } from './useNotes';
 
-type ItemKind = 'column' | 'lane';
+type ItemKind = 'column' | 'lane' | 'label';
 
-const KIND_LABELS: Record<ItemKind, { one: string; many: string }> = {
-  column: { one: 'Spalte', many: 'Spalten' },
-  lane: { one: 'Swimlane', many: 'Swimlanes' },
+const KIND_LABELS: Record<ItemKind, { one: string; many: string; article: string; max: number }> = {
+  column: { one: 'Spalte', many: 'Spalten', article: 'eine', max: 20 },
+  lane: { one: 'Swimlane', many: 'Swimlanes', article: 'eine', max: 20 },
+  label: { one: 'Label', many: 'Labels', article: 'ein', max: 30 },
 };
 
-/** A German message for a failed column or lane change. */
-function boardErrorMessage(kind: ItemKind, error: unknown): string {
-  const { one, many } = KIND_LABELS[kind];
+/** A German message for a failed column, lane or label change. */
+export function boardErrorMessage(kind: ItemKind, error: unknown): string {
+  const { one, many, article, max } = KIND_LABELS[kind];
   switch (error instanceof ApiError ? error.code : undefined) {
     case 'name_taken':
-      return `Es gibt bereits eine ${one} mit diesem Namen.`;
+      return `Es gibt bereits ${article} ${one} mit diesem Namen.`;
     case 'limit_reached':
-      return `Ein Projekt kann höchstens 20 ${many} haben.`;
+      return `Ein Projekt kann höchstens ${max} ${many} haben.`;
     case 'last_item':
       return `Die letzte ${one} kann nicht gelöscht werden.`;
     default:
-      return `Die ${one} konnte nicht gespeichert werden.`;
+      return `${article === 'ein' ? 'Das' : 'Die'} ${one} konnte nicht gespeichert werden.`;
   }
 }
 
@@ -36,6 +38,7 @@ function boardErrorMessage(kind: ItemKind, error: unknown): string {
 export function useBoard(projectId: number) {
   const [columns, setColumns] = useState<BoardColumn[]>([]);
   const [lanes, setLanes] = useState<Lane[]>([]);
+  const [labels, setLabels] = useState<Label[]>([]);
   const [cells, setCells] = useState<Cells>({});
   const [status, setStatus] = useState<LoadStatus>('loading');
   const [actionError, setActionError] = useState<string | null>(null);
@@ -45,6 +48,7 @@ export function useBoard(projectId: number) {
       const board = await boardApi.get(projectId);
       setColumns(board.columns);
       setLanes(board.lanes);
+      setLabels(board.labels);
       setCells(groupByCell(board.tasks));
       setStatus('ready');
     } catch {
@@ -103,10 +107,13 @@ export function useBoard(projectId: number) {
     [failed, flashTask, columns],
   );
 
-  /** New tasks start at the end of the first column, in the given lane, optionally with priority and dates. */
+  /**
+   * New tasks start at the end of the first column, in the given lane. `extra` adds priority, dates, labels, or
+   * another column and lane (from a template).
+   */
   const createTask = useCallback(
-    async (title: string, laneId: number, schedule?: Pick<TaskInput, 'priority' | 'startDate' | 'dueDate'>): Promise<Task> => {
-      const task = await tasksApi.create(projectId, { title, description: '', laneId, ...schedule });
+    async (title: string, laneId: number, extra?: Partial<TaskInput>): Promise<Task> => {
+      const task = await tasksApi.create(projectId, { title, description: '', laneId, ...extra });
       setCells((current) => addTask(current, task));
       return task;
     },
@@ -186,9 +193,26 @@ export function useBoard(projectId: number) {
     [failed],
   );
 
+  /** A new label; resolves to it (e.g. to assign it right away), or undefined if it could not be created. */
+  const createLabel = useCallback(
+    async (name: string, color: ProjectColor): Promise<Label | undefined> => {
+      try {
+        const label = await labelsApi.create(projectId, { name, color });
+        setActionError(null);
+        setLabels((current) => [...current, label]);
+        return label;
+      } catch (error) {
+        setActionError(boardErrorMessage('label', error));
+        return undefined;
+      }
+    },
+    [projectId],
+  );
+
   return {
     columns,
     lanes,
+    labels,
     cells,
     flashId,
     status,
@@ -212,6 +236,11 @@ export function useBoard(projectId: number) {
     addLane: (name: string) => change('lane', () => lanesApi.create(projectId, name)),
     renameLane: (id: number, name: string) => change('lane', () => lanesApi.rename(id, name)),
     deleteLane: (id: number, moveTasksTo?: number) => change('lane', () => lanesApi.remove(id, moveTasksTo)),
+    createLabel,
+    // Renaming, recoloring and deleting change the chips on the cards, so the board reloads.
+    updateLabel: (id: number, patch: { name?: string; color?: ProjectColor }) => change('label', () => labelsApi.update(id, patch)),
+    moveLabel: (id: number, index: number) => change('label', () => labelsApi.move(id, index)),
+    deleteLabel: (id: number) => change('label', () => labelsApi.remove(id)),
   };
 }
 

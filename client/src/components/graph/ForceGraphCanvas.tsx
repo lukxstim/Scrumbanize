@@ -2,6 +2,7 @@ import ForceGraph from 'force-graph';
 import { useEffect, useRef } from 'react';
 import type { GraphData, GraphEdgeKind, GraphNode } from '../../types/graph';
 import { degrees, neighborhood, nodeRadius } from '../../utils/graph';
+import { LABEL_HEX } from '../../utils/labels';
 
 type Node = GraphNode & { x?: number; y?: number; vx?: number; vy?: number; fx?: number; fy?: number; degree: number };
 type Link = { source: string | Node; target: string | Node; kind: GraphEdgeKind };
@@ -238,6 +239,21 @@ function drawNode(
   ctx.strokeStyle = palette.surface;
   ctx.stroke();
 
+  // Up to three label dots along the bottom edge of a task, each with a ring in the surface color.
+  if (node.type === 'task' && node.labels.length > 0 && scale >= 0.6) {
+    const dot = Math.max(1.6, r * 0.32);
+    const shown = node.labels.slice(0, 3);
+    shown.forEach((label, i) => {
+      ctx.beginPath();
+      ctx.arc(x + (i - (shown.length - 1) / 2) * dot * 2.4, y + r, dot, 0, 2 * Math.PI);
+      ctx.fillStyle = LABEL_HEX[label.color];
+      ctx.fill();
+      ctx.lineWidth = 1 / scale;
+      ctx.strokeStyle = palette.surface;
+      ctx.stroke();
+    });
+  }
+
   const matched = matches.has(node.id);
   if (matched || hovered === node.id) {
     ctx.beginPath();
@@ -258,9 +274,10 @@ function drawNode(
     // A halo in the surface color keeps labels readable over edges.
     ctx.lineWidth = 3 / scale;
     ctx.strokeStyle = palette.surface;
-    ctx.strokeText(label, x, y + r + 3 / scale);
+    const below = y + r + (node.type === 'task' && node.labels.length ? r * 0.45 : 0) + 3 / scale;
+    ctx.strokeText(label, x, below);
     ctx.fillStyle = palette.label;
-    ctx.fillText(label, x, y + r + 3 / scale);
+    ctx.fillText(label, x, below);
   }
   ctx.globalAlpha = 1;
 }

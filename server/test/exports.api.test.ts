@@ -68,7 +68,7 @@ describe('exports', () => {
     expect(res.headers['content-disposition']).toMatch(/filename\*=UTF-8''Allgemein%20%E2%80%93%20Board%20\d{4}-\d{2}-\d{2}\.csv/);
     const lines = res.text.split('\r\n');
     expect(lines[0]).toMatch(/^﻿ID;Titel;Spalte;Lane;/);
-    expect(lines[1]).toMatch(/^1;Angebot;Backlog;Standard;nein;Dringend;;;\d{2}\.\d{2}\.\d{4};.*;"Mit; Semikolon"$/);
+    expect(lines[1]).toMatch(/^1;Angebot;Backlog;Standard;nein;Dringend;;;;\d{2}\.\d{2}\.\d{4};.*;"Mit; Semikolon"$/);
   });
 });
 

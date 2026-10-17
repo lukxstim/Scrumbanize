@@ -86,6 +86,7 @@ describe('boardToCsv', () => {
     priority: null,
     links: [],
     attachments: [],
+    labels: [],
     startDate: null,
     dueDate: null,
     createdAt: '2026-10-01T22:30:00.000Z',
@@ -100,6 +101,10 @@ describe('boardToCsv', () => {
           title: 'Angebot; "final"',
           description: 'Zeile 1\nZeile 2',
           priority: 'high',
+          labels: [
+            { id: 1, name: 'Bug', color: 'red' },
+            { id: 2, name: 'Kunde', color: 'sky' },
+          ],
           startDate: '2026-10-05',
           dueDate: '2026-10-09',
           sourceNote: { id: 3, title: 'Meeting', tags: [] },
@@ -117,13 +122,13 @@ describe('boardToCsv', () => {
       [{ id: 100, name: 'Standard' }],
     );
     const lines = csv.split('\r\n');
-    expect(csv.startsWith('﻿ID;Titel;Spalte;Lane;Erledigt;Priorität;Start;Fällig;Erstellt;Aktualisiert;')).toBe(true);
+    expect(csv.startsWith('﻿ID;Titel;Spalte;Lane;Erledigt;Priorität;Labels;Start;Fällig;Erstellt;Aktualisiert;')).toBe(true);
     // Created 22:30 UTC is already the next day in Germany.
     // The line break inside the description stays inside its quotes.
     expect(lines[1]).toBe(
-      '1;"Angebot; ""final""";To Do;Standard;nein;Hoch;05.10.2026;09.10.2026;02.10.2026;02.10.2026;Meeting;#7 Freigabe;;#8 Mail;;"Zeile 1\nZeile 2"',
+      '1;"Angebot; ""final""";To Do;Standard;nein;Hoch;Bug, Kunde;05.10.2026;09.10.2026;02.10.2026;02.10.2026;Meeting;#7 Freigabe;;#8 Mail;;"Zeile 1\nZeile 2"',
     );
-    expect(lines[2]).toBe('2;Fertig;Done;Standard;ja;;;;02.10.2026;02.10.2026;;;;;;');
+    expect(lines[2]).toBe('2;Fertig;Done;Standard;ja;;;;;02.10.2026;02.10.2026;;;;;;');
     expect(csv.endsWith('\r\n')).toBe(true);
   });
 

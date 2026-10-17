@@ -29,6 +29,8 @@ interface NoteEditorProps {
   /** Takes back a task just created from this note. */
   onDiscardTask: (taskId: number) => Promise<void>;
   onUpdateAttachments: (noteId: number, update: (attachments: Attachment[]) => Attachment[]) => void;
+  /** Opens the template editor with this note as starting point. */
+  onSaveAsTemplate?: (input: NoteInput) => void;
 }
 
 export default function NoteEditor({
@@ -40,6 +42,7 @@ export default function NoteEditor({
   onCreateTask,
   onDiscardTask,
   onUpdateAttachments,
+  onSaveAsTemplate,
 }: NoteEditorProps) {
   const [draft, setDraft] = useState<NoteInput>({ title: note.title, content: note.content, tags: note.tags });
   const [conversion, setConversion] = useState<{ draft: TaskDraft; fromSelection: boolean } | null>(null);
@@ -134,6 +137,7 @@ export default function NoteEditor({
           items={[
             { label: 'Als Markdown (.md)', onSelect: () => void download('md') },
             { label: 'Als HTML (druckbar)', onSelect: () => void download('html') },
+            ...(onSaveAsTemplate ? [{ label: 'Als Vorlage speichern …', onSelect: () => onSaveAsTemplate(draft) }] : []),
           ]}
         />
         <div className="flex-1" />

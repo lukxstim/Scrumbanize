@@ -43,7 +43,9 @@ export function createSearchRepository(db: Db) {
   const selectTasks = db.prepare<[Params], { id: number; project_id: number; title: string; column_name: string }>(
     `SELECT t.id, t.project_id, t.title, c.name AS column_name FROM live_tasks t
      JOIN board_columns c ON c.id = t.column_id
-     WHERE t.title LIKE @pattern ESCAPE '\\' OR t.description LIKE @pattern ESCAPE '\\'
+     WHERE t.title LIKE @pattern ESCAPE '\\' OR t.description LIKE @pattern ESCAPE '\\' OR EXISTS (
+       SELECT 1 FROM task_labels tl JOIN labels l ON l.id = tl.label_id
+       WHERE tl.task_id = t.id AND l.name LIKE @pattern ESCAPE '\\')
      ORDER BY t.project_id = @project DESC, t.title LIKE @pattern ESCAPE '\\' DESC, t.updated_at DESC
      LIMIT @limit`,
   );

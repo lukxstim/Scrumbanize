@@ -54,7 +54,9 @@ export function neighborhood(graph: GraphData, id: string): Set<string> {
 export function searchGraph(nodes: GraphNode[], query: string): Set<string> {
   if (!query.trim()) return new Set();
   return new Set(
-    nodes.filter((node) => matchesQuery(query, node.title, ...(node.type === 'note' ? node.tags : [node.columnName]))).map((n) => n.id),
+    nodes
+      .filter((node) => matchesQuery(query, node.title, ...(node.type === 'note' ? node.tags : [node.columnName, ...node.labels.map((l) => l.name)])))
+      .map((n) => n.id),
   );
 }
 

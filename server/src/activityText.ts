@@ -14,6 +14,9 @@ export interface EditSummary {
   fields: EditField[];
   tagsAdded: string[];
   tagsRemoved: string[];
+  /** Task labels, by name. */
+  labelsAdded?: string[];
+  labelsRemoved?: string[];
   /** The latest value of changed value fields, already formatted ("Hoch", "17.10.2026", "entfernt"). */
   values?: Partial<Record<ValueField, string>>;
 }
@@ -47,6 +50,8 @@ export function describeChanges(changes: EditSummary): string {
   });
   const tagParts = [...changes.tagsAdded.map((t) => `+${t}`), ...changes.tagsRemoved.map((t) => `−${t}`)];
   if (tagParts.length > 0) parts.push(`Tags ${tagParts.join(' ')}`);
+  const labelParts = [...(changes.labelsAdded ?? []).map((l) => `+${l}`), ...(changes.labelsRemoved ?? []).map((l) => `−${l}`)];
+  if (labelParts.length > 0) parts.push(`Labels ${labelParts.join(' ')}`);
   return parts.join(', ');
 }
 
@@ -110,6 +115,16 @@ export const text = {
   wipLimitChanged: (column: string, limit: number | null) =>
     limit === null ? `WIP-Limit von ${quote(column)} entfernt` : `WIP-Limit von ${quote(column)} auf ${limit} gesetzt`,
 
+  labelRecolored: (name: string) => `Farbe von Label ${quote(name)} geändert`,
+  labelDeleted: (name: string, tasks: number) =>
+    `Label ${quote(name)} gelöscht${tasks > 0 ? ` (von ${tasks === 1 ? '1 Task' : `${tasks} Tasks`} entfernt)` : ''}`,
+
+  templateCreated: (kind: TemplateKind, name: string, global: boolean) =>
+    `${TEMPLATE_LABELS[kind]} ${quote(name)} angelegt${global ? ' (für alle Projekte)' : ''}`,
+  templateRenamed: (kind: TemplateKind, from: string, to: string) => `${TEMPLATE_LABELS[kind]} ${quote(from)} in ${quote(to)} umbenannt`,
+  templateUpdated: (kind: TemplateKind, name: string) => `${TEMPLATE_LABELS[kind]} ${quote(name)} bearbeitet`,
+  templateDeleted: (kind: TemplateKind, name: string) => `${TEMPLATE_LABELS[kind]} ${quote(name)} gelöscht`,
+
   projectCreated: (name: string) => `Projekt ${quote(name)} angelegt`,
   sampleProjectCreated: () => 'Beispielprojekt angelegt',
   notesImported: (count: number) => `${count === 1 ? '1 Notiz' : `${count} Notizen`} importiert`,
@@ -120,7 +135,9 @@ export const text = {
     `Projekt ${quote(name)} wiederhergestellt${renamedTo ? ` als ${quote(renamedTo)}` : ''}`,
 };
 
-export type BoardKind = 'column' | 'lane';
+export type BoardKind = 'column' | 'lane' | 'label';
+export type TemplateKind = 'note' | 'task';
 /** A link as seen from one task: it relates to, blocks, or is blocked by the other. */
 export type LinkKind = 'relates' | 'blocks' | 'blocked_by';
-const KIND_LABELS: Record<BoardKind, string> = { column: 'Spalte', lane: 'Swimlane' };
+const KIND_LABELS: Record<BoardKind, string> = { column: 'Spalte', lane: 'Swimlane', label: 'Label' };
+const TEMPLATE_LABELS: Record<TemplateKind, string> = { note: 'Notizvorlage', task: 'Taskvorlage' };

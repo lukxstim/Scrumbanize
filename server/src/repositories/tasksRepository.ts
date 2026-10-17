@@ -4,6 +4,7 @@ import { positionForIndex } from '../positions.js';
 import { type TaskInput, type TaskPatch, type TaskPriority, scheduleProblem } from '../validation.js';
 import { createActivityRepository } from './activityRepository.js';
 import { createAttachmentQueries, type Attachment } from './attachmentsRepository.js';
+import type { Label } from './labelsRepository.js';
 
 export interface Task {
   id: number;
@@ -21,6 +22,8 @@ export interface Task {
   links: TaskLink[];
   /** Attached files, oldest first. */
   attachments: Attachment[];
+  /** In the project's label order. */
+  labels: Label[];
   /** Calendar dates YYYY-MM-DD; a start date always comes with a due date on or after it. */
   startDate: string | null;
   dueDate: string | null;
@@ -83,7 +86,11 @@ export type LinkResult =
   | { ok: true; task: Task; target: Task }
   | { ok: false; reason: 'not_found' | 'target_not_found' | 'self' | 'other_project' | 'exists' };
 
-export type UpdateResult = { ok: true; task: Task } | { ok: false; reason: 'not_found' } | { ok: false; reason: 'invalid_schedule'; message: string };
+export type UpdateResult =
+  | { ok: true; task: Task }
+  | { ok: false; reason: 'not_found' }
+  | { ok: false; reason: 'invalid_labels' }
+  | { ok: false; reason: 'invalid_schedule'; message: string };
 
 export type TasksRepository = ReturnType<typeof createTasksRepository>;
 
@@ -169,6 +176,18 @@ export function createTasksRepository(db: Db) {
     `INSERT INTO task_links (source_task_id, target_task_id, type, created_at) VALUES (?, ?, ?, ?)`,
   );
   const deleteLink = db.prepare<[number]>(`DELETE FROM task_links WHERE id = ?`);
+  const selectTaskLabels = db.prepare<[number], Label>(
+    `SELECT l.id, l.name, l.color FROM task_labels tl JOIN labels l ON l.id = tl.label_id WHERE tl.task_id = ? ORDER BY l.position, l.id`,
+  );
+  const selectProjectLabelIds = db.prepare<[number], { id: number; name: string }>(`SELECT id, name FROM labels WHERE project_id = ?`);
+  const insertTaskLabel = db.prepare<[number, number]>(`INSERT OR IGNORE INTO task_labels (task_id, label_id) VALUES (?, ?)`);
+  const clearTaskLabels = db.prepare<[number]>(`DELETE FROM task_labels WHERE task_id = ?`);
+
+  /** The names of `ids` if all are labels of the project; undefined otherwise. */
+  function labelNames(projectId: number, ids: number[]): Map<number, string> | undefined {
+    const own = new Map(selectProjectLabelIds.all(projectId).map((row) => [row.id, row.name]));
+    return ids.every((id) => own.has(id)) ? own : undefined;
+  }
 
   function linksOf(id: number): TaskLink[] {
     return selectLinks.all({ id }).map((row) => ({
@@ -198,6 +217,7 @@ export function createTasksRepository(db: Db) {
       priority: row.priority,
       links: linksOf(row.id),
       attachments: attachmentQueries.forTask(row.id),
+      labels: selectTaskLabels.all(row.id),
       startDate: row.start_date,
       dueDate: row.due_date,
       createdAt: row.created_at,
@@ -222,12 +242,12 @@ export function createTasksRepository(db: Db) {
     },
 
     /**
-     * New tasks start at the end of the first column, in `laneId` or the first lane.
-     * The caller checks that the lane belongs to the project.
+     * New tasks start at the end of `columnId` (or the first column), in `laneId` (or the first lane), with `labelIds`.
+     * The caller checks that column, lane and labels belong to the project.
      */
     create: db.transaction((projectId: number, input: TaskInput): Task => {
       const now = new Date().toISOString();
-      const columnId = selectFirstColumn.get(projectId)!.id;
+      const columnId = input.columnId ?? selectFirstColumn.get(projectId)!.id;
       const laneId = input.laneId ?? selectFirstLane.get(projectId)!.id;
       const { position } = nextCellPosition.get(columnId, laneId)!;
       const sourceNoteId = input.sourceNoteId ?? null;
@@ -245,6 +265,7 @@ export function createTasksRepository(db: Db) {
         now,
         now,
       )!;
+      for (const labelId of input.labelIds ?? []) insertTaskLabel.run(id, labelId);
       const row = selectTask.get(id)!;
       const column = columnName(columnId);
       // A task converted from a note is a "create" with the source note in the metadata.
@@ -271,6 +292,9 @@ export function createTasksRepository(db: Db) {
     update: db.transaction((id: number, patch: TaskPatch): UpdateResult => {
       const before = selectTask.get(id);
       if (!before) return { ok: false, reason: 'not_found' };
+      const names = patch.labelIds ? labelNames(before.project_id, patch.labelIds) : undefined;
+      if (patch.labelIds && !names) return { ok: false, reason: 'invalid_labels' };
+      const labelsBefore = selectTaskLabels.all(id).map((l) => l.id);
       const startDate = patch.startDate === undefined ? before.start_date : patch.startDate;
       const dueDate = patch.dueDate === undefined ? before.due_date : patch.dueDate;
       const problem = scheduleProblem(startDate, dueDate);
@@ -284,7 +308,13 @@ export function createTasksRepository(db: Db) {
         new Date().toISOString(),
         id,
       );
+      if (patch.labelIds) {
+        clearTaskLabels.run(id);
+        for (const labelId of patch.labelIds) insertTaskLabel.run(id, labelId);
+      }
       const row = selectTask.get(id)!;
+      const labelsAdded = (patch.labelIds ?? []).filter((l) => !labelsBefore.includes(l)).map((l) => names!.get(l)!);
+      const labelsRemoved = patch.labelIds ? labelsBefore.filter((l) => !patch.labelIds!.includes(l)).map((l) => names!.get(l)!) : [];
 
       const fields: EditField[] = [];
       const values: Partial<Record<ValueField, string>> = {};
@@ -307,7 +337,13 @@ export function createTasksRepository(db: Db) {
         entityType: 'task',
         entityId: id,
         title: row.title,
-        changes: { fields, tagsAdded: [], tagsRemoved: [], ...(Object.keys(values).length ? { values } : {}) },
+        changes: {
+          fields,
+          tagsAdded: [],
+          tagsRemoved: [],
+          ...(labelsAdded.length || labelsRemoved.length ? { labelsAdded: [...new Set(labelsAdded)], labelsRemoved } : {}),
+          ...(Object.keys(values).length ? { values } : {}),
+        },
         describeUpdate: text.taskUpdated,
         describeCreate: (title, metadata) => {
           const source = metadata.sourceNote as { title: string } | undefined;

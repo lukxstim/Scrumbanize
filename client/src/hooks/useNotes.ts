@@ -26,8 +26,8 @@ export function useNotes(projectId: number) {
     void reload();
   }, [reload]);
 
-  const createNote = useCallback(async (title = ''): Promise<Note> => {
-    const note = await notesApi.create(projectId, { title, content: '', tags: [] });
+  const createNote = useCallback(async (title = '', content = '', tags: string[] = []): Promise<Note> => {
+    const note = await notesApi.create(projectId, { title, content, tags });
     setNotes((current) => [note, ...current]);
     return note;
   }, [projectId]);
