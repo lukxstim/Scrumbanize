@@ -81,16 +81,20 @@ Danach startet Scrumbanize ganz normal, z. B. über das Launchpad oder Spotlight
 
 ## Was kann Scrumbanize?
 
+> **Neu in Version 1.1.0:** Scrumbanize gibt es jetzt auch **für den Mac** (eine App für Apple-Chip und Intel). Dazu **Erinnerungen an fällige Aufgaben**, ein **Symbol neben der Uhr** bzw. in der Menüleiste, eine **Tastenkombination**, mit der du Scrumbanize von überall nach vorne holst, und auf dem Board **verstellbare Spaltenbreiten** und Überschriften, die beim Scrollen stehen bleiben.
+
 ### Notizen
 Schreibe Notizen mit Überschriften, Listen, **Checklisten** und farbigen Markierungen – so einfach wie in einem Textprogramm. Hänge Bilder, PDFs und Dokumente an. Aus jedem Satz wird mit einem Klick eine Aufgabe.
 
 ![Notizen mit Checklisten und Markierungen](docs/screenshots/notizen.png)
 
 ### Aufgaben-Board
-Deine Aufgaben als Karten in Spalten wie „To Do“, „In Progress“ und „Done“. Ziehe Karten mit der Maus weiter, wenn du vorankommst. Prioritäten, Fälligkeiten und Checklisten siehst du direkt auf der Karte.
+Deine Aufgaben als Karten in Spalten wie „To Do“, „In Progress“ und „Done“. Ziehe Karten mit der Maus weiter, wenn du vorankommst. Prioritäten, Fälligkeiten, Labels und Checklisten siehst du direkt auf der Karte; filtern kannst du nach Priorität, Label und Fälligkeit.
 
-- **Spaltenbreite anpassen:** am rechten Rand einer Spaltenüberschrift ziehen (Doppelklick setzt zurück). Die Breiten werden gespeichert und gelten auf allen Geräten. Über **„⋯“ rechts über dem Board** gibt es außerdem „An Fenster anpassen“, „Spaltenbreiten zurücksetzen“ und den CSV-Export.
-- Beim Herunterscrollen bleiben Spaltenüberschriften und Swimlane-Namen oben sichtbar.
+- **Spaltenbreite anpassen:** am rechten Rand einer Spaltenüberschrift ziehen, Doppelklick setzt sie zurück. Die Breiten werden gespeichert und gelten auf allen Geräten.
+- **„⋯“ rechts über dem Board:** „An Fenster anpassen“ (alle Spalten so breit, dass das Board ins Fenster passt), „Spaltenbreiten zurücksetzen“ und der Export als CSV-Datei für Excel.
+- **Lange Spalten:** Beim Herunterscrollen bleiben die Spaltenüberschriften und die Namen der Swimlanes oben sichtbar.
+- **Kleine Fenster und Tablets:** Die Kopfzeile wird schmaler (nur Symbole, Namen als Tooltip), statt aus dem Fenster zu ragen.
 
 ![Aufgaben-Board mit Karten in Spalten](docs/screenshots/board.png)
 
@@ -99,35 +103,57 @@ Alle Fälligkeiten im Monat oder in der Woche. Einen Termin verschiebst du, inde
 
 ![Kalender mit Terminen im Oktober](docs/screenshots/kalender.png)
 
+### Statistiken
+Wie läuft dein Projekt? Unter **„Statistiken“** siehst du für die letzten Wochen oder Monate:
+
+- **Velocity:** wie viele Aufgaben pro Woche (oder Monat) fertig wurden – und wie viele neu dazukamen.
+- **Lead Time und Cycle Time:** wie lange eine Aufgabe vom Anlegen bzw. vom Arbeitsbeginn bis „Erledigt“ braucht (Median und 85-%-Wert).
+- **WIP-Überschreitungen:** wann in einer Spalte mehr Aufgaben lagen als ihr Limit erlaubt (z. B. „In Progress: 3“).
+
+Jedes Diagramm lässt sich auch als Tabelle anzeigen. Gerechnet wird aus dem Board und dem Verlauf – nichts wird geschätzt.
+
+![Statistiken mit Velocity, Lead Time und Cycle Time](docs/screenshots/statistiken.png)
+
+### Graph und Mindmap
+- **Graph:** Unter „Notizen“ → „Graph“ siehst du alle Notizen und Aufgaben eines Projekts als Netzwerk: welche Aufgabe aus welcher Notiz entstanden ist und welche Aufgaben sich gegenseitig blockieren. Suchen, filtern (z. B. nur Offenes) und mit einem Klick zur Notiz oder Aufgabe springen.
+- **Mindmap:** Eine Notiz mit Überschriften und Listen zeigt Scrumbanize auf Knopfdruck als Mindmap – Zweige lassen sich auf- und zuklappen, das Ergebnis als **SVG** oder **PNG** speichern.
+
+![Graph mit Notizen und Aufgaben als Netzwerk](docs/screenshots/graph.png)
+
+![Mindmap einer Notiz](docs/screenshots/mindmap.png)
+
 ### Papierkorb
 Aus Versehen gelöscht? Kein Problem: Gelöschtes landet zuerst im Papierkorb und lässt sich mit einem Klick wiederherstellen.
 
 ![Papierkorb mit wiederherstellbaren Einträgen](docs/screenshots/papierkorb.png)
 
-### Sichern, Importieren, Exportieren
-Über das Zahnrad oben rechts (**Einstellungen**):
+### Einstellungen: Sichern, Importieren, Exportieren
+Über das Zahnrad oben rechts öffnest du die **Einstellungen**:
 - **Backup mit einem Klick** – eine ZIP-Datei mit allen Projekten, Notizen, Tasks und Anhängen – und **Wiederherstellen** aus so einem Backup. Vor dem Wiederherstellen sichert Scrumbanize den jetzigen Stand automatisch.
 - **Notizen importieren** aus Markdown-Dateien, ganzen Ordnern (z. B. Obsidian) oder ZIP-Exporten (z. B. Notion). Titel, Tags und Erstelldatum werden übernommen; Bilder noch nicht.
 - **Exportieren**: alle Notizen als Markdown oder HTML (ZIP, mit Anhängen), das Board als CSV-Datei für Excel. Einzelne Notizen lassen sich auch direkt im Editor exportieren.
+- **Vorlagen** verwalten und – in der Desktop-App – Erinnerungen, Infobereich und Tastenkombination einstellen (siehe unten).
+
+![Einstellungen mit Desktop-App, Backup und Wiederherstellen](docs/screenshots/einstellungen.png)
 
 ### Labels und Vorlagen
 - **Farbige Labels** für Tasks (neue Projekte starten mit *Bug*, *Feature* und *Dringend*): auf den Karten, im Kalender und im Graph sichtbar, das Board lässt sich danach filtern. Verwalten über „Labels ▾“ in der Leiste über dem Board.
 - **Vorlagen** für Notizen und Tasks, für ein Projekt oder für alle (dabei: *Meeting-Protokoll*, *Sprint-Planning*, *Bug-Report*). Platzhalter wie `{{datum}}`, `{{wochentag}}`, `{{uhrzeit}}`, `{{kw}}` und `{{projekt}}` werden beim Anlegen ausgefüllt; Taskvorlagen setzen auch Priorität, Labels, Spalte, Swimlane und einen Fälligkeitstermin („+7 Tage“). Auswählen beim Anlegen (Pfeil neben „Neue Notiz“, Vorlage unter „+ Task“, `Strg` + `K`), verwalten in den Einstellungen oder per „Als Vorlage speichern“.
 
+### Erinnerungen, Infobereich und Tastenkombination (Desktop-App)
+- **Erinnerungen:** Ist eine Aufgabe heute fällig oder überfällig, meldet sich Scrumbanize mit einer Benachrichtigung von Windows bzw. einer Mitteilung auf dem Mac – einmal am Tag, bis die Aufgabe in der letzten Spalte liegt. Ein Klick darauf öffnet sie. Bei mehr als drei Aufgaben kommt eine Sammelmeldung. „Jetzt prüfen“ in den Einstellungen zeigt alle sofort.
+- **Symbol neben der Uhr (Windows) bzw. in der Menüleiste (Mac):** Ein Klick holt Scrumbanize nach vorne, im Menü des Symbols gibt es „Erinnerungen jetzt prüfen“ und „Beenden“.
+  - *Windows:* In den Einstellungen lässt sich einschalten, dass Scrumbanize beim **Schließen** (oder Minimieren) neben der Uhr weiterläuft, statt sich zu beenden.
+  - *Mac:* Wie bei Mac-Programmen üblich läuft Scrumbanize nach dem Schließen des Fensters im Dock und in der Menüleiste weiter; beenden mit `⌘` + `Q`.
+- **Tastenkombination:** `Strg` + `Umschalt` + `Leertaste` (Mac: `⌘` + `⇧` + `Leertaste`) holt Scrumbanize von überall nach vorne. In den Einstellungen lässt sie sich ändern – ist eine Kombination schon von einem anderen Programm belegt, sagt Scrumbanize Bescheid.
+- **Beim Anmelden starten:** Scrumbanize startet dann mit Windows bzw. bei der Anmeldung am Mac, damit Erinnerungen auch kommen, wenn du es nicht geöffnet hast.
+- **Keine Benachrichtigungen?** Unter Windows in den Einstellungen unter **System → Benachrichtigungen** prüfen, ob sie für Scrumbanize erlaubt sind und „Nicht stören“ aus ist (mit der **portablen Version** klappen sie nicht immer zuverlässig – besser den Installer verwenden). Auf dem Mac unter **Systemeinstellungen → Mitteilungen → Scrumbanize**.
+
 ### Und außerdem
-- **Statistiken** zu erledigten Tasks, Durchlaufzeiten und WIP-Limits.
-- **Graph und Mindmap**: Notizen und Tasks als Netzwerk ansehen, eine gegliederte Notiz als Mindmap (Export als SVG oder PNG).
 - **Projekte**, um Privates, Arbeit oder Schule zu trennen – jedes mit eigener Farbe.
-- **Suche über alles** mit `Strg` + `K`.
+- **Suche über alles** mit `Strg` + `K` (Mac: `⌘` + `K`).
 - **Heller und dunkler Modus.**
 - **Verlauf**: Die Uhr oben rechts zeigt, was zuletzt passiert ist.
-
-### Erinnerungen und Infobereich (nur Desktop-App)
-- **Erinnerungen:** Ist ein Task heute fällig oder überfällig, meldet sich Windows mit einer Benachrichtigung – einmal am Tag, bis der Task in der letzten Spalte liegt. Ein Klick darauf öffnet den Task. Bei mehr als drei Tasks kommt eine Sammelmeldung.
-- **Im Infobereich weiterlaufen:** In den Einstellungen unter „Desktop-App“ lässt sich einschalten, dass Scrumbanize beim Schließen (oder Minimieren) neben der Uhr weiterläuft, statt sich zu beenden. Ein Klick auf das Symbol holt es zurück, **Beenden** geht über das Menü des Symbols (rechte Maustaste).
-- **Tastenkombination:** `Strg` + `Umschalt` + `Leertaste` holt Scrumbanize von überall nach vorne (in den Einstellungen änderbar).
-- **Mit Windows starten:** Scrumbanize startet dann bei der Anmeldung unsichtbar im Infobereich, damit Erinnerungen auch kommen, wenn du es nicht geöffnet hast.
-- Kommen keine Benachrichtigungen? In den Windows-Einstellungen unter **System → Benachrichtigungen** prüfen, ob sie für Scrumbanize erlaubt sind und „Nicht stören“ aus ist. Mit der **portablen Version** klappen Benachrichtigungen nicht immer zuverlässig – dafür besser den Installer verwenden.
 
 ## Deine Daten
 
