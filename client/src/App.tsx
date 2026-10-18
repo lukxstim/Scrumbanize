@@ -157,11 +157,16 @@ export default function App() {
         (1024 px, the desktop app's minimum width) the search is an icon and the wordmark goes.
       */}
       <header className="relative z-20 flex h-13 shrink-0 items-center gap-2 border-b border-line bg-surface/80 px-3 backdrop-blur-md lg:gap-3 lg:px-4">
-        <span className="flex shrink-0 items-center gap-2">
+        {/* The logo leads back to the last project used, e.g. from the profile or the user management. */}
+        <Link
+          to="/"
+          title="Zur Startseite"
+          className="flex shrink-0 items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-accent"
+        >
           {/* The logo tile (public/scrumbanize-logo.png, from docs/branding); the wordmark is plain text, so it stays sharp. */}
           <img src="/scrumbanize-logo.png" alt="" width={28} height={28} className="size-7 rounded-md shadow-sm" />
           <span className="sr-only text-sm font-semibold tracking-tight lg:not-sr-only">Scrumbanize</span>
-        </span>
+        </Link>
         {activeProject && (
           <>
             <span className="shrink-0 text-fg-faint" aria-hidden="true">

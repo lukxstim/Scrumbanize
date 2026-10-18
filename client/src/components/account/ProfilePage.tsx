@@ -8,6 +8,7 @@ import { shrinkPicture } from '../../utils/avatar';
 import { PROJECT_COLORS } from '../../utils/projects';
 import { Avatar } from '../auth/UserMenu';
 import Button from '../ui/Button';
+import BackToProjects from './BackToProjects';
 import Section from '../ui/Section';
 import { fieldClass, labelClass } from '../ui/styles';
 
@@ -49,7 +50,8 @@ export default function ProfilePage() {
     <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto max-w-2xl space-y-6 px-6 py-8">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-fg">Profil</h1>
+          <BackToProjects />
+          <h1 className="mt-3 text-xl font-semibold tracking-tight text-fg">Profil</h1>
           <p className="mt-1 text-sm text-fg-subtle">So sehen dich die anderen in Projekten und im Verlauf.</p>
         </div>
 

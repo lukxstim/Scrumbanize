@@ -8,6 +8,7 @@ import { Avatar } from '../auth/UserMenu';
 import ConfirmDialog from '../ConfirmDialog';
 import Menu from '../Menu';
 import Button from '../ui/Button';
+import BackToProjects from './BackToProjects';
 import Dialog from '../ui/Dialog';
 import Section from '../ui/Section';
 import { fieldClass, iconButtonClass, labelClass } from '../ui/styles';
@@ -108,7 +109,8 @@ export default function UsersPage() {
     <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto max-w-3xl space-y-6 px-6 py-8">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-fg">Benutzerverwaltung</h1>
+          <BackToProjects />
+          <h1 className="mt-3 text-xl font-semibold tracking-tight text-fg">Benutzerverwaltung</h1>
           <p className="mt-1 text-sm text-fg-subtle">Wer Scrumbanize auf diesem Server benutzen darf. In welchen Projekten jemand mitarbeitet, legen deren Owner fest.</p>
         </div>
 
