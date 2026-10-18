@@ -1,5 +1,6 @@
 /** Notes as Markdown or HTML files and the board as CSV (US-16). Pure functions; the routes add the HTTP part. */
 import { Marked, type Tokens } from 'marked';
+import { replaceContentLinks, type ContentLinkRef } from './contentLinks.js';
 import type { Task } from './repositories/tasksRepository.js';
 import type { TaskPriority } from './validation.js';
 
@@ -38,6 +39,18 @@ export function uniqueNames(names: string[]): string[] {
   });
 }
 
+/**
+ * Links to notes and tasks (US-22) mean nothing outside the app: a link to a note exported alongside becomes a link
+ * to its file (`fileOf`), every other one plain text – tasks with their number, "Angebot (#17)".
+ */
+export function exportContentLinks(markdown: string, fileOf: (ref: ContentLinkRef) => string | undefined = () => undefined): string {
+  return replaceContentLinks(markdown, (ref) => {
+    const file = fileOf(ref);
+    if (file) return `[${ref.text}](<${file}>)`;
+    return ref.type === 'task' ? `${ref.text} (#${ref.id})` : ref.text;
+  });
+}
+
 const yamlString = (value: string) => JSON.stringify(value);
 
 /** The note as Markdown with front matter (title, tags, dates), readable by Obsidian and the import of this app. */
@@ -60,7 +73,8 @@ const escapeHtml = (text: string) =>
   text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
 // An own instance with a renderer that lets through only what the editor itself produces: raw HTML is escaped
-// except highlights (<mark>), and links only keep web and mail addresses.
+// except highlights (<mark>), and links only keep web and mail addresses, and relative ones to exported files.
+const isRelative = (href: string) => !/^[a-z][a-z0-9+.-]*:/i.test(href) && !href.startsWith('//');
 const htmlMarked = new Marked({
   gfm: true,
   renderer: {
@@ -70,7 +84,8 @@ const htmlMarked = new Marked({
     },
     link({ href, tokens }: Tokens.Link) {
       const text = this.parser.parseInline(tokens);
-      return /^(https?:|mailto:)/i.test(href) ? `<a href="${escapeHtml(href)}">${text}</a>` : text;
+      if (/^(https?:|mailto:)/i.test(href)) return `<a href="${escapeHtml(href)}">${text}</a>`;
+      return href && isRelative(href) ? `<a href="${escapeHtml(encodeURI(decodeURI(href)))}">${text}</a>` : text;
     },
     image({ text }: Tokens.Image) {
       return escapeHtml(text);
@@ -198,7 +213,7 @@ export function boardToCsv(
     links(task, 'blocks'),
     links(task, 'relates'),
     task.attachments.map((a) => a.fileName).join(', '),
-    task.description,
+    exportContentLinks(task.description),
   ]);
   return `\uFEFF${[CSV_COLUMNS, ...rows].map((row) => row.map(csvField).join(';')).join('\r\n')}\r\n`;
 }

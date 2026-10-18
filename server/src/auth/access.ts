@@ -45,13 +45,13 @@ export function createAccess(db: Db, mode: AuthMode) {
   }
 
   /** The user's role in every project they belong to. */
-  function roles(user: User): Map<number, ProjectRole> {
+  function roles(user: Pick<User, 'id'>): Map<number, ProjectRole> {
     if (mode === 'local') return new Map(selectAllProjects.all().map((p) => [p.id, 'owner' as const]));
     return new Map(selectRoles.all(user.id).map((r) => [r.project_id, r.role]));
   }
 
   /** The projects in which the user has at least `min`. */
-  function projectIds(user: User, min: ProjectRole = 'viewer'): Set<number> {
+  function projectIds(user: Pick<User, 'id'>, min: ProjectRole = 'viewer'): Set<number> {
     return new Set([...roles(user)].filter(([, role]) => ROLE_RANK[role] >= ROLE_RANK[min]).map(([id]) => id));
   }
 

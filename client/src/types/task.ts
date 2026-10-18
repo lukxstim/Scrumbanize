@@ -32,7 +32,8 @@ export interface Task {
   /** Order within the task's cell (column × lane), ascending. */
   position: number;
   /** The note the task was created from, with its tags; null if it was created elsewhere or the note was deleted. */
-  sourceNote: { id: number; title: string; tags: string[] } | null;
+  /** May live in another project or notebook (US-22); `restricted`: the user may not see it (no title, no tags). */
+  sourceNote: { id: number; projectId: number; title: string; tags: string[]; restricted: boolean } | null;
   priority: TaskPriority | null;
   /** Links to other tasks of the project, oldest first. */
   links: TaskLink[];
@@ -83,6 +84,10 @@ export interface Lane {
 /** The short form of a task that notes carry. */
 export interface LinkedTask {
   id: number;
+  /** May differ from the note's project (US-22: converted into another project). */
+  projectId: number;
   title: string;
   column: { id: number; name: string };
+  /** In a project the user may not see: no title, no column. */
+  restricted: boolean;
 }

@@ -5,6 +5,8 @@ import path from 'node:path';
 import express from 'express';
 import type { Db } from './database.js';
 import { createAccess } from './auth/access.js';
+import { currentUserId } from './auth/currentUser.js';
+import { setVisibility } from './auth/visibility.js';
 import { authenticate, requireAuth, sameOriginForChanges, type AuthMode } from './auth/middleware.js';
 import { createRateLimiter } from './auth/rateLimit.js';
 import { createSetupCode } from './auth/setupCode.js';
@@ -20,6 +22,7 @@ import { createLabelsRepository } from './repositories/labelsRepository.js';
 import { createMetaRepository } from './repositories/metaRepository.js';
 import { createNotesRepository } from './repositories/notesRepository.js';
 import { createFoldersRepository } from './repositories/foldersRepository.js';
+import { createContentLinksRepository } from './repositories/contentLinksRepository.js';
 import { createProjectsRepository } from './repositories/projectsRepository.js';
 import { createRemindersRepository } from './repositories/remindersRepository.js';
 import { createSearchRepository } from './repositories/searchRepository.js';
@@ -38,6 +41,7 @@ import { labelsRouter } from './routes/labels.js';
 import { membersRouter } from './routes/members.js';
 import { notesRouter } from './routes/notes.js';
 import { foldersRouter } from './routes/folders.js';
+import { linksRouter } from './routes/links.js';
 import { projectScopedRouter } from './routes/projectScoped.js';
 import { projectsRouter } from './routes/projects.js';
 import { remindersRouter } from './routes/reminders.js';
@@ -92,6 +96,12 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   const authMode = options.auth ?? 'local';
   const setupCode = createSetupCode(options.onSetupCode ?? (() => {}));
   const access = createAccess(db, authMode);
+  // Links and tasks pointing into other projects show only what the request's user may see (US-22).
+  setVisibility(db, () => {
+    const userId = currentUserId();
+    return userId === undefined ? null : access.projectIds({ id: userId });
+  });
+  const contentLinks = createContentLinksRepository(db);
   // 10 failed attempts per 15 minutes, per IP address and per email.
   const limiter = createRateLimiter({ limit: 10, windowMs: 15 * 60 * 1000 });
   if (authMode === 'required' && users.setupRequired()) setupCode.current();
@@ -141,6 +151,7 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   api.use('/projects/:projectId', projectScopedRouter({ access, activities, analytics, graph, labels, templates, projects, notes, tasks, board, folders }));
   api.use('/notes', notesRouter(notes, folders, access));
   api.use('/folders', foldersRouter(folders, access));
+  api.use(linksRouter(contentLinks, access));
   api.use('/tasks', tasksRouter(tasks, access));
   api.use('/columns', columnsRouter(board, access));
   api.use('/lanes', lanesRouter(board, access));

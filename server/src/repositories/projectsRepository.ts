@@ -1,5 +1,6 @@
 import { text } from '../activityText.js';
 import { currentUserId } from '../auth/currentUser.js';
+import { createContentLinksRepository } from './contentLinksRepository.js';
 import type { Db } from '../database.js';
 import type { NotebookIcon, ProjectInput, ProjectPatch } from '../validation.js';
 import { createActivityRepository } from './activityRepository.js';
@@ -229,6 +230,8 @@ export function createProjectsRepository(db: Db) {
       if (!trashed) return undefined;
       deleteProject.run(id);
       deleteUnusedTags.run();
+      // Links written in the project's notes and tasks (US-22).
+      createContentLinksRepository(db).prune();
       return trashed.name;
     }),
   };

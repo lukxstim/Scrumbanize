@@ -332,3 +332,13 @@ export type TemplatePatch = z.infer<typeof templatePatchSchema>;
 export const templateQuerySchema = z.object({
   kind: z.enum(['note', 'task']).optional(),
 });
+
+
+/** Links between notes and tasks (US-22). */
+const contentRefSchema = z.object({ type: z.enum(['note', 'task']), id: z.number().int().positive() });
+export const resolveLinksSchema = z.object({ refs: z.array(contentRefSchema).max(500) });
+export const linkCandidatesQuerySchema = z.object({
+  q: z.string().trim().max(200).default(''),
+  /** Candidates of this project come first. */
+  project: z.coerce.number().int().positive().optional(),
+});

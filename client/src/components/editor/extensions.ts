@@ -60,11 +60,19 @@ export const ColoredHighlight = Highlight.extend({
   },
 }).configure({ multicolor: true });
 
-/** Links as typed: a bare address stays a bare address in the Markdown. */
+/**
+ * Links as typed: a bare address stays a bare address in the Markdown. Besides web addresses, links to notes and tasks
+ * (`note:42`, `task:17`, US-22) are kept; typing "note:42" does not turn into a link by itself.
+ */
 const MarkdownLink = Link.extend({
   renderMarkdown: (node, h, context) =>
     renderLinkMarkdown(node, () => h.renderChildren(node), (context?.meta as { markText?: string } | undefined)?.markText),
-}).configure({ openOnClick: false, autolink: true, defaultProtocol: 'https' });
+}).configure({
+  openOnClick: false,
+  autolink: true,
+  defaultProtocol: 'https',
+  isAllowedUri: (url, { defaultValidate }) => /^(note|task):\d+$/.test(url) || defaultValidate(url),
+});
 
 /**
  * Everything the editor understands. Kept to what Markdown (GFM) can store, so a note survives being opened

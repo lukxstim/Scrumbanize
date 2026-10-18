@@ -120,6 +120,8 @@ const CASES: Case[] = [
   ),
   { name: 'GET /notes/:id', min: 'viewer', call: get((f) => `/api/notes/${f.ids.note}`) },
   { name: 'GET /tasks/:id', min: 'viewer', call: get((f) => `/api/tasks/${f.ids.task}`) },
+  { name: 'GET /notes/:id/backlinks', min: 'viewer', call: get((f) => `/api/notes/${f.ids.note}/backlinks`) },
+  { name: 'GET /tasks/:id/backlinks', min: 'viewer', call: get((f) => `/api/tasks/${f.ids.task}/backlinks`) },
   { name: 'GET /labels/:id/usage', min: 'viewer', call: get((f) => `/api/labels/${f.ids.label}/usage`) },
   { name: 'GET /attachments/:id/file', min: 'viewer', call: get((f) => `/api/attachments/${f.ids.attachment}/file`) },
   { name: 'GET /notes/:id/export', min: 'viewer', call: get((f) => `/api/notes/${f.ids.note}/export?format=md`) },

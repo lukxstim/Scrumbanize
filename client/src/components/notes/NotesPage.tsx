@@ -59,8 +59,6 @@ export default function NotesPage() {
   const { projects } = useProjects();
   const project = projects.find((p) => p.id === projectId);
   const projectName = project?.name ?? '';
-  // Notebooks have no board, so no "In Task umwandeln" (yet).
-  const withBoard = project?.kind !== 'notebook';
   const { noteTemplates, reload: reloadTemplates } = useTemplates(projectId);
   const [templateDraft, setTemplateDraft] = useState<TemplateInput | null>(null);
 
@@ -314,7 +312,6 @@ export default function NotesPage() {
               await moveNote(selectedNote.id, folderId);
               if (folderId !== null) openFolders([folderId]);
             }}
-            withTasks={withBoard}
             onSaveAsTemplate={(input) =>
               setTemplateDraft({ kind: 'note', scope: 'project', name: input.title || 'Neue Vorlage', title: input.title, content: input.content, defaults: { tags: input.tags } })
             }

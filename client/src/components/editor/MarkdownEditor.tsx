@@ -1,9 +1,11 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useStoredState } from '../../hooks/useStoredState';
 import { useTextSelection } from '../../hooks/useTextSelection';
 import { needsSourceMode } from '../../utils/highlight';
 import SegmentedControl from '../ui/SegmentedControl';
 import Skeleton from '../ui/Skeleton';
+import LinkPicker from './LinkPicker';
+import { useSourceLinkPicker } from './useSourceLinkPicker';
 
 const RichTextEditor = lazy(() => import('./RichTextEditor'));
 
@@ -23,6 +25,8 @@ interface MarkdownEditorProps {
   minHeightClass?: string;
   /** Viewers (US-21): shown formatted (or as source if it needs that), but not editable. */
   readOnly?: boolean;
+  /** Links to notes and tasks (US-22): "[[" opens a picker, this project's first. */
+  links?: { projectId: number };
 }
 
 /**
@@ -38,6 +42,7 @@ export default function MarkdownEditor({
   autoFocus,
   minHeightClass = 'min-h-48',
   readOnly = false,
+  links,
 }: MarkdownEditorProps) {
   const [preferred, setPreferred] = useStoredState<Mode>('scrumbanize.editorMode', 'rich', isMode);
   // Decided when opening, so typing such content in the source view does not switch views under the cursor.
@@ -45,6 +50,8 @@ export default function MarkdownEditor({
   // Reading is always formatted; the source view is for editing.
   const mode: Mode = sourceOnly ? 'source' : readOnly ? 'rich' : preferred;
   const { selection, textareaHandlers } = useTextSelection();
+  const textarea = useRef<HTMLTextAreaElement>(null);
+  const linkPicker = useSourceLinkPicker(textarea, value, onChange, readOnly ? undefined : links?.projectId);
 
   useEffect(() => {
     if (mode === 'source') onSelectionChange?.(selection);
@@ -79,6 +86,7 @@ export default function MarkdownEditor({
           toolbarTrailing={modeSwitch}
           contentClassName={minHeightClass}
           readOnly={readOnly}
+          links={links}
         />
       </Suspense>
     );
@@ -95,15 +103,33 @@ export default function MarkdownEditor({
         {sourceOnly || readOnly ? null : modeSwitch}
       </div>
       <textarea
+        ref={textarea}
         value={value}
         readOnly={readOnly}
         onChange={(event) => onChange(event.target.value)}
         {...textareaHandlers}
+        {...linkPicker.handlers}
+        onBlur={() => {
+          textareaHandlers.onBlur();
+          linkPicker.handlers.onBlur();
+        }}
         autoFocus={autoFocus}
         placeholder={placeholder ? `${placeholder} (Markdown)` : 'Markdown …'}
         aria-label={label}
         className={`mt-3 w-full flex-1 resize-y bg-transparent font-mono text-sm leading-relaxed text-fg placeholder:text-fg-faint focus:outline-none ${minHeightClass}`}
       />
+      {linkPicker.picker && links && (
+        <LinkPicker
+          anchor={linkPicker.picker.anchor}
+          items={linkPicker.picker.items}
+          active={linkPicker.picker.active}
+          loading={linkPicker.picker.loading}
+          query={linkPicker.picker.query}
+          projectId={links.projectId}
+          onPick={linkPicker.pick}
+          onHover={linkPicker.hover}
+        />
+      )}
     </div>
   );
 }

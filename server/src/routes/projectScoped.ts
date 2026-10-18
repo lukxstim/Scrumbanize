@@ -124,12 +124,11 @@ export function projectScopedRouter({ access, activities, analytics, graph, labe
   // A task converted from a note always lands in that note's project; a given lane must be one of the project's.
   router.post('/tasks', boardOnly, member, (req, res) => {
     const input = taskInputSchema.parse(req.body);
+    // The note may be in another project or notebook (US-22), if the user may read it there.
     if (input.sourceNoteId !== undefined) {
       const noteProjectId = tasks.noteProjectId(input.sourceNoteId);
       if (noteProjectId === undefined) throw notFound('Source note not found');
-      if (noteProjectId !== projectIdOf(res)) {
-        throw new HttpError(400, 'invalid_input', 'The source note belongs to another project');
-      }
+      if (noteProjectId !== projectIdOf(res)) access.check(userOf(res)!, noteProjectId, 'viewer');
     }
     if (input.laneId !== undefined && board.laneProjectId(input.laneId) !== projectIdOf(res)) {
       throw new HttpError(400, 'invalid_input', 'The lane belongs to another project');

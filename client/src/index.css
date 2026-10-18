@@ -334,6 +334,42 @@ mark[data-color],
 .rich-text a {
   cursor: text;
 }
+/* Links to notes and tasks (US-22): chips that open their target; out of reach, they are plain text with a badge. */
+.rich-text a:has(.content-link) {
+  text-decoration: none;
+}
+.rich-text .content-link {
+  border-radius: 0.3rem;
+  padding: 0.05em 0.3em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  background-color: var(--color-accent-muted);
+  color: var(--color-accent-text);
+  font-weight: 500;
+}
+.rich-text .content-link-ok {
+  cursor: pointer;
+}
+.rich-text .content-link-ok:hover {
+  text-decoration: underline;
+}
+.rich-text .content-link-forbidden,
+.rich-text .content-link-trashed {
+  background-color: var(--color-surface-muted);
+  color: var(--color-fg-subtle);
+}
+.rich-text .content-link-chip {
+  margin-left: 0.3em;
+  border-radius: 9999px;
+  border: 1px solid var(--color-line);
+  padding: 0.05em 0.5em;
+  vertical-align: 0.1em;
+  font-size: 0.7em;
+  font-weight: 500;
+  color: var(--color-fg-subtle);
+  white-space: nowrap;
+  user-select: none;
+}
 .rich-text .selectedCell {
   background-color: var(--color-accent-muted);
 }

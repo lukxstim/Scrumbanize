@@ -4,6 +4,7 @@ import type { GraphData } from '../types/graph';
 import type { Attachment, AttachmentOwner } from '../types/attachment';
 import type { AuthSession, AuthUser } from '../types/auth';
 import type { Folder, Note, NoteInput } from '../types/note';
+import type { Backlink, ContentRef, LinkCandidate, ResolvedLink } from '../types/link';
 import type { Project, ProjectInput, ProjectMember, ProjectRole } from '../types/project';
 import type { ProjectColor } from '../types/project';
 import type { BoardColumn, Label, Lane, LinkKind, Task, TaskInput, TaskPatch } from '../types/task';
@@ -146,6 +147,14 @@ export const notesApi = {
     request<Note>(`/notes/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
   /** Moves the note to the trash. */
   remove: (id: number) => trashRequest<void>(`/notes/${id}`, { method: 'DELETE' }),
+};
+
+/** Links between notes and tasks across projects (US-22). */
+export const linksApi = {
+  resolve: (refs: ContentRef[]) => request<ResolvedLink[]>('/links/resolve', { method: 'POST', body: JSON.stringify({ refs }) }),
+  candidates: (q: string, projectId: number, signal?: AbortSignal) =>
+    request<LinkCandidate[]>(`/links/candidates?${new URLSearchParams({ q, project: String(projectId) })}`, { signal }),
+  backlinks: (ref: ContentRef) => request<Backlink[]>(`/${ref.type}s/${ref.id}/backlinks`),
 };
 
 /** Folders of notes (US-22). */

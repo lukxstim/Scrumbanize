@@ -111,14 +111,17 @@ describe('isolation', () => {
     ]);
   });
 
-  it('creates converted tasks only in the note\'s own project', async () => {
+  it('converts notes into tasks of another project, linked both ways (US-22)', async () => {
     const other = await createProject('Privat');
     const note = await createNote(1, 'Arbeit');
 
-    expect((await createTask(other.id, 'Wrong project', note.id)).status).toBe(400);
-    const ok = await createTask(1, 'Right project', note.id);
-    expect(ok.status).toBe(201);
-    expect(ok.body).toMatchObject({ projectId: 1, sourceNote: { id: note.id } });
+    const task = await createTask(other.id, 'Anderes Projekt', note.id);
+    expect(task.status).toBe(201);
+    expect(task.body).toMatchObject({ projectId: other.id, sourceNote: { id: note.id, projectId: 1, title: 'Arbeit', restricted: false } });
+    expect((await api.get(`/api/notes/${note.id}`)).body.tasks).toEqual([
+      expect.objectContaining({ id: task.body.id, projectId: other.id, title: 'Anderes Projekt', restricted: false }),
+    ]);
+    expect((await api.get('/api/projects/1/notes')).body[0].tasks).toHaveLength(1);
   });
 
   it('reorders only within the task\'s project', async () => {
@@ -211,7 +214,7 @@ describe('migration to projects', () => {
           projectId: 1,
           title: 'Alt',
           tags: ['tag'],
-          tasks: [{ id: 3, title: 'Alter Task', column: expect.objectContaining({ name: 'Review' }) }],
+          tasks: [expect.objectContaining({ id: 3, title: 'Alter Task', column: expect.objectContaining({ name: 'Review' }) })],
         }),
       ]);
       const board = (await app.get('/api/projects/1/board')).body;

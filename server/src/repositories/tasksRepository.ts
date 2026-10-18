@@ -1,9 +1,11 @@
 import { type EditField, type LinkKind, type ValueField, formatDateValue, formatPriorityValue, text } from '../activityText.js';
+import { canSee, visibleProjects } from '../auth/visibility.js';
 import type { Db } from '../database.js';
 import { positionForIndex } from '../positions.js';
 import { type TaskInput, type TaskPatch, type TaskPriority, scheduleProblem } from '../validation.js';
 import { createActivityRepository } from './activityRepository.js';
 import { createAttachmentQueries, type Attachment } from './attachmentsRepository.js';
+import { createContentLinksRepository } from './contentLinksRepository.js';
 import { isDoneSql } from './doneColumn.js';
 import type { Label } from './labelsRepository.js';
 
@@ -16,8 +18,11 @@ export interface Task {
   description: string;
   /** Order within the task's cell (column × lane), ascending. */
   position: number;
-  /** The note the task was created from, with its current tags; null if created elsewhere or the note was deleted. */
-  sourceNote: { id: number; title: string; tags: string[] } | null;
+  /**
+   * The note the task was created from, with its current tags; null if created elsewhere or the note was deleted.
+   * It may live in another project or notebook (US-22); `restricted`: the viewer may not see it (no title, no tags).
+   */
+  sourceNote: { id: number; projectId: number; title: string; tags: string[]; restricted: boolean } | null;
   priority: TaskPriority | null;
   /** Links to other tasks of the project, oldest first; tasks in the trash are left out. */
   links: TaskLink[];
@@ -51,11 +56,13 @@ interface LinkRow {
   done: number;
 }
 
-/** The short form of a task that notes carry. */
+/** The short form of a task that notes carry; `restricted`: in a project the viewer may not see (no title). */
 export interface LinkedTask {
   id: number;
+  projectId: number;
   title: string;
   column: { id: number; name: string };
+  restricted: boolean;
 }
 
 interface TaskRow {
@@ -70,6 +77,7 @@ interface TaskRow {
   source_note_title: string | null;
   /** Set while the source note is outside the trash; a trashed note is not shown on its tasks. */
   source_note_live: number | null;
+  source_note_project_id: number | null;
   priority: TaskPriority | null;
   start_date: string | null;
   due_date: string | null;
@@ -79,7 +87,7 @@ interface TaskRow {
 
 // Reads go through live_tasks and live_notes, which leave out the trash and the contents of trashed projects.
 const selectTaskSql = `
-  SELECT t.*, n.title AS source_note_title, n.id AS source_note_live
+  SELECT t.*, n.title AS source_note_title, n.id AS source_note_live, n.project_id AS source_note_project_id
   FROM live_tasks t LEFT JOIN live_notes n ON n.id = t.source_note_id`;
 
 export type MoveResult = { ok: true; task: Task } | { ok: false; reason: 'not_found' | 'invalid_target' };
@@ -98,6 +106,7 @@ export type TasksRepository = ReturnType<typeof createTasksRepository>;
 export function createTasksRepository(db: Db) {
   const activities = createActivityRepository(db);
   const attachmentQueries = createAttachmentQueries(db);
+  const contentLinks = createContentLinksRepository(db);
   const selectColumnName = db.prepare<[number], { name: string }>(`SELECT name FROM board_columns WHERE id = ?`);
   const selectLaneName = db.prepare<[number], { name: string }>(`SELECT name FROM lanes WHERE id = ?`);
   const columnName = (id: number) => selectColumnName.get(id)?.name ?? '';
@@ -198,6 +207,17 @@ export function createTasksRepository(db: Db) {
     }));
   }
 
+  function sourceNoteOf(row: TaskRow): Task['sourceNote'] {
+    if (row.source_note_id === null || row.source_note_live === null || row.source_note_project_id === null) return null;
+    const projectId = row.source_note_project_id;
+    // Only a note of another project needs the check (US-22).
+    if (projectId !== row.project_id && !canSee(visibleProjects(db), projectId)) {
+      return { id: row.source_note_id, projectId, title: '', tags: [], restricted: true };
+    }
+    const tags = selectNoteTags.all(row.source_note_id).map((t) => t.name);
+    return { id: row.source_note_id, projectId, title: row.source_note_title ?? '', tags, restricted: false };
+  }
+
   function toTask(row: TaskRow): Task {
     return {
       id: row.id,
@@ -207,14 +227,7 @@ export function createTasksRepository(db: Db) {
       title: row.title,
       description: row.description,
       position: row.position,
-      sourceNote:
-        row.source_note_id === null || row.source_note_live === null
-          ? null
-          : {
-              id: row.source_note_id,
-              title: row.source_note_title ?? '',
-              tags: selectNoteTags.all(row.source_note_id).map((t) => t.name),
-            },
+      sourceNote: sourceNoteOf(row),
       priority: row.priority,
       links: linksOf(row.id),
       attachments: attachmentQueries.forTask(row.id),
@@ -267,6 +280,7 @@ export function createTasksRepository(db: Db) {
         now,
       )!;
       for (const labelId of input.labelIds ?? []) insertTaskLabel.run(id, labelId);
+      contentLinks.sync('task', id, input.description);
       const row = selectTask.get(id)!;
       const column = columnName(columnId);
       // A task converted from a note is a "create" with the source note in the metadata.
@@ -313,6 +327,7 @@ export function createTasksRepository(db: Db) {
         clearTaskLabels.run(id);
         for (const labelId of patch.labelIds) insertTaskLabel.run(id, labelId);
       }
+      if (patch.description !== undefined && patch.description !== before.description) contentLinks.sync('task', id, patch.description);
       const row = selectTask.get(id)!;
       const labelsAdded = (patch.labelIds ?? []).filter((l) => !labelsBefore.includes(l)).map((l) => names!.get(l)!);
       const labelsRemoved = patch.labelIds ? labelsBefore.filter((l) => !patch.labelIds!.includes(l)).map((l) => names!.get(l)!) : [];
@@ -479,6 +494,7 @@ export function createTasksRepository(db: Db) {
       const trashed = selectTrashedTask.get(id);
       if (!trashed) return undefined;
       deleteTask.run(id);
+      contentLinks.prune();
       if (log) {
         activities.record({
           projectId: trashed.project_id,

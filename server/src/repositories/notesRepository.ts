@@ -1,7 +1,9 @@
 import { text } from '../activityText.js';
 import type { Db } from '../database.js';
 import type { NoteInput } from '../validation.js';
+import { canSee, visibleProjects } from '../auth/visibility.js';
 import { createActivityRepository } from './activityRepository.js';
+import { createContentLinksRepository } from './contentLinksRepository.js';
 import type { LinkedTask } from './tasksRepository.js';
 import { createAttachmentQueries, type Attachment } from './attachmentsRepository.js';
 
@@ -13,7 +15,7 @@ export interface Note {
   title: string;
   content: string;
   tags: string[];
-  /** Tasks created from this note, oldest first. */
+  /** Tasks created from this note, oldest first; also in other projects (US-22). */
   tasks: LinkedTask[];
   /** Attached files, oldest first. */
   attachments: Attachment[];
@@ -36,6 +38,9 @@ export interface NoteFilter {
 
 interface LinkedTaskRow {
   id: number;
+  project_id: number;
+  /** The project of the note the task came from. */
+  note_project_id: number;
   title: string;
   source_note_id: number;
   column_id: number;
@@ -62,6 +67,7 @@ export type NotesRepository = ReturnType<typeof createNotesRepository>;
 export function createNotesRepository(db: Db) {
   const activities = createActivityRepository(db);
   const attachmentQueries = createAttachmentQueries(db);
+  const contentLinks = createContentLinksRepository(db);
   const insertNote = db.prepare<[number, string, string, string, string], NoteRow>(
     `INSERT INTO notes (project_id, title, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?) RETURNING *`,
   );
@@ -87,21 +93,17 @@ export function createNotesRepository(db: Db) {
     `SELECT nt.note_id, t.name FROM note_tags nt JOIN tags t ON t.id = nt.tag_id JOIN live_notes n ON n.id = nt.note_id
      WHERE n.project_id = ? ORDER BY t.name`,
   );
-  const selectTasksOfNote = db.prepare<[number], LinkedTaskRow>(
-    `SELECT t.id, t.title, t.source_note_id, c.id AS column_id, c.name AS column_name
-     FROM live_tasks t JOIN board_columns c ON c.id = t.column_id
-     WHERE t.source_note_id = ? ORDER BY t.id`,
-  );
-  const selectAllLinkedTasks = db.prepare<[number], LinkedTaskRow>(
-    `SELECT t.id, t.title, t.source_note_id, c.id AS column_id, c.name AS column_name
-     FROM live_tasks t JOIN board_columns c ON c.id = t.column_id
-     WHERE t.project_id = ? AND t.source_note_id IS NOT NULL ORDER BY t.id`,
-  );
-  const toLinkedTask = (row: LinkedTaskRow): LinkedTask => ({
-    id: row.id,
-    title: row.title,
-    column: { id: row.column_id, name: row.column_name },
-  });
+  // The tasks may live in another project than the note (US-22: from a notebook into a project).
+  const linkedTaskSql = `SELECT t.id, t.project_id, n.project_id AS note_project_id, t.title, t.source_note_id,
+       c.id AS column_id, c.name AS column_name
+     FROM live_tasks t JOIN board_columns c ON c.id = t.column_id JOIN notes n ON n.id = t.source_note_id`;
+  const selectTasksOfNote = db.prepare<[number], LinkedTaskRow>(`${linkedTaskSql} WHERE t.source_note_id = ? ORDER BY t.id`);
+  const selectAllLinkedTasks = db.prepare<[number], LinkedTaskRow>(`${linkedTaskSql} WHERE n.project_id = ? ORDER BY t.id`);
+  // A task in a project the viewer may not see shows as "no access", without its title.
+  const toLinkedTask = (row: LinkedTaskRow, visible: Set<number> | null): LinkedTask =>
+    row.project_id === row.note_project_id || canSee(visible, row.project_id)
+      ? { id: row.id, projectId: row.project_id, title: row.title, column: { id: row.column_id, name: row.column_name }, restricted: false }
+      : { id: row.id, projectId: row.project_id, title: '', column: { id: 0, name: '' }, restricted: true };
   const clearNoteTags = db.prepare<[number]>(`DELETE FROM note_tags WHERE note_id = ?`);
   const upsertTag = db.prepare<[string], { id: number }>(
     `INSERT INTO tags (name) VALUES (?) ON CONFLICT (name) DO UPDATE SET name = name RETURNING id`,
@@ -142,7 +144,7 @@ export function createNotesRepository(db: Db) {
     return toNote(
       row,
       selectTagsOfNote.all(row.id).map((t) => t.name),
-      selectTasksOfNote.all(row.id).map(toLinkedTask),
+      selectTasksOfNote.all(row.id).map((task) => toLinkedTask(task, visibleProjects(db))),
       attachmentQueries.forNote(row.id),
     );
   }
@@ -185,9 +187,10 @@ export function createNotesRepository(db: Db) {
       }
 
       const tasksByNote = new Map<number, LinkedTask[]>();
+      const visible = visibleProjects(db);
       for (const row of selectAllLinkedTasks.all(projectId)) {
         const list = tasksByNote.get(row.source_note_id) ?? [];
-        list.push(toLinkedTask(row));
+        list.push(toLinkedTask(row, visible));
         tasksByNote.set(row.source_note_id, list);
       }
 
@@ -208,6 +211,7 @@ export function createNotesRepository(db: Db) {
       let row = insertNote.get(projectId, input.title, input.content, now, now)!;
       if (folderId !== null) row = db.prepare<[number, number], NoteRow>(`UPDATE notes SET folder_id = ? WHERE id = ? RETURNING *`).get(folderId, row.id)!;
       setTags(row.id, input.tags);
+      contentLinks.sync('note', row.id, input.content);
       activities.record({
         projectId,
         entityType: 'note',
@@ -233,6 +237,7 @@ export function createNotesRepository(db: Db) {
         // Shown as recently changed, so the imported notes appear on top of the list.
         const id = insertImported.get(projectId, title, input.content, createdAt, now.toISOString())!.id;
         setTags(id, input.tags);
+        contentLinks.sync('note', id, input.content);
         return { id, title };
       });
       activities.recordImport(projectId, created.length, now);
@@ -247,6 +252,7 @@ export function createNotesRepository(db: Db) {
 
       const row = updateNote.get(input.title, input.content, new Date().toISOString(), id)!;
       setTags(id, input.tags);
+      if (before.content !== input.content) contentLinks.sync('note', id, input.content);
 
       activities.recordEdit({
         projectId: row.project_id,
@@ -308,6 +314,7 @@ export function createNotesRepository(db: Db) {
       if (!row) return undefined;
       deleteNote.run(id);
       deleteUnusedTags.run();
+      contentLinks.prune();
       if (log) {
         activities.record({
           projectId: row.project_id,

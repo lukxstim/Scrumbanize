@@ -57,5 +57,8 @@ describe('neighbors, degrees and search', () => {
   it('links notes and tasks to their pages', () => {
     expect(nodePath(4, graph.nodes[0]!)).toBe('/p/4/notes/1');
     expect(nodePath(4, graph.nodes[3]!)).toBe('/p/4/tasks/2');
+    // A linked note of a notebook opens there (US-22).
+    const external = { ...graph.nodes[0]!, external: { projectId: 9, projectName: 'Rezepte', projectKind: 'notebook' as const } };
+    expect(nodePath(4, external)).toBe('/p/9/notes/1');
   });
 });

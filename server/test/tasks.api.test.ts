@@ -82,8 +82,8 @@ describe('note-task link', () => {
     const b = await createTask({ title: 'B', sourceNoteId: note.id });
     const backlog = { id: a.columnId, name: 'Backlog' };
     const expected = [
-      { id: a.id, title: 'A', column: backlog },
-      { id: b.id, title: 'B', column: backlog },
+      { id: a.id, projectId: 1, title: 'A', column: backlog, restricted: false },
+      { id: b.id, projectId: 1, title: 'B', column: backlog, restricted: false },
     ];
 
     expect((await api.get(`/api/notes/${note.id}`)).body.tasks).toEqual(expected);

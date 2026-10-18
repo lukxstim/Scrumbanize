@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { HttpError, notFound } from '../errors.js';
 import type { Access } from '../auth/access.js';
-import { attachmentDisposition, boardToCsv, noteToHtml, noteToMarkdown, safeFileName, uniqueNames } from '../exports.js';
+import { attachmentDisposition, boardToCsv, exportContentLinks, noteToHtml, noteToMarkdown, safeFileName, uniqueNames } from '../exports.js';
 import type { AttachmentsRepository } from '../repositories/attachmentsRepository.js';
 import type { BoardRepository } from '../repositories/boardRepository.js';
 import type { NotesRepository } from '../repositories/notesRepository.js';
@@ -38,8 +38,9 @@ export function exportsRouter({ access, projects, notes, tasks, board, attachmen
     const { format } = exportQuerySchema.parse(req.query);
     res.setHeader('Content-Type', format === 'md' ? 'text/markdown; charset=utf-8' : 'text/html; charset=utf-8');
     res.setHeader('Content-Disposition', attachmentDisposition(`${safeFileName(note.title)}.${format}`));
-    // A single file: attachments stay out (the notes export of the project has them).
-    res.send(format === 'md' ? noteToMarkdown(note) : noteToHtml(note));
+    // A single file: attachments stay out (the notes export of the project has them), links become text.
+    const plain = { ...note, content: exportContentLinks(note.content) };
+    res.send(format === 'md' ? noteToMarkdown(plain) : noteToHtml(plain));
   });
 
   /** All notes of the project as files in a ZIP, each note's attachments in a folder named like the note. */
@@ -50,6 +51,9 @@ export function exportsRouter({ access, projects, notes, tasks, board, attachmen
     const list = notes.list(project.id).sort((a, b) => a.title.localeCompare(b.title, 'de', { sensitivity: 'base' }) || a.id - b.id);
     const names = uniqueNames(list.map((n) => safeFileName(n.title)));
     const files = attachments.noteFiles(project.id);
+    // Links between the exported notes point to their files (US-22).
+    const fileOfNote = new Map(list.map((note, i) => [note.id, `${names[i]}.${format}`]));
+    const fileOf = (ref: { type: string; id: number }) => (ref.type === 'note' ? fileOfNote.get(ref.id) : undefined);
 
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', attachmentDisposition(`${safeFileName(project.name, 'Projekt')} – Notizen ${today()}.zip`));
@@ -59,7 +63,11 @@ export function exportsRouter({ access, projects, notes, tasks, board, attachmen
         const own = files.get(note.id) ?? [];
         const fileNames = uniqueNames(own.map((f) => safeFileName(f.fileName, 'Anhang')));
         const folder = `Anhänge/${names[i]}`;
-        const linked = { ...note, files: fileNames.map((name) => ({ name, href: `${folder}/${name}` })) };
+        const linked = {
+          ...note,
+          content: exportContentLinks(note.content, fileOf),
+          files: fileNames.map((name) => ({ name, href: `${folder}/${name}` })),
+        };
         await zip.addText(`${names[i]}.${format}`, format === 'md' ? noteToMarkdown(linked) : noteToHtml(linked));
         for (const [j, file] of own.entries()) await zip.addFile(`${folder}/${fileNames[j]}`, file.path, isCompressible(file.fileName));
       }

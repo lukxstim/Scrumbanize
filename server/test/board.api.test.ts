@@ -130,8 +130,10 @@ describe('moving tasks', () => {
     await move(task.id, 'Review', 0);
     expect((await api.get(`/api/notes/${note.id}`)).body.tasks[0]).toEqual({
       id: task.id,
+      projectId: 1,
       title: 'A',
       column: { id: await columnId('Review'), name: 'Review' },
+      restricted: false,
     });
   });
 });
@@ -288,7 +290,7 @@ describe('migration to custom columns', () => {
       expect(await layout(2)).toEqual({ 'To Do': ['Privat todo'] });
       expect((await board(2)).columns[1]).toMatchObject({ name: 'To Do', wipLimit: 7 });
       expect((await api.get('/api/notes/9')).body.tasks).toEqual([
-        { id: 1, title: 'Review A', column: { id: b1.columns[3]!.id, name: 'Review' } },
+        { id: 1, projectId: 1, title: 'Review A', column: { id: b1.columns[3]!.id, name: 'Review' }, restricted: false },
       ]);
     } finally {
       upgraded?.close();

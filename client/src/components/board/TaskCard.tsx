@@ -217,9 +217,9 @@ export function TaskCardBody({
           )}
         </div>
       )}
-      {task.sourceNote && !compact && (
+      {task.sourceNote && !task.sourceNote.restricted && !compact && (
         <Link
-          to={paths.notes(task.projectId, task.sourceNote.id)}
+          to={paths.notes(task.sourceNote.projectId, task.sourceNote.id)}
           {...isolate}
           title="Zur Notiz"
           className="mt-1.5 flex w-fit max-w-full items-center gap-1 text-xs text-fg-subtle hover:text-accent-text"

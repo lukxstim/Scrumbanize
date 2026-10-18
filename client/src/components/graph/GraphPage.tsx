@@ -147,6 +147,15 @@ function GraphLegend() {
         </svg>
         umgewandelt / hängt zusammen
       </li>
+      <li className="flex items-center gap-2">
+        <svg aria-hidden="true" width="18" height="8" className="text-line-strong">
+          <path d="M1 4h16" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3 2" />
+        </svg>
+        im Text verlinkt
+      </li>
+      <li className="flex items-center gap-2">
+        <span aria-hidden="true" className="size-2.5 rounded-full border-2 border-chart-1 opacity-60" /> aus anderem Projekt
+      </li>
     </ul>
   );
 }
@@ -158,11 +167,13 @@ function NodeCard({ node }: { node: GraphNode }) {
       ? node.tags.length
         ? node.tags.map((t) => `#${t}`).join(' ')
         : 'Notiz'
-      : `Task #${node.entityId} · ${node.columnName}${node.done ? ' · erledigt' : ''}`;
+      : `Task #${node.entityId}${node.columnName ? ` · ${node.columnName}` : ''}${node.done ? ' · erledigt' : ''}`;
+  const place = node.external ? `${node.external.projectKind === 'notebook' ? 'Notizbuch' : 'Projekt'} „${node.external.projectName}“` : null;
   return (
     <div className="pointer-events-none absolute right-3 bottom-3 max-w-72 rounded-lg border border-line bg-surface px-3 py-2 shadow-popover">
       <p className="truncate text-sm font-medium text-fg">{node.title || (node.type === 'note' ? 'Unbenannte Notiz' : 'Ohne Titel')}</p>
       <p className="mt-0.5 truncate text-xs text-fg-subtle">{detail}</p>
+      {place && <p className="mt-0.5 truncate text-xs text-fg-subtle">aus {place}</p>}
       {node.type === 'task' && node.labels.length > 0 && (
         <p className="mt-1 flex flex-wrap gap-1">
           {node.labels.map((label) => (

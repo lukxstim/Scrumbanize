@@ -1,10 +1,14 @@
 import type { Db } from '../database.js';
 import type { TaskPriority } from '../validation.js';
+import { createContentLinksRepository, type ContentPlace } from './contentLinksRepository.js';
 import { isDoneSql } from './doneColumn.js';
 
+/** A note or task of another project or notebook that is linked from (or to) this one (US-22). */
+type External = { external?: ContentPlace };
+
 export type GraphNode =
-  | { id: string; type: 'note'; entityId: number; title: string; tags: string[] }
-  | {
+  | ({ id: string; type: 'note'; entityId: number; title: string; tags: string[] } & External)
+  | ({
       id: string;
       type: 'task';
       entityId: number;
@@ -14,10 +18,13 @@ export type GraphNode =
       done: boolean;
       priority: TaskPriority | null;
       labels: { name: string; color: string }[];
-    };
+    } & External);
 
-/** "converted": the task was created from the note. "blocks" points from the blocking to the blocked task. */
-export type GraphEdgeKind = 'converted' | 'blocks' | 'relates';
+/**
+ * "converted": the task was created from the note. "blocks" points from the blocking to the blocked task.
+ * "mentions": the source's text links to the target (US-22).
+ */
+export type GraphEdgeKind = 'converted' | 'blocks' | 'relates' | 'mentions';
 
 export interface GraphEdge {
   source: string;
@@ -32,6 +39,7 @@ export type GraphRepository = ReturnType<typeof createGraphRepository>;
 
 /** Notes and tasks of a project and how they are connected, without contents, for the graph view. */
 export function createGraphRepository(db: Db) {
+  const contentLinks = createContentLinksRepository(db);
   const selectNotes = db.prepare<[number], { id: number; title: string }>(
     `SELECT id, title FROM live_notes WHERE project_id = ? ORDER BY id`,
   );
@@ -97,6 +105,48 @@ export function createGraphRepository(db: Db) {
       }
       for (const link of selectLinks.all(projectId)) {
         edges.push({ source: taskNodeId(link.source_task_id), target: taskNodeId(link.target_task_id), kind: link.type });
+      }
+
+      // Notes and tasks of other projects the viewer may see join the graph as external nodes: notes that tasks
+      // were created from (US-22), and targets of links in the text. The trash and what is out of sight stay out.
+      const known = new Set(nodes.map((n) => n.id));
+      /** Adds the external node if it may be shown; false if not. */
+      const ensureNode = (type: 'note' | 'task', id: number): boolean => {
+        const nodeId = `${type}:${id}`;
+        if (known.has(nodeId)) return true;
+        const resolved = contentLinks.resolveOne(type, id);
+        if (resolved.status !== 'ok') return false;
+        const external = { projectId: resolved.projectId, projectName: resolved.projectName, projectKind: resolved.projectKind };
+        nodes.push(
+          resolved.type === 'note'
+            ? { id: nodeId, type: 'note', entityId: resolved.id, title: resolved.title, tags: [], external }
+            : {
+                id: nodeId,
+                type: 'task',
+                entityId: resolved.id,
+                title: resolved.title,
+                columnName: '',
+                done: resolved.done ?? false,
+                priority: null,
+                labels: [],
+                external,
+              },
+        );
+        known.add(nodeId);
+        return true;
+      };
+      const visibleEdges = edges.filter((edge) => edge.kind !== 'converted' || ensureNode('note', Number(edge.source.slice('note:'.length))));
+      edges.length = 0;
+      edges.push(...visibleEdges);
+
+      const seen = new Set<string>();
+      for (const link of contentLinks.ofProject(projectId)) {
+        const source = `${link.source_type}:${link.source_id}`;
+        const target = `${link.target_type}:${link.target_id}`;
+        if (!known.has(source) || seen.has(`${source}>${target}`)) continue;
+        if (!ensureNode(link.target_type, link.target_id)) continue;
+        seen.add(`${source}>${target}`);
+        edges.push({ source, target, kind: 'mentions' });
       }
       return { nodes, edges };
     },

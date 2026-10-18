@@ -62,7 +62,7 @@ describe('tags on tasks', () => {
   it('includes the source note tags on tasks', async () => {
     const note = (await api.post('/api/projects/1/notes').send({ title: 'N', content: '', tags: ['ux', 'bug'] })).body;
     const task = (await api.post('/api/projects/1/tasks').send({ title: 'T', description: '', sourceNoteId: note.id })).body;
-    expect(task.sourceNote).toEqual({ id: note.id, title: 'N', tags: ['bug', 'ux'] });
+    expect(task.sourceNote).toEqual({ id: note.id, projectId: 1, title: 'N', tags: ['bug', 'ux'], restricted: false });
   });
 });
 

@@ -60,9 +60,10 @@ export function searchGraph(nodes: GraphNode[], query: string): Set<string> {
   );
 }
 
-/** Where a click on the node leads: the note in the notes area, or the task's details on the board. */
+/** Where a click on the node leads: the note in the notes area, or the task's details on the board – in its own project. */
 export function nodePath(projectId: number, node: GraphNode): string {
-  return node.type === 'note' ? paths.notes(projectId, node.entityId) : paths.task(projectId, node.entityId);
+  const home = node.external?.projectId ?? projectId;
+  return node.type === 'note' ? paths.notes(home, node.entityId) : paths.task(home, node.entityId);
 }
 
 /** Radius of a node, growing gently with its connections. */

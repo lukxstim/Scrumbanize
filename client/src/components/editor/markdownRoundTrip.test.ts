@@ -22,6 +22,7 @@ describe('Markdown round trip', () => {
     ['emphasis', 'Text mit **fett**, *kursiv*, ~~durch~~ und `code`.'],
     ['links', 'Siehe [Doku](https://example.com) hier.'],
     ['bare links', 'Siehe https://example.com/a_b hier.'],
+    ['note and task links', 'Siehe [Plan](note:42), [Angebot](task:17) und [Plan \\[v2\\]](note:3).'],
     ['bullet list', '- eins\n- zwei\n  - verschachtelt'],
     ['ordered list', '1. erstens\n2. zweitens'],
     ['checklist', '- [ ] offen\n- [x] erledigt'],

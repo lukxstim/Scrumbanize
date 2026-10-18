@@ -63,8 +63,9 @@ export function useNotes(projectId: number) {
     setNotes((current) => current.filter((note) => note.id !== id));
   }, []);
 
-  const createTaskFromNote = useCallback(async (noteId: number, draft: TaskDraft): Promise<Task> => {
-    const task = await tasksApi.create(projectId, { ...draft, sourceNoteId: noteId });
+  /** `targetProjectId`: the task may go into another project (US-22), e.g. from a notebook. */
+  const createTaskFromNote = useCallback(async (noteId: number, draft: TaskDraft, targetProjectId = projectId): Promise<Task> => {
+    const task = await tasksApi.create(targetProjectId, { ...draft, sourceNoteId: noteId });
     // The server knows the column names; take the note's task list from there. Only the tasks change,
     // so an edit that is still being saved is not overwritten.
     const { tasks } = await notesApi.get(noteId);

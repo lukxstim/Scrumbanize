@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useAutosave, type SaveStatus } from '../../hooks/useAutosave';
+import { useProjects } from '../../hooks/useProjects';
 import type { ProjectColor } from '../../types/project';
 import type { BoardColumn, Label, Lane, LinkKind, Task, TaskPatch } from '../../types/task';
 import LabelPicker from '../tasks/LabelPicker';
@@ -11,6 +12,7 @@ import { UNTITLED_NOTE } from '../../utils/taskFromNote';
 import ScheduleFields from '../tasks/ScheduleFields';
 import TaskLinks from '../tasks/TaskLinks';
 import AttachmentsPanel from '../attachments/AttachmentsPanel';
+import Backlinks from '../notes/Backlinks';
 import type { Attachment } from '../../types/attachment';
 import { linkCandidates } from '../../utils/links';
 import MarkdownEditor from '../editor/MarkdownEditor';
@@ -68,6 +70,7 @@ export default function TaskDetailDialog({
   const [description, setDescription] = useState(task.description);
   const [deleteFailed, setDeleteFailed] = useState(false);
   // Priority and dates are saved right away (no typing involved); a failed save puts the old values back.
+  const { projects } = useProjects();
   const [dates, setDates] = useState<Schedule>({ priority: task.priority, startDate: task.startDate, dueDate: task.dueDate });
   const [scheduleFailed, setScheduleFailed] = useState(false);
   // Labels are saved right away, too.
@@ -194,9 +197,17 @@ export default function TaskDetailDialog({
         {task.sourceNote && (
           <p className="text-sm text-fg-subtle">
             Aus Notiz:{' '}
-            <Link to={paths.notes(task.projectId, task.sourceNote.id)} className="font-medium text-accent-text hover:underline">
-              {task.sourceNote.title || UNTITLED_NOTE}
-            </Link>
+            {/* The note may be in another project or notebook (US-22), maybe one the user cannot open. */}
+            {task.sourceNote.restricted ? (
+              <span className="rounded-full border border-line px-2 py-0.5 text-xs">Kein Zugriff</span>
+            ) : (
+              <Link to={paths.notes(task.sourceNote.projectId, task.sourceNote.id)} className="font-medium text-accent-text hover:underline">
+                {task.sourceNote.title || UNTITLED_NOTE}
+              </Link>
+            )}
+            {!task.sourceNote.restricted && task.sourceNote.projectId !== task.projectId && (
+              <span> in „{projects.find((p) => p.id === task.sourceNote?.projectId)?.name ?? 'anderem Projekt'}“</span>
+            )}
           </p>
         )}
 
@@ -237,9 +248,10 @@ export default function TaskDetailDialog({
               value={description}
               onChange={(next) => change({ description: next })}
               label="Beschreibung"
-              placeholder="Beschreibung …"
+              placeholder="Beschreibung … ([[ verlinkt Notizen und Tasks)"
               minHeightClass="min-h-40"
               readOnly={readOnly}
+              links={{ projectId: task.projectId }}
             />
           </div>
         </div>
@@ -250,6 +262,8 @@ export default function TaskDetailDialog({
           onUpdate={(update) => onUpdateAttachments(task.id, update)}
           readOnly={readOnly}
         />
+
+        <Backlinks target={{ type: 'task', id: task.id }} projectId={task.projectId} />
       </div>
 
       <div className="flex items-center gap-3 border-t border-line px-6 py-3 text-xs text-fg-subtle">

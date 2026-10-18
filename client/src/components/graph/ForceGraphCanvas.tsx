@@ -113,7 +113,9 @@ export default function ForceGraphCanvas({ projectId, data, matches, onOpen, onH
       .d3VelocityDecay(0.35)
       .cooldownTicks(300)
       .linkColor(() => state.current.palette.edge)
-      .linkWidth((link) => (link.kind === 'relates' ? 1 : 1.5))
+      .linkWidth((link) => (link.kind === 'relates' || link.kind === 'mentions' ? 1 : 1.5))
+      // Links in the text (US-22) are dashed.
+      .linkLineDash((link) => (link.kind === 'mentions' ? [3, 2] : null))
       .linkDirectionalArrowLength((link) => (link.kind === 'blocks' ? 5 : 0))
       .linkDirectionalArrowRelPos(1)
       .linkVisibility((link) => {
@@ -226,18 +228,33 @@ function drawNode(
   const r = nodeRadius(node.degree);
   const dimmed = (focus.size > 0 && !focus.has(node.id)) || (matches.size > 0 && !matches.has(node.id) && !focus.has(node.id));
   const isDone = node.type === 'task' && node.done;
-  ctx.globalAlpha = dimmed ? 0.15 : isDone ? 0.55 : 1;
+  // Notes and tasks of other projects or notebooks (US-22) are hollow and fainter.
+  const external = node.external !== undefined;
+  ctx.globalAlpha = dimmed ? 0.15 : isDone || external ? 0.55 : 1;
 
   // Shape tells the type, not just color: notes are circles, tasks rounded squares.
   ctx.beginPath();
   if (node.type === 'note') ctx.arc(x, y, r, 0, 2 * Math.PI);
   else ctx.roundRect(x - r, y - r, 2 * r, 2 * r, r * 0.35);
-  ctx.fillStyle = node.type === 'note' ? palette.note : isDone ? palette.done : palette.task;
-  ctx.fill();
-  // A ring in the surface color keeps overlapping nodes apart.
-  ctx.lineWidth = 1.5 / scale;
-  ctx.strokeStyle = palette.surface;
-  ctx.stroke();
+  const color = node.type === 'note' ? palette.note : isDone ? palette.done : palette.task;
+  if (external) {
+    // Opaque inside, so edges do not show through; only the ring is faint.
+    const alpha = ctx.globalAlpha;
+    ctx.globalAlpha = dimmed ? alpha : 1;
+    ctx.fillStyle = palette.surface;
+    ctx.fill();
+    ctx.globalAlpha = alpha;
+    ctx.lineWidth = 2 / scale;
+    ctx.strokeStyle = color;
+    ctx.stroke();
+  } else {
+    ctx.fillStyle = color;
+    ctx.fill();
+    // A ring in the surface color keeps overlapping nodes apart.
+    ctx.lineWidth = 1.5 / scale;
+    ctx.strokeStyle = palette.surface;
+    ctx.stroke();
+  }
 
   // Up to three label dots along the bottom edge of a task, each with a ring in the surface color.
   if (node.type === 'task' && node.labels.length > 0 && scale >= 0.6) {

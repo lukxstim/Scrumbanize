@@ -1,5 +1,9 @@
 import { lazy, Suspense, useState } from 'react';
+import { useProjects } from '../../hooks/useProjects';
 import { folderPath } from '../../utils/folders';
+import { can } from '../../utils/permissions';
+import { getLastProjectId, ofKind } from '../../utils/projects';
+import Backlinks from './Backlinks';
 import MoveToFolderDialog from './MoveToFolderDialog';
 import { useAutosave, type SaveStatus } from '../../hooks/useAutosave';
 import { useToast } from '../../hooks/useToast';
@@ -27,7 +31,7 @@ interface NoteEditorProps {
   autoFocusTitle: boolean;
   onSave: (id: number, input: NoteInput) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
-  onCreateTask: (noteId: number, draft: TaskDraft) => Promise<Task>;
+  onCreateTask: (noteId: number, draft: TaskDraft, projectId: number) => Promise<Task>;
   /** Takes back a task just created from this note. */
   onDiscardTask: (taskId: number) => Promise<void>;
   onUpdateAttachments: (noteId: number, update: (attachments: Attachment[]) => Attachment[]) => void;
@@ -38,8 +42,6 @@ interface NoteEditorProps {
   /** The project's folders (US-22), for showing and changing where the note is. */
   folders?: Folder[];
   onMove?: (folderId: number | null) => Promise<void>;
-  /** False in notebooks: they have no board to put tasks on. */
-  withTasks?: boolean;
 }
 
 export default function NoteEditor({
@@ -55,8 +57,12 @@ export default function NoteEditor({
   readOnly = false,
   folders = [],
   onMove,
-  withTasks = true,
 }: NoteEditorProps) {
+  // Tasks may go into any project the user may add tasks to (US-22): the note's own, or the last one used.
+  const { projects } = useProjects();
+  const taskProjects = ofKind(projects, 'project').filter((p) => can(p.role, 'edit'));
+  const defaultTaskProject =
+    taskProjects.find((p) => p.id === note.projectId) ?? taskProjects.find((p) => p.id === getLastProjectId()) ?? taskProjects[0];
   const [moving, setMoving] = useState(false);
   const path = folderPath(folders, note.folderId);
   const [draft, setDraft] = useState<NoteInput>({ title: note.title, content: note.content, tags: note.tags });
@@ -95,11 +101,12 @@ export default function NoteEditor({
     void flush();
   }
 
-  async function createTask(taskDraft: TaskDraft) {
-    const task = await onCreateTask(note.id, taskDraft);
+  async function createTask(taskDraft: TaskDraft, projectId: number) {
+    const task = await onCreateTask(note.id, taskDraft, projectId);
     setConversion(null);
+    const elsewhere = projectId === note.projectId ? '' : ` in „${projects.find((p) => p.id === projectId)?.name ?? ''}“`;
     toast({
-      message: `Task #${task.id} „${task.title}“ angelegt.`,
+      message: `Task #${task.id} „${task.title}“${elsewhere} angelegt.`,
       action: {
         label: 'Rückgängig',
         onClick: async () => {
@@ -125,7 +132,7 @@ export default function NoteEditor({
       }}
     >
       <div className="flex items-center gap-2 border-b border-line px-6 py-2.5">
-        {!readOnly && withTasks && (
+        {!readOnly && defaultTaskProject && (
           <Button
             size="sm"
             // Keep the text selection (and the editor's focus) when the button is clicked.
@@ -206,9 +213,10 @@ export default function NoteEditor({
             onChange={(content) => change({ content })}
             onSelectionChange={setSelection}
             label="Inhalt"
-            placeholder="Schreibe deine Notiz …"
+            placeholder="Schreibe deine Notiz … ([[ verlinkt Notizen und Tasks)"
             minHeightClass="min-h-64"
             readOnly={readOnly}
+            links={{ projectId: note.projectId }}
           />
           <AttachmentsPanel
             owner={{ type: 'note', id: note.id }}
@@ -216,14 +224,17 @@ export default function NoteEditor({
             onUpdate={(update) => onUpdateAttachments(note.id, update)}
             readOnly={readOnly}
           />
+          <Backlinks target={{ type: 'note', id: note.id }} projectId={note.projectId} />
         </div>
       </div>
 
 
-      {conversion && (
+      {conversion && defaultTaskProject && (
         <ConvertToTaskDialog
           initial={conversion.draft}
           fromSelection={conversion.fromSelection}
+          projects={taskProjects}
+          initialProjectId={defaultTaskProject.id}
           onSubmit={createTask}
           onCancel={() => setConversion(null)}
         />

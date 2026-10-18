@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { Project } from '../../types/project';
 import type { TaskPriority } from '../../types/task';
 import type { TaskDraft } from '../../utils/taskFromNote';
 import { DateField, PriorityPicker } from '../tasks/ScheduleFields';
@@ -10,11 +11,15 @@ interface ConvertToTaskDialogProps {
   /** Pre-filled values; the dialog is open while it is mounted. */
   initial: TaskDraft;
   fromSelection: boolean;
-  onSubmit: (draft: TaskDraft) => Promise<void>;
+  /** Where the task may go (US-22): every project the user may add tasks to; notebooks have no board. */
+  projects: Project[];
+  initialProjectId: number;
+  onSubmit: (draft: TaskDraft, projectId: number) => Promise<void>;
   onCancel: () => void;
 }
 
-export default function ConvertToTaskDialog({ initial, fromSelection, onSubmit, onCancel }: ConvertToTaskDialogProps) {
+export default function ConvertToTaskDialog({ initial, fromSelection, projects, initialProjectId, onSubmit, onCancel }: ConvertToTaskDialogProps) {
+  const [projectId, setProjectId] = useState(initialProjectId);
   const [title, setTitle] = useState(initial.title);
   const [description, setDescription] = useState(initial.description);
   const [priority, setPriority] = useState<TaskPriority | null>(initial.priority ?? null);
@@ -26,7 +31,7 @@ export default function ConvertToTaskDialog({ initial, fromSelection, onSubmit, 
     setSubmitting(true);
     setFailed(false);
     try {
-      await onSubmit({ title: title.trim(), description, priority, dueDate });
+      await onSubmit({ title: title.trim(), description, priority, dueDate }, projectId);
     } catch {
       setFailed(true);
       setSubmitting(false);
@@ -50,6 +55,17 @@ export default function ConvertToTaskDialog({ initial, fromSelection, onSubmit, 
         </p>
 
         <label className={`mt-5 ${labelClass}`}>
+          Projekt
+          <select value={projectId} onChange={(event) => setProjectId(Number(event.target.value))} className={`mt-1 font-normal ${fieldClass}`}>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className={`mt-4 ${labelClass}`}>
           Titel
           <input
             value={title}
