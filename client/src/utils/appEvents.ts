@@ -47,6 +47,18 @@ export function onTrashChanged(handler: () => void): () => void {
   return () => window.removeEventListener(TRASH_CHANGED, handler);
 }
 
+const UNAUTHORIZED = 'scrumbanize:unauthorized';
+
+/** The server answered 401: the session ended (logout elsewhere, expired). The login takes over (useAuth). */
+export function notifyUnauthorized(): void {
+  window.dispatchEvent(new Event(UNAUTHORIZED));
+}
+
+export function onUnauthorized(handler: () => void): () => void {
+  window.addEventListener(UNAUTHORIZED, handler);
+  return () => window.removeEventListener(UNAUTHORIZED, handler);
+}
+
 const DIALOG_OPENED = 'scrumbanize:dialog-opened';
 
 /** Announces that a modal dialog opened, so the toasts can move above it (see useToast). */

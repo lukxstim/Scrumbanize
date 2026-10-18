@@ -4,6 +4,9 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import express from 'express';
 import type { Db } from './database.js';
+import { authenticate, requireAuth, sameOriginForChanges, type AuthMode } from './auth/middleware.js';
+import { createRateLimiter } from './auth/rateLimit.js';
+import { createSetupCode } from './auth/setupCode.js';
 import { createRestoreService } from './backup.js';
 import { apiNotFoundHandler, errorHandler } from './errors.js';
 import { hostGuard } from './hostGuard.js';
@@ -21,7 +24,9 @@ import { createSearchRepository } from './repositories/searchRepository.js';
 import { createTasksRepository } from './repositories/tasksRepository.js';
 import { createTemplatesRepository } from './repositories/templatesRepository.js';
 import { createTrashRepository } from './repositories/trashRepository.js';
+import { createUsersRepository } from './repositories/usersRepository.js';
 import { attachmentsRouter } from './routes/attachments.js';
+import { authRouter } from './routes/auth.js';
 import { backupRouter } from './routes/backup.js';
 import { columnsRouter, lanesRouter } from './routes/board.js';
 import { exportsRouter } from './routes/exports.js';
@@ -48,6 +53,17 @@ export interface AppOptions {
   desktop?: DesktopInfo;
   /** Folder for attachment files (`<dataDir>/uploads`); backups use its parent. Tests may leave it out and get a throwaway folder. */
   uploadsDir?: string;
+  /**
+   * `required`: log in with email and password (web, Docker). `local`: everyone is the local user, as in the desktop
+   * app and with `AUTH=off`. Defaults to `local`, which existing tests rely on; startServer always passes it.
+   */
+  auth?: AuthMode;
+  /** Where the setup code for the first administrator goes (the server's output). */
+  onSetupCode?: (code: string) => void;
+  /** Further origins whose pages may send changes, e.g. BASE_URL behind a proxy. */
+  allowedOrigins?: readonly string[];
+  /** Express "trust proxy": behind a reverse proxy, so the client's address and HTTPS are seen correctly. */
+  trustProxy?: boolean | number | string;
 }
 
 export function createApp(db: Db, options: AppOptions = {}): express.Express {
@@ -65,6 +81,12 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   const trash = createTrashRepository(db);
   const meta = createMetaRepository(db);
   const reminders = createRemindersRepository(db);
+  const users = createUsersRepository(db);
+  const authMode = options.auth ?? 'local';
+  const setupCode = createSetupCode(options.onSetupCode ?? (() => {}));
+  // 10 failed attempts per 15 minutes, per IP address and per email.
+  const limiter = createRateLimiter({ limit: 10, windowMs: 15 * 60 * 1000 });
+  if (authMode === 'required' && users.setupRequired()) setupCode.current();
   // Backups and restores work next to the uploads folder (in the data directory), so the fallback gets its own parent.
   const uploadsDir = options.uploadsDir ?? path.join(os.tmpdir(), `scrumbanize-${randomUUID()}`, 'uploads');
   const attachments = createAttachmentsRepository(db, uploadsDir);
@@ -81,14 +103,21 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   });
 
   app.disable('x-powered-by');
+  if (options.trustProxy !== undefined) app.set('trust proxy', options.trustProxy);
   // Before everything else, so rejected requests reach neither the API nor the static files.
   if (options.trustedHosts) app.use(hostGuard(options.trustedHosts));
   app.use(express.json({ limit: '2mb' }));
 
   const api = express.Router();
+  // With a session cookie, only the app's own pages may change something.
+  if (authMode === 'required') api.use(sameOriginForChanges(options.allowedOrigins));
+  api.use(authenticate(authMode, users));
+  // Public: health check, login and setup. Everything after requireAuth needs a logged-in user (US-21).
   api.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
+  api.use('/auth', authRouter({ mode: authMode, users, setupCode, limiter }));
+  api.use(requireAuth);
   // Facts about the installation; `sampleProjectId` is null once the sample project was deleted, `desktop` is
   // null outside the desktop app.
   api.get('/meta', (_req, res) => {

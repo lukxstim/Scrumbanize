@@ -92,6 +92,8 @@ async function start(): Promise<void> {
     dataDir: app.getPath('userData'),
     clientDist,
     desktop: { version: app.getVersion(), releasesUrl: RELEASES_URL },
+    // Only this computer reaches the app (127.0.0.1, hostGuard), so there is nothing to log in to (US-21).
+    auth: 'local',
   });
   log(`Scrumbanize ${app.getVersion()} started: ${server.url}, database ${server.dbFile}`);
   if (server.port !== PREFERRED_PORT) log(`Port ${PREFERRED_PORT} was busy; settings stored in the browser start fresh on this port.`);

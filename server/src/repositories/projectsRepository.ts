@@ -1,4 +1,5 @@
 import { text } from '../activityText.js';
+import { currentUserId } from '../auth/currentUser.js';
 import type { Db } from '../database.js';
 import type { ProjectInput, ProjectPatch } from '../validation.js';
 import { createActivityRepository } from './activityRepository.js';
@@ -57,6 +58,9 @@ export function createProjectsRepository(db: Db) {
   );
   const setDeletedAt = db.prepare<[string | null, number]>(`UPDATE projects SET deleted_at = ? WHERE id = ?`);
   const setName = db.prepare<[string, number]>(`UPDATE projects SET name = ? WHERE id = ?`);
+  const insertOwner = db.prepare<[number, number, string]>(
+    `INSERT INTO project_members (project_id, user_id, role, created_at) VALUES (?, ?, 'owner', ?)`,
+  );
   const insertProject = db.prepare<[string, string, string, string], { id: number }>(
     `INSERT INTO projects (name, color, created_at, updated_at) VALUES (?, ?, ?, ?) RETURNING id`,
   );
@@ -120,6 +124,9 @@ export function createProjectsRepository(db: Db) {
       const { id } = insertProject.get(input.name, input.color, now, now)!;
       board.createDefaults(id);
       labels.createStarters(id);
+      // Whoever creates a project owns it (US-21); outside a request (sample project) nobody does yet.
+      const userId = currentUserId();
+      if (userId !== undefined) insertOwner.run(id, userId, now);
       activities.record({
         projectId: id,
         entityType: 'project',

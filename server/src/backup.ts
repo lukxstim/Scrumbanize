@@ -52,6 +52,12 @@ function countData(db: Db): BackupCounts {
   };
 }
 
+/**
+ * Logins are not data: sessions and one-time links (invitations, password resets) never go into a backup, and a
+ * restore does not bring any back – everyone logs in again afterwards (US-21).
+ */
+export const TABLES_NOT_BACKED_UP = ['sessions', 'auth_tokens'] as const;
+
 export const backupFileName = (now: Date) => `scrumbanize-backup-${now.toISOString().slice(0, 10)}.zip`;
 
 /**
@@ -63,6 +69,15 @@ export async function writeBackup(db: Db, uploadsDir: string, out: Writable, now
   try {
     const snapshot = path.join(tmpDir, DB_FILE_NAME);
     db.prepare(`VACUUM INTO ?`).run(snapshot);
+    const copy = new Database(snapshot);
+    try {
+      for (const table of TABLES_NOT_BACKED_UP) {
+        if (copy.prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?`).get(table)) copy.exec(`DELETE FROM ${table}`);
+      }
+      copy.exec('VACUUM');
+    } finally {
+      copy.close();
+    }
     const manifest: BackupManifest = {
       app: 'scrumbanize',
       format: 1,
@@ -243,6 +258,7 @@ export function replaceData(db: Db, sourceFile: string): void {
       db.pragma('defer_foreign_keys = ON');
       for (const table of tables) db.exec(`DELETE FROM main.${quote(table)}`);
       for (const table of tables) {
+        if ((TABLES_NOT_BACKED_UP as readonly string[]).includes(table)) continue;
         const shared = columns('restore', table);
         if (shared.length === 0) continue;
         const list = columns('main', table)

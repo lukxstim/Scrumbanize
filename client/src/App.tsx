@@ -4,6 +4,7 @@ import { Link, Navigate, NavLink, Route, Routes, useLocation, useMatch, useNavig
 import BoardPage from './components/board/BoardPage';
 import CommandPalette from './components/CommandPalette';
 import ActivityDrawer from './components/activity/ActivityDrawer';
+import UserMenu from './components/auth/UserMenu';
 import CalendarPage from './components/calendar/CalendarPage';
 import TrashPage from './components/trash/TrashPage';
 import { BoardIcon, CalendarIcon, ChartIcon, HistoryIcon, SettingsIcon, NoteIcon, SearchIcon, TrashIcon } from './components/icons';
@@ -242,6 +243,7 @@ export default function App() {
             </Link>
           </div>
         )}
+        <UserMenu />
       </header>
 
       <Routes>

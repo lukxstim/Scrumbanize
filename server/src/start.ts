@@ -1,6 +1,7 @@
 import { createServer, type Server } from 'node:http';
 import path from 'node:path';
 import { createApp, type DesktopInfo } from './app.js';
+import type { AuthMode } from './auth/middleware.js';
 import { DB_FILE_NAME, openDatabase, UPLOADS_DIR_NAME } from './database.js';
 import { seedSampleProject } from './sampleProject.js';
 import { loopbackHosts } from './hostGuard.js';
@@ -23,6 +24,14 @@ export interface ServerOptions {
   localOnly?: boolean;
   /** The desktop app passes its version and release page, for the reminder to look for new versions. */
   desktop?: DesktopInfo;
+  /** `required`: login (web, Docker, dev). `local`: no login, everyone is the local user (desktop app, AUTH=off). */
+  auth: AuthMode;
+  /** Receives the one-time code for setting up the first administrator, e.g. to print it. */
+  onSetupCode?: (code: string) => void;
+  /** Origins besides the server's own address whose pages may send changes (BASE_URL). */
+  allowedOrigins?: readonly string[];
+  /** Express "trust proxy" (TRUST_PROXY), when a reverse proxy terminates HTTPS. */
+  trustProxy?: boolean | number | string;
 }
 
 export interface RunningServer {
@@ -58,6 +67,10 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     uploadsDir,
     desktop: options.desktop,
     trustedHosts: options.localOnly ? () => loopbackHosts(actualPort) : undefined,
+    auth: options.auth,
+    onSetupCode: options.onSetupCode,
+    allowedOrigins: options.allowedOrigins,
+    trustProxy: options.trustProxy,
   });
 
   let server: Server;

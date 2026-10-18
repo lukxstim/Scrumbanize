@@ -174,6 +174,19 @@ export const searchQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
+/** Login and accounts (US-21). Limits of passwords: auth/passwords.ts. */
+const emailSchema = z.string().trim().toLowerCase().max(254).email();
+const userNameSchema = z.string().trim().min(1).max(80);
+const newPasswordSchema = z.string().min(10).max(200);
+
+export const loginSchema = z.object({ email: z.string().trim().max(254), password: z.string().max(200) });
+export const setupSchema = z.object({
+  code: z.string().trim().min(1).max(20),
+  name: userNameSchema,
+  email: emailSchema,
+  password: newPasswordSchema,
+});
+
 /** GET /api/reminders/due?date=…: the caller's local date, since only it knows its time zone. */
 export const remindersQuerySchema = z.object({ date: dateSchema });
 

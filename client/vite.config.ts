@@ -6,7 +6,8 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     proxy: {
-      '/api': `http://localhost:${process.env.PORT ?? 3000}`,
+      // Keep the browser's Host header, so the server sees requests from this page as its own (sameOriginForChanges).
+      '/api': { target: `http://localhost:${process.env.PORT ?? 3000}`, changeOrigin: false },
     },
   },
 });

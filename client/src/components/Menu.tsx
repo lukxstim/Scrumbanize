@@ -17,10 +17,12 @@ interface MenuProps {
   items: MenuItem[];
   align?: 'left' | 'right';
   triggerClassName?: string;
+  /** Shown above the items, e.g. who is logged in; not an item itself. */
+  header?: ReactNode;
 }
 
 /** A button that opens a list of actions; arrow keys move, Escape closes, a click outside closes. */
-export default function Menu({ label, trigger, items, align = 'right', triggerClassName = '' }: MenuProps) {
+export default function Menu({ label, trigger, items, align = 'right', triggerClassName = '', header }: MenuProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -89,6 +91,7 @@ export default function Menu({ label, trigger, items, align = 'right', triggerCl
             align === 'right' ? 'right-0 origin-top-right' : 'left-0 origin-top-left'
           }`}
         >
+          {header && <div className="mb-1 border-b border-line px-3 pt-1 pb-2">{header}</div>}
           {items.map((item) => (
             <button
               key={item.label}

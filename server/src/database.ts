@@ -347,6 +347,50 @@ export const migrations: string[] = [
   `
   ALTER TABLE board_columns ADD COLUMN width INTEGER CHECK (width IS NULL OR width BETWEEN 200 AND 600);
   `,
+  // Users, sessions and project roles (US-21). A user without password_hash is the local user of the desktop app,
+  // who cannot log in. Session and one-time tokens are stored as SHA-256 hashes only. activities.user_id names who
+  // did something (NULL before US-21 and in the desktop app).
+  `
+  CREATE TABLE users (
+    id            INTEGER PRIMARY KEY,
+    email         TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    name          TEXT NOT NULL,
+    password_hash TEXT,
+    system_role   TEXT NOT NULL DEFAULT 'user' CHECK (system_role IN ('admin', 'user')),
+    avatar_color  TEXT NOT NULL DEFAULT 'indigo',
+    avatar_file   TEXT,
+    disabled_at   TEXT,
+    created_at    TEXT NOT NULL,
+    updated_at    TEXT NOT NULL
+  );
+  CREATE TABLE sessions (
+    token_hash   TEXT PRIMARY KEY,
+    user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at   TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL,
+    expires_at   TEXT NOT NULL,
+    user_agent   TEXT
+  );
+  CREATE INDEX idx_sessions_user ON sessions(user_id);
+  CREATE TABLE project_members (
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role       TEXT NOT NULL CHECK (role IN ('owner', 'member', 'viewer')),
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (project_id, user_id)
+  );
+  CREATE INDEX idx_project_members_user ON project_members(user_id);
+  CREATE TABLE auth_tokens (
+    token_hash TEXT PRIMARY KEY,
+    kind       TEXT NOT NULL CHECK (kind IN ('invite', 'reset')),
+    user_id    INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    email      TEXT,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    expires_at TEXT NOT NULL,
+    used_at    TEXT
+  );
+  ALTER TABLE activities ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+  `,
 ];
 
 export interface OpenOptions {

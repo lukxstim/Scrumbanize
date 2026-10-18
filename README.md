@@ -292,10 +292,31 @@ docker compose up -d --build
 
 Die App läuft danach auf <http://localhost:3000>. Ein anderer Port lässt sich mit `SCRUMBANIZE_PORT=8080 docker compose up -d` setzen.
 
+### Anmeldung und Ersteinrichtung (US-21)
+
+Der Server verlangt eine **Anmeldung mit E-Mail und Passwort** (die Desktop-App nicht – sie ist nur auf dem eigenen Computer erreichbar). Beim ersten Start gibt es noch kein Konto; der Server schreibt dann einen **Einrichtungscode** in seine Ausgabe:
+
+```sh
+docker compose logs scrumbanize
+# Ersteinrichtung: http://localhost:3000/setup
+# Einrichtungscode: K7PM-3XQD
+```
+
+Unter `/setup` legt man mit diesem Code das erste Konto an. Es wird Administrator und **Owner aller vorhandenen Projekte** – auch nach einem Update von einer Version ohne Benutzer bleiben die Daten also beim ersten Konto. Der Code gilt nur bis zur Einrichtung und wird bei jedem Neustart ohne Administrator neu erzeugt; wer nur die Adresse kennt, kann den Server so nicht übernehmen.
+
+- **Sitzungen:** ein HttpOnly-Cookie (`SameSite=Lax`, über HTTPS `Secure`), 30 Tage gültig ab der letzten Nutzung. In der Datenbank liegt nur ein Hash des Tokens; Backups enthalten keine Sitzungen, nach einer Wiederherstellung melden sich alle neu an.
+- **Passwörter:** mindestens 10 Zeichen, gespeichert als Argon2id-Hash (Node.js-Bordmittel, Ausweichlösung scrypt).
+- **Schutz:** höchstens 10 Fehlversuche pro 15 Minuten je IP-Adresse und je E-Mail-Adresse; Änderungen (POST, PUT, PATCH, DELETE) nur von der eigenen Seite (`Origin`/`Sec-Fetch-Site`), damit fremde Webseiten nichts im Namen angemeldeter Personen auslösen.
+- **Hinter einem Reverse Proxy** (z. B. Caddy mit HTTPS): `TRUST_PROXY=1` setzen, damit der Server HTTPS und die echte IP-Adresse erkennt, und `BASE_URL` auf die öffentliche Adresse.
+- **Ohne Anmeldung** (nur in einem vertrauenswürdigen Netz!): `AUTH=off`.
+
 Die SQLite-Datenbank und die Anhänge liegen im Volume `scrumbanize-data` (im Container unter `/data/scrumbanize.db` und `/data/uploads/`) und bleibt bei Neustarts und Updates erhalten. Backup und Wiederherstellung gehen in der App über **Einstellungen** (Zahnrad oben rechts); Sicherungen vor einer Wiederherstellung landen unter `/data/backups/`. Ohne Browser, z. B. für ein nächtliches Backup:
 
 ```sh
-curl -o scrumbanize-backup.zip http://localhost:3000/api/backup
+# Anmelden (Cookie in cookies.txt), dann herunterladen
+curl -c cookies.txt -H 'Content-Type: application/json' \
+  -d '{"email":"admin@example.com","password":"…"}' http://localhost:3000/api/auth/login
+curl -b cookies.txt -o scrumbanize-backup.zip http://localhost:3000/api/backup
 ```
 
 Oder direkt im Container, während er läuft:
@@ -329,6 +350,9 @@ Lokal liegen die Datenbank unter `data/scrumbanize.db` und die Anhänge unter `d
 | `HOST`        | alle Netzwerkschnittstellen | Adresse, an die der Server bindet (z. B. `127.0.0.1`) |
 | `DATA_DIR`    | `<repo>/data`, Docker: `/data` | Verzeichnis der SQLite-Datenbank und der Anhänge (`uploads/`) |
 | `CLIENT_DIST` | `<repo>/client/dist`     | Gebauter Client, der mit ausgeliefert wird |
+| `AUTH`        | Anmeldung an             | `off` schaltet die Anmeldung ab (alle sind der lokale Benutzer, wie in der Desktop-App) – nur in einem vertrauenswürdigen Netz |
+| `BASE_URL`    | –                        | Öffentliche Adresse, z. B. `https://scrumbanize.example.org`; Seiten von dort dürfen Änderungen schicken, und die Einrichtungsadresse wird damit angezeigt |
+| `TRUST_PROXY` | –                        | Hinter einem Reverse Proxy: `1` (ein Proxy), `true` oder Adressen wie in Express' „trust proxy“ – für `Secure`-Cookies und die echte IP-Adresse bei der Begrenzung von Fehlversuchen |
 
 ## Projektstruktur
 
@@ -341,11 +365,15 @@ npm-Workspaces mit drei Paketen:
 
 ## REST-API
 
-Listen und Neuanlagen gehören zu einem Projekt (`/api/projects/:projectId/…`). Einzelne Notizen und Tasks werden über ihre projektübergreifend eindeutige ID angesprochen.
+Alle Endpunkte außer `/api/health` und `/api/auth/*` verlangen eine Anmeldung (sonst 401 `unauthenticated`); ohne Anmeldung (Desktop-App, `AUTH=off`) gilt jede Anfrage als vom lokalen Benutzer. Listen und Neuanlagen gehören zu einem Projekt (`/api/projects/:projectId/…`). Einzelne Notizen und Tasks werden über ihre projektübergreifend eindeutige ID angesprochen.
 
 | Methode | Pfad              | Beschreibung |
 |---------|-------------------|--------------|
-| GET     | `/api/health`     | Health-Check |
+| GET     | `/api/health`     | Health-Check (ohne Anmeldung) |
+| GET     | `/api/auth/session` | Ohne Anmeldung: `{ "mode": "required" \| "local", "setupRequired", "user" }` – ob es eine Anmeldung gibt, ob noch eingerichtet werden muss und wer angemeldet ist |
+| POST    | `/api/auth/setup` | Erstes Konto (Administrator, Owner aller Projekte): `{ "code", "name", "email", "password" }` – nur solange es keinen Administrator gibt (sonst 409), Code aus der Server-Ausgabe (sonst 403) |
+| POST    | `/api/auth/login` | `{ "email", "password" }` → Sitzungs-Cookie und `{ "user" }`; falsch: 401 `wrong_credentials`, zu viele Versuche: 429 |
+| POST    | `/api/auth/logout` | Beendet die Sitzung (204) |
 | GET     | `/api/meta`       | Angaben zur Installation: `{ "sampleProjectId", "desktop", "restoredAt" }` – das Beispielprojekt des ersten Starts (`null`, wenn es (nicht mehr) existiert oder im Papierkorb liegt), Version der Desktop-App (sonst `null`) und Zeitpunkt der letzten Wiederherstellung eines Backups (sonst `null`) |
 | GET     | `/api/projects`   | Alle Projekte, alphabetisch, mit `noteCount` und `taskCount` |
 | POST    | `/api/projects`   | Projekt anlegen: `{ "name", "color" }` – Farben: `slate`, `red`, `amber`, `emerald`, `sky`, `indigo`, `violet`, `pink`. Namen sind eindeutig (ohne Groß-/Kleinschreibung), sonst 409 |

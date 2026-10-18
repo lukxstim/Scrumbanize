@@ -2,13 +2,14 @@ import type { ActivityEntity, ActivityPage } from '../types/activity';
 import type { AnalyticsQuery, AnalyticsReport } from '../types/analytics';
 import type { GraphData } from '../types/graph';
 import type { Attachment, AttachmentOwner } from '../types/attachment';
+import type { AuthSession, AuthUser } from '../types/auth';
 import type { Note, NoteInput } from '../types/note';
 import type { Project, ProjectInput } from '../types/project';
 import type { ProjectColor } from '../types/project';
 import type { BoardColumn, Label, Lane, LinkKind, Task, TaskInput, TaskPatch } from '../types/task';
 import type { Template, TemplateInput, TemplateKind } from '../types/template';
 import type { EmptyResult, RestoreResult, TrashItem, TrashType } from '../types/trash';
-import { notifyTrashChanged } from './appEvents';
+import { notifyTrashChanged, notifyUnauthorized } from './appEvents';
 
 export class ApiError extends Error {
   constructor(
@@ -27,6 +28,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   });
 
   if (!res.ok) {
+    // Outside the login itself, a 401 means the session is over; the app shows the login.
+    if (res.status === 401 && !path.startsWith('/auth/')) notifyUnauthorized();
     const body = await res.json().catch(() => null);
     throw new ApiError(res.status, body?.error?.code ?? 'unknown', body?.error?.message ?? res.statusText);
   }
@@ -40,6 +43,16 @@ async function trashRequest<T>(path: string, init: RequestInit): Promise<T> {
   notifyTrashChanged();
   return result;
 }
+
+/** Login and the first administrator (US-21). */
+export const authApi = {
+  session: () => request<AuthSession>('/auth/session'),
+  login: (email: string, password: string) =>
+    request<{ user: AuthUser }>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  setup: (input: { code: string; name: string; email: string; password: string }) =>
+    request<{ user: AuthUser }>('/auth/setup', { method: 'POST', body: JSON.stringify(input) }),
+  logout: () => request<void>('/auth/logout', { method: 'POST' }),
+};
 
 /** Set when the app runs inside the desktop app. */
 export interface DesktopInfo {

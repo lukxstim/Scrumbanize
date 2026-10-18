@@ -20,7 +20,7 @@ afterEach(async () => {
 });
 
 async function start(options: Partial<Parameters<typeof startServer>[0]> = {}) {
-  const server = await startServer({ port: 0, host: '127.0.0.1', dataDir, ...options });
+  const server = await startServer({ port: 0, host: '127.0.0.1', dataDir, auth: 'local', ...options });
   running.push(server);
   return server;
 }
@@ -127,5 +127,17 @@ describe('local-only mode (desktop app)', () => {
   it('is off by default (dev and Docker are reached via other host names)', async () => {
     const server = await start();
     expect((await request(server.port, { headers: { host: 'my-nas.local:3000', origin: 'http://my-nas.local:3000' } })).status).toBe(200);
+  });
+});
+
+describe('login (US-21)', () => {
+  it('announces a setup code when started with login and no administrator, and keeps the API closed', async () => {
+    const codes: string[] = [];
+    const server = await start({ auth: 'required', onSetupCode: (code) => codes.push(code) });
+    expect(codes).toHaveLength(1);
+    expect((await request(server.port, { path: '/api/projects' })).status).toBe(401);
+    expect((await request(server.port, { path: '/api/health' })).status).toBe(200);
+    // The app can ask whether a setup is needed, to show the setup page.
+    expect((await request(server.port, { path: '/api/auth/session' })).body).toContain('"setupRequired":true');
   });
 });

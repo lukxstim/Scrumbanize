@@ -123,20 +123,20 @@ describe('first start', () => {
   const projectNames = async () => ((await (await fetch(`${server!.url}/api/projects`)).json()) as { name: string }[]).map((p) => p.name);
 
   it('creates the sample once, also after it was deleted', async () => {
-    server = await startServer({ port: 0, host: '127.0.0.1', dataDir: dir });
+    server = await startServer({ port: 0, host: '127.0.0.1', auth: 'local', dataDir: dir });
     expect(await projectNames()).toEqual(['Allgemein', SAMPLE_PROJECT_NAME]);
     const { sampleProjectId } = (await (await fetch(`${server.url}/api/meta`)).json()) as { sampleProjectId: number };
     await fetch(`${server.url}/api/projects/${sampleProjectId}`, { method: 'DELETE' });
     await fetch(`${server.url}/api/trash/project/${sampleProjectId}`, { method: 'DELETE' });
     await server.close();
 
-    server = await startServer({ port: 0, host: '127.0.0.1', dataDir: dir });
+    server = await startServer({ port: 0, host: '127.0.0.1', auth: 'local', dataDir: dir });
     expect(await projectNames()).toEqual(['Allgemein']);
   });
 
   it('tells the client when it runs in the desktop app, with version and release page', async () => {
     const desktop = { version: '1.2.3', releasesUrl: 'https://example.com/releases/latest' };
-    server = await startServer({ port: 0, host: '127.0.0.1', dataDir: dir, desktop });
+    server = await startServer({ port: 0, host: '127.0.0.1', auth: 'local', dataDir: dir, desktop });
     expect(await (await fetch(`${server.url}/api/meta`)).json()).toMatchObject({ desktop });
   });
 
@@ -146,7 +146,7 @@ describe('first start', () => {
     v10.pragma('user_version = 10');
     v10.close();
 
-    server = await startServer({ port: 0, host: '127.0.0.1', dataDir: dir });
+    server = await startServer({ port: 0, host: '127.0.0.1', auth: 'local', dataDir: dir });
     expect(await projectNames()).toEqual(['Allgemein']);
     expect(await (await fetch(`${server.url}/api/meta`)).json()).toEqual({ sampleProjectId: null, desktop: null, restoredAt: null });
   });
