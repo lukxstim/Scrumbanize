@@ -23,6 +23,8 @@ interface BoardCellProps {
   onOpenTask: (id: number) => void;
   onMoveTask: (id: number, columnId: number) => void;
   footer?: ReactNode;
+  /** Viewers (US-21): cards cannot be moved. */
+  readOnly?: boolean;
 }
 
 /** One column within one lane. `data-cell-*` and the cards' `data-task-id` are measured while dragging. */
@@ -42,6 +44,7 @@ export default function BoardCell({
   onOpenTask,
   onMoveTask,
   footer,
+  readOnly = false,
 }: BoardCellProps) {
   return (
     <div
@@ -63,6 +66,7 @@ export default function BoardCell({
           flash={task.id === flashId}
           onOpen={onOpenTask}
           onMoveTo={onMoveTask}
+          readOnly={readOnly}
         />
       ))}
       {footer}

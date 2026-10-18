@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { HttpError, notFound } from '../errors.js';
+import type { Access } from '../auth/access.js';
 import { attachmentDisposition, boardToCsv, noteToHtml, noteToMarkdown, safeFileName, uniqueNames } from '../exports.js';
 import type { AttachmentsRepository } from '../repositories/attachmentsRepository.js';
 import type { BoardRepository } from '../repositories/boardRepository.js';
@@ -10,6 +11,7 @@ import { exportQuerySchema, idParamSchema, importNotesSchema } from '../validati
 import { createZipStream, isCompressible } from '../zipStream.js';
 
 interface Repositories {
+  access: Access;
   projects: ProjectsRepository;
   notes: NotesRepository;
   tasks: TasksRepository;
@@ -20,7 +22,7 @@ interface Repositories {
 const today = () => new Date().toISOString().slice(0, 10);
 
 /** Notes as Markdown/HTML, the board as CSV, and the notes import. Mounted at /api. */
-export function exportsRouter({ projects, notes, tasks, board, attachments }: Repositories): Router {
+export function exportsRouter({ access, projects, notes, tasks, board, attachments }: Repositories): Router {
   const router = Router();
 
   const projectOf = (raw: unknown) => {
@@ -30,7 +32,7 @@ export function exportsRouter({ projects, notes, tasks, board, attachments }: Re
     return project;
   };
 
-  router.get('/notes/:id/export', (req, res) => {
+  router.get('/notes/:id/export', access.requireRole('viewer', access.of.note()), (req, res) => {
     const note = notes.get(idParamSchema.parse(req.params.id));
     if (!note) throw notFound('Note not found');
     const { format } = exportQuerySchema.parse(req.query);
@@ -41,7 +43,7 @@ export function exportsRouter({ projects, notes, tasks, board, attachments }: Re
   });
 
   /** All notes of the project as files in a ZIP, each note's attachments in a folder named like the note. */
-  router.get('/projects/:projectId/export/notes', async (req, res) => {
+  router.get('/projects/:projectId/export/notes', access.requireRole('viewer', access.of.project()), async (req, res) => {
     const project = projectOf(req.params.projectId);
     const { format } = exportQuerySchema.parse(req.query);
     // Older notes first among equal titles, so they keep the plain file name.
@@ -68,7 +70,7 @@ export function exportsRouter({ projects, notes, tasks, board, attachments }: Re
     }
   });
 
-  router.get('/projects/:projectId/export/board.csv', (req, res) => {
+  router.get('/projects/:projectId/export/board.csv', access.requireRole('viewer', access.of.project()), (req, res) => {
     const project = projectOf(req.params.projectId);
     const csv = boardToCsv(tasks.list(project.id), board.listColumns(project.id), board.listLanes(project.id));
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -77,7 +79,7 @@ export function exportsRouter({ projects, notes, tasks, board, attachments }: Re
   });
 
   /** One batch of notes from the import wizard (which parses the files in the browser). */
-  router.post('/projects/:projectId/import/notes', (req, res) => {
+  router.post('/projects/:projectId/import/notes', access.requireRole('member', access.of.project()), (req, res) => {
     const project = projectOf(req.params.projectId);
     const { notes: batch } = importNotesSchema.parse(req.body);
     if (batch.length === 0) throw new HttpError(400, 'invalid_input', 'No notes');

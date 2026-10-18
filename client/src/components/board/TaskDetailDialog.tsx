@@ -40,9 +40,11 @@ interface TaskDetailDialogProps {
   onCreateLabel: (name: string, color: ProjectColor) => Promise<Label | undefined>;
   /** Opens the template editor with this task as starting point; without it, the button is not shown. */
   onSaveAsTemplate?: (task: Task) => void;
+  /** Viewers (US-21): everything visible, links and files open, nothing changes. */
+  readOnly?: boolean;
 }
 
-const selectClass = `!w-auto !py-1 ${fieldClass}`;
+const selectClass = `!w-auto !py-1 disabled:opacity-60 ${fieldClass}`;
 
 export default function TaskDetailDialog({
   task,
@@ -60,6 +62,7 @@ export default function TaskDetailDialog({
   labels,
   onCreateLabel,
   onSaveAsTemplate,
+  readOnly = false,
 }: TaskDetailDialogProps) {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
@@ -130,6 +133,7 @@ export default function TaskDetailDialog({
           Spalte
           <select
             value={task.columnId}
+            disabled={readOnly}
             onChange={(event) => onMove(task.id, Number(event.target.value), task.laneId)}
             className={selectClass}
           >
@@ -145,6 +149,7 @@ export default function TaskDetailDialog({
             Swimlane
             <select
               value={task.laneId}
+              disabled={readOnly}
               onChange={(event) => onMove(task.id, task.columnId, Number(event.target.value))}
               className={selectClass}
             >
@@ -157,7 +162,11 @@ export default function TaskDetailDialog({
           </label>
         )}
         <div className="flex-1" />
-        <SaveIndicator status={status} titleMissing={!title.trim()} onRetry={() => void flush()} />
+        {readOnly ? (
+          <span className="text-xs text-fg-subtle">Nur lesen</span>
+        ) : (
+          <SaveIndicator status={status} titleMissing={!title.trim()} onRetry={() => void flush()} />
+        )}
         <button type="button" onClick={onClose} aria-label="Schließen" className={`text-lg leading-none ${iconButtonClass}`}>
           ×
         </button>
@@ -173,6 +182,7 @@ export default function TaskDetailDialog({
         <input
           id="task-detail-title"
           value={title}
+          readOnly={readOnly}
           onChange={(event) => change({ title: event.target.value })}
           maxLength={200}
           placeholder="Titel"
@@ -191,7 +201,10 @@ export default function TaskDetailDialog({
         )}
 
         <section aria-label="Priorität und Termine" className="rounded-lg border border-line bg-surface-muted/50 px-4 py-3">
-          <ScheduleFields value={dates} onChange={(next) => void changeSchedule(next)} />
+          {/* A disabled fieldset turns every field inside read-only at once. */}
+          <fieldset disabled={readOnly} className="min-w-0 disabled:opacity-60">
+            <ScheduleFields value={dates} onChange={(next) => void changeSchedule(next)} />
+          </fieldset>
           {scheduleFailed && (
             <p role="alert" className="mt-2 text-sm text-danger-text">
               Priorität oder Termin konnten nicht gespeichert werden.
@@ -199,14 +212,14 @@ export default function TaskDetailDialog({
           )}
         </section>
 
-        <div>
+        <fieldset disabled={readOnly} className="min-w-0 disabled:opacity-60">
           <LabelPicker labels={labels} selected={labelIds} onChange={(next) => void changeLabels(next)} onCreate={onCreateLabel} />
           {labelsFailed && (
             <p role="alert" className="mt-1 text-xs text-danger-text">
               Die Labels konnten nicht gespeichert werden.
             </p>
           )}
-        </div>
+        </fieldset>
 
         <TaskLinks
           task={task}
@@ -214,6 +227,7 @@ export default function TaskDetailDialog({
           onAdd={(kind, targetId) => onAddLink(task.id, targetId, kind)}
           onRemove={(linkId) => onRemoveLink(task.id, linkId)}
           onOpen={onOpenTask}
+          readOnly={readOnly}
         />
 
         <div>
@@ -225,6 +239,7 @@ export default function TaskDetailDialog({
               label="Beschreibung"
               placeholder="Beschreibung …"
               minHeightClass="min-h-40"
+              readOnly={readOnly}
             />
           </div>
         </div>
@@ -233,6 +248,7 @@ export default function TaskDetailDialog({
           owner={{ type: 'task', id: task.id }}
           attachments={task.attachments}
           onUpdate={(update) => onUpdateAttachments(task.id, update)}
+          readOnly={readOnly}
         />
       </div>
 
@@ -240,7 +256,7 @@ export default function TaskDetailDialog({
         <span>Erstellt {formatDate(task.createdAt)}</span>
         <span>Geändert {formatDate(task.updatedAt)}</span>
         <div className="flex-1" />
-        {onSaveAsTemplate && (
+        {onSaveAsTemplate && !readOnly && (
           <Button
             variant="ghost"
             size="sm"
@@ -252,9 +268,11 @@ export default function TaskDetailDialog({
             Als Vorlage speichern
           </Button>
         )}
-        <Button variant="danger-ghost" size="sm" onClick={() => void moveToTrash()}>
-          Löschen
-        </Button>
+        {!readOnly && (
+          <Button variant="danger-ghost" size="sm" onClick={() => void moveToTrash()}>
+            Löschen
+          </Button>
+        )}
       </div>
 
     </Dialog>

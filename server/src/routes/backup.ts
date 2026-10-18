@@ -1,14 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import { Router, type RequestHandler } from 'express';
 import multer from 'multer';
+import type { Access } from '../auth/access.js';
 import { backupFileName, MAX_BACKUP_SIZE, writeBackup, type RestoreService } from '../backup.js';
 import type { Db } from '../database.js';
 import { HttpError } from '../errors.js';
 import { attachmentDisposition } from '../exports.js';
 
 /** Backup of the whole instance and its restore in two steps (check, then replace). Mounted at /api/backup. */
-export function backupRouter(db: Db, uploadsDir: string, restore: RestoreService): Router {
+export function backupRouter(db: Db, uploadsDir: string, restore: RestoreService, access: Access): Router {
   const router = Router();
+  // A backup holds every project of every user, and a restore replaces them all: administrators only (US-21).
+  router.use(access.requireSystemAdmin);
 
   router.get('/', async (_req, res) => {
     const now = new Date();

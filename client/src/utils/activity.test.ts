@@ -16,6 +16,7 @@ function activity(id: number, createdAt: Date, overrides: Partial<Activity> = {}
     createdAt: createdAt.toISOString(),
     exists: true,
     trashed: false,
+    author: null,
     ...overrides,
   };
 }

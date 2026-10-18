@@ -17,6 +17,8 @@ interface LaneHeaderProps {
   /** -1 moves up, 1 moves down. */
   onMove: (direction: -1 | 1) => void;
   onDelete: () => void;
+  /** Owners (US-21): rename, move, delete. */
+  manage?: boolean;
 }
 
 /**
@@ -24,7 +26,7 @@ interface LaneHeaderProps {
  * through the lane it sticks below the column headers (`--board-header-height`, measured by the board). The bar
  * spans the board, so cards scroll away underneath it.
  */
-export default function LaneHeader({ lane, count, collapsed, onToggle, isFirst, isLast, onRename, onMove, onDelete }: LaneHeaderProps) {
+export default function LaneHeader({ lane, count, collapsed, onToggle, isFirst, isLast, onRename, onMove, onDelete, manage = true }: LaneHeaderProps) {
   const [renaming, setRenaming] = useState(false);
 
   return (
@@ -46,20 +48,23 @@ export default function LaneHeader({ lane, count, collapsed, onToggle, isFirst, 
           onEditingChange={setRenaming}
           onRename={onRename}
           className="text-sm font-semibold text-fg-muted"
+          readOnly={!manage}
         />
         <span className="whitespace-nowrap text-xs text-fg-subtle">· {countLabel(count, 'Task', 'Tasks')}</span>
-        <Menu
-          label={`Swimlane „${lane.name}“: Aktionen`}
-          trigger={<span aria-hidden="true">⋯</span>}
-          align="left"
-          triggerClassName="grid size-6 place-items-center rounded-md text-base leading-none text-fg-subtle hover:bg-surface-strong hover:text-fg"
-          items={[
-            { label: 'Umbenennen', onSelect: () => setRenaming(true) },
-            { label: 'Nach oben', onSelect: () => onMove(-1), disabledReason: isFirst ? 'Schon ganz oben' : undefined },
-            { label: 'Nach unten', onSelect: () => onMove(1), disabledReason: isLast ? 'Schon ganz unten' : undefined },
-            { label: 'Swimlane löschen …', onSelect: onDelete, danger: true },
-          ]}
-        />
+        {manage && (
+          <Menu
+            label={`Swimlane „${lane.name}“: Aktionen`}
+            trigger={<span aria-hidden="true">⋯</span>}
+            align="left"
+            triggerClassName="grid size-6 place-items-center rounded-md text-base leading-none text-fg-subtle hover:bg-surface-strong hover:text-fg"
+            items={[
+              { label: 'Umbenennen', onSelect: () => setRenaming(true) },
+              { label: 'Nach oben', onSelect: () => onMove(-1), disabledReason: isFirst ? 'Schon ganz oben' : undefined },
+              { label: 'Nach unten', onSelect: () => onMove(1), disabledReason: isLast ? 'Schon ganz unten' : undefined },
+              { label: 'Swimlane löschen …', onSelect: onDelete, danger: true },
+            ]}
+          />
+        )}
       </div>
     </div>
   );

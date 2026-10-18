@@ -2,7 +2,9 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import type { Activity, ActivityAction, ActivityEntity } from '../../types/activity';
 import { activityLink, timeLabel } from '../../utils/activity';
+import type { ProjectColor } from '../../types/project';
 import { formatDate } from '../../utils/format';
+import { Avatar } from '../auth/UserMenu';
 import { BoardIcon, FolderIcon, NoteIcon, TaskIcon } from '../icons';
 
 const ENTITY_ICONS: Record<ActivityEntity, ReactNode> = {
@@ -21,8 +23,11 @@ const ACTION_STYLES: Record<ActivityAction, { dot: string; label: string }> = {
   purge: { dot: 'bg-red-800 dark:bg-red-400', label: 'Endgültig gelöscht' },
 };
 
-/** One log entry; links to its note or task while that still exists, or to the trash while it is there. */
-export default function ActivityItem({ activity, now }: { activity: Activity; now: Date }) {
+/**
+ * One log entry; links to its note or task while that still exists, or to the trash while it is there. With
+ * `showAuthor` (login, US-21) it names who did it.
+ */
+export default function ActivityItem({ activity, now, showAuthor = false }: { activity: Activity; now: Date; showAuthor?: boolean }) {
   const link = activityLink(activity);
   const action = ACTION_STYLES[activity.actionType];
   const createdAt = new Date(activity.createdAt);
@@ -41,6 +46,12 @@ export default function ActivityItem({ activity, now }: { activity: Activity; no
         <span className={`block text-sm ${link ? 'text-fg group-hover:text-accent-text' : 'text-fg-muted'}`}>
           {activity.description}
         </span>
+        {showAuthor && activity.author && (
+          <span className="mt-0.5 flex items-center gap-1.5 text-xs text-fg-subtle">
+            <Avatar user={{ name: activity.author.name, avatarColor: activity.author.avatarColor as ProjectColor }} className="size-4 text-[8px]" />
+            {activity.author.name}
+          </span>
+        )}
         {gone && activity.actionType !== 'delete' && activity.actionType !== 'purge' && (
           <span className="mt-0.5 block text-xs text-fg-subtle">
             {activity.entityType === 'note' ? 'Notiz' : 'Task'}{' '}

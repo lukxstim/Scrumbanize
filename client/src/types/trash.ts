@@ -1,5 +1,5 @@
 import type { Note } from './note';
-import type { Project, ProjectColor } from './project';
+import type { Project, ProjectColor, ProjectRole } from './project';
 import type { Task } from './task';
 
 export type TrashType = 'note' | 'task' | 'project';
@@ -21,6 +21,8 @@ export interface TrashItem {
   /** Projects: the notes and tasks that come back with them. */
   noteCount?: number;
   taskCount?: number;
+  /** The user's role in the item's project (US-21): members restore notes and tasks, owners the rest. */
+  role: ProjectRole;
 }
 
 export type RestoreResult =

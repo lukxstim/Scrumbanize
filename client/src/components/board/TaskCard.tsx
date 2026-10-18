@@ -26,12 +26,14 @@ interface TaskCardProps {
   onOpen: (id: number) => void;
   /** Moves the task to the end of another column, staying in its lane. */
   onMoveTo: (id: number, columnId: number) => void;
+  /** Viewers (US-21): the card opens, but cannot be dragged or moved. */
+  readOnly?: boolean;
 }
 
 /** A draggable card: Space picks it up with the keyboard, Enter or a click opens the details. */
-export function DraggableTaskCard({ task, previous, next, compact, done = false, flash = false, onOpen, onMoveTo }: TaskCardProps) {
+export function DraggableTaskCard({ task, previous, next, compact, done = false, flash = false, onOpen, onMoveTo, readOnly = false }: TaskCardProps) {
   // The card stays in place as a placeholder; the DragOverlay follows the pointer.
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id, data: { type: 'task' } });
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id, data: { type: 'task' }, disabled: readOnly });
 
   return (
     <div
@@ -39,7 +41,7 @@ export function DraggableTaskCard({ task, previous, next, compact, done = false,
       data-task-id={task.id}
       {...attributes}
       {...listeners}
-      aria-roledescription="verschiebbarer Task"
+      aria-roledescription={readOnly ? undefined : 'verschiebbarer Task'}
       onClick={() => onOpen(task.id)}
       onKeyDown={(event: KeyboardEvent) => {
         if (event.key === 'Enter') onOpen(task.id);
@@ -49,12 +51,12 @@ export function DraggableTaskCard({ task, previous, next, compact, done = false,
     >
       <TaskCardBody task={task} compact={compact} done={done} placeholder={isDragging} flash={flash}>
         <div className="flex gap-0.5">
-          {previous && (
+          {previous && !readOnly && (
             <QuickMoveButton label={previous.name} onClick={() => onMoveTo(task.id, previous.id)}>
               <ChevronLeftIcon />
             </QuickMoveButton>
           )}
-          {next && (
+          {next && !readOnly && (
             <QuickMoveButton label={next.name} onClick={() => onMoveTo(task.id, next.id)}>
               <ChevronRightIcon />
             </QuickMoveButton>

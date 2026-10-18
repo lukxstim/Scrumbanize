@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { Access } from '../auth/access.js';
 import { HttpError, notFound } from '../errors.js';
 import type { LinkResult, TasksRepository } from '../repositories/tasksRepository.js';
 import { idParamSchema, moveTaskSchema, taskLinkInputSchema, taskPatchSchema } from '../validation.js';
@@ -20,16 +21,19 @@ function unwrapLink(result: LinkResult) {
 }
 
 /** Single tasks by id; listing and creating are project-scoped (see projectScoped.ts). */
-export function tasksRouter(tasks: TasksRepository): Router {
+export function tasksRouter(tasks: TasksRepository, access: Access): Router {
   const router = Router();
+  // Reading: viewer; changing, moving, linking, deleting: member (links stay inside the task's project, see the repository).
+  const read = access.requireRole('viewer', access.of.task());
+  const edit = access.requireRole('member', access.of.task());
 
-  router.get('/:id', (req, res) => {
+  router.get('/:id', read, (req, res) => {
     const task = tasks.get(idParamSchema.parse(req.params.id));
     if (!task) throw notFound('Task not found');
     res.json(task);
   });
 
-  router.patch('/:id', (req, res) => {
+  router.patch('/:id', edit, (req, res) => {
     const result = tasks.update(idParamSchema.parse(req.params.id), taskPatchSchema.parse(req.body));
     if (result.ok) {
       res.json(result.task);
@@ -41,7 +45,7 @@ export function tasksRouter(tasks: TasksRepository): Router {
   });
 
   // Moves stay inside the task's own project.
-  router.post('/:id/move', (req, res) => {
+  router.post('/:id/move', edit, (req, res) => {
     const { columnId, laneId, index } = moveTaskSchema.parse(req.body);
     const result = tasks.move(idParamSchema.parse(req.params.id), columnId, laneId, index);
     if (result.ok) {
@@ -53,16 +57,16 @@ export function tasksRouter(tasks: TasksRepository): Router {
   });
 
   // Changing a link changes both tasks, so both come back.
-  router.post('/:id/links', (req, res) => {
+  router.post('/:id/links', edit, (req, res) => {
     const { targetId, kind } = taskLinkInputSchema.parse(req.body);
     res.status(201).json(unwrapLink(tasks.addLink(idParamSchema.parse(req.params.id), targetId, kind)));
   });
 
-  router.delete('/:id/links/:linkId', (req, res) => {
+  router.delete('/:id/links/:linkId', edit, (req, res) => {
     res.json(unwrapLink(tasks.removeLink(idParamSchema.parse(req.params.id), idParamSchema.parse(req.params.linkId))));
   });
 
-  router.delete('/:id', (req, res) => {
+  router.delete('/:id', edit, (req, res) => {
     if (!tasks.remove(idParamSchema.parse(req.params.id))) throw notFound('Task not found');
     res.status(204).end();
   });

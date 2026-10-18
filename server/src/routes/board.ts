@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { Access } from '../auth/access.js';
 import { HttpError, notFound } from '../errors.js';
 import type { BoardFailure, BoardRepository, BoardResult } from '../repositories/boardRepository.js';
 import {
@@ -26,9 +27,10 @@ export function unwrapBoard<T>(result: BoardResult<T>, label: 'Column' | 'Lane')
   throw new HttpError(status, result.reason, `${label}: ${message}`);
 }
 
-/** Single columns by id, mounted at /api/columns. Creating is project-scoped (see projectScoped.ts). */
-export function columnsRouter(board: BoardRepository): Router {
+/** Single columns by id, mounted at /api/columns. Creating is project-scoped (see projectScoped.ts). Owners only. */
+export function columnsRouter(board: BoardRepository, access: Access): Router {
   const router = Router();
+  router.use('/:id', access.requireRole('owner', access.of.column()));
 
   router.patch('/:id', (req, res) => {
     res.json(unwrapBoard(board.updateColumn(idParamSchema.parse(req.params.id), columnPatchSchema.parse(req.body)), 'Column'));
@@ -48,9 +50,10 @@ export function columnsRouter(board: BoardRepository): Router {
   return router;
 }
 
-/** Single lanes by id, mounted at /api/lanes. Creating is project-scoped (see projectScoped.ts). */
-export function lanesRouter(board: BoardRepository): Router {
+/** Single lanes by id, mounted at /api/lanes. Creating is project-scoped (see projectScoped.ts). Owners only. */
+export function lanesRouter(board: BoardRepository, access: Access): Router {
   const router = Router();
+  router.use('/:id', access.requireRole('owner', access.of.lane()));
 
   router.patch('/:id', (req, res) => {
     const { name } = laneInputSchema.parse(req.body);

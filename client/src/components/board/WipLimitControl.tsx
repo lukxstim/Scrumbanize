@@ -10,6 +10,8 @@ interface WipLimitControlProps {
   /** Lets the column menu open the editor. */
   editing: boolean;
   onEditingChange: (editing: boolean) => void;
+  /** Without the right to change the limit (US-21): only "count / limit". */
+  readOnly?: boolean;
 }
 
 const STATE_CLASSES = {
@@ -20,7 +22,7 @@ const STATE_CLASSES = {
 };
 
 /** Shows "count / limit"; click to edit, empty means unlimited. */
-export default function WipLimitControl({ count, limit, columnLabel, onChange, editing, onEditingChange }: WipLimitControlProps) {
+export default function WipLimitControl({ count, limit, columnLabel, onChange, editing, onEditingChange, readOnly = false }: WipLimitControlProps) {
   const [text, setText] = useState('');
   const [wasEditing, setWasEditing] = useState(editing);
   const state = wipState(count, limit);
@@ -59,6 +61,17 @@ export default function WipLimitControl({ count, limit, columnLabel, onChange, e
         aria-label={`WIP-Limit für „${columnLabel}“ (leer = kein Limit)`}
         className="w-14 rounded border border-accent-line px-1.5 py-0.5 text-xs focus:outline-none"
       />
+    );
+  }
+
+  if (readOnly) {
+    return (
+      <span
+        title={state === 'over-limit' ? `WIP-Limit überschritten (${count} von max. ${limit})` : undefined}
+        className={`rounded px-1.5 py-0.5 text-xs font-medium tabular-nums ${STATE_CLASSES[state]}`}
+      >
+        {limit === null ? `${count} / ∞` : `${count} / ${limit}`}
+      </span>
     );
   }
 

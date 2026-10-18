@@ -3,7 +3,7 @@ import type { Project } from '../types/project';
 import { countLabel, defaultProject, getLastProjectId, setLastProjectId, sortProjects } from './projects';
 
 function project(id: number, name: string): Project {
-  return { id, name, color: 'slate', noteCount: 0, taskCount: 0, createdAt: '', updatedAt: '' };
+  return { id, name, color: 'slate', role: 'owner', noteCount: 0, taskCount: 0, createdAt: '', updatedAt: '' };
 }
 
 const names = (projects: Project[]) => projects.map((p) => p.name);

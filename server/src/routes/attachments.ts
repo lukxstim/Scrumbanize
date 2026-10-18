@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Router, type RequestHandler } from 'express';
 import multer from 'multer';
+import type { Access } from '../auth/access.js';
 import {
   contentDisposition,
   decodeUploadName,
@@ -15,7 +16,7 @@ import type { AttachmentOwner, AttachmentsRepository } from '../repositories/att
 import { idParamSchema } from '../validation.js';
 
 /** Uploads to notes and tasks, and the files themselves. Mounted at /api. */
-export function attachmentsRouter(attachments: AttachmentsRepository): Router {
+export function attachmentsRouter(attachments: AttachmentsRepository, access: Access): Router {
   const router = Router();
 
   const upload = multer({
@@ -73,15 +74,16 @@ export function attachmentsRouter(attachments: AttachmentsRepository): Router {
       },
     ];
 
-  router.post('/notes/:id/attachments', ...handleUpload('note'));
-  router.post('/tasks/:id/attachments', ...handleUpload('task'));
+  // Checked before the upload is received, so nobody without the right can fill the disk.
+  router.post('/notes/:id/attachments', access.requireRole('member', access.of.note()), ...handleUpload('note'));
+  router.post('/tasks/:id/attachments', access.requireRole('member', access.of.task()), ...handleUpload('task'));
 
   /**
    * The file itself. Images and PDFs may be shown by the browser, everything else is downloaded; `?download=1`
    * always downloads. Nothing is ever run as a page of the app (nosniff, and a sandbox except for PDFs, whose
    * viewer does not work in a sandbox).
    */
-  router.get('/attachments/:id/file', (req, res) => {
+  router.get('/attachments/:id/file', access.requireRole('viewer', access.of.attachment()), (req, res) => {
     const found = attachments.file(idParamSchema.parse(req.params.id));
     if (!found) throw notFound('Attachment not found');
     const { attachment } = found;
@@ -96,7 +98,7 @@ export function attachmentsRouter(attachments: AttachmentsRepository): Router {
     });
   });
 
-  router.delete('/attachments/:id', (req, res) => {
+  router.delete('/attachments/:id', access.requireRole('member', access.of.attachment()), (req, res) => {
     if (!attachments.remove(idParamSchema.parse(req.params.id))) throw notFound('Attachment not found');
     res.status(204).end();
   });

@@ -17,6 +17,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router';
 import { useBoard } from '../../hooks/useBoard';
+import { useCan } from '../../hooks/useProjectRole';
 import { useStoredState } from '../../hooks/useStoredState';
 import { useToast } from '../../hooks/useToast';
 import type { Task } from '../../types/task';
@@ -48,6 +49,8 @@ import CalendarWeek, { CalendarBarGhost } from './CalendarWeek';
 import NewDatedTaskDialog from './NewDatedTaskDialog';
 import UnscheduledPanel from './UnscheduledPanel';
 
+const NO_SENSORS: ReturnType<typeof useSensors> = [];
+
 type Mode = 'month' | 'week';
 const isMode = (value: unknown): value is Mode => value === 'month' || value === 'week';
 const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean';
@@ -67,6 +70,8 @@ function dayAt(x: number, y: number): string | undefined {
 /** The project's tasks by due date: month and week view at /p/:projectId/calendar. */
 export default function CalendarPage() {
   const projectId = Number(useParams().projectId);
+  // Viewers look at the calendar; moving and adding dates needs a member (US-21).
+  const canEdit = useCan('edit');
   const board = useBoard(projectId);
   const toast = useToast();
   const today = todayIso();
@@ -239,7 +244,8 @@ export default function CalendarPage() {
       </div>
 
       <DndContext
-        sensors={sensors}
+        // Without sensors nothing can be picked up: the bars of viewers stay where they are.
+        sensors={canEdit ? sensors : NO_SENSORS}
         collisionDetection={collisionDetection}
         accessibility={{
           announcements,
@@ -279,7 +285,7 @@ export default function CalendarPage() {
                   dayHeaders={mode === 'month' ? 'number' : 'weekday'}
                   minHeightClass={mode === 'month' ? 'min-h-28 flex-1' : 'min-h-96 flex-1'}
                   onOpenTask={setOpenTaskId}
-                  onAddTask={setAddingOn}
+                  onAddTask={canEdit ? setAddingOn : undefined}
                   onShowWeek={(day) => {
                     setAnchor(day);
                     setMode('week');
@@ -309,6 +315,7 @@ export default function CalendarPage() {
 
       {openTask && (
         <TaskDetailDialog
+          readOnly={!canEdit}
           key={openTask.id}
           task={openTask}
           columns={board.columns}

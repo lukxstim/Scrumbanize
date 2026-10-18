@@ -15,6 +15,7 @@ import { FolderIcon, NoteIcon, RestoreIcon, TaskIcon, TrashIcon } from '../icons
 import Button from '../ui/Button';
 import SegmentedControl from '../ui/SegmentedControl';
 import Skeleton from '../ui/Skeleton';
+import { can } from '../../utils/permissions';
 
 type Scope = 'project' | 'all';
 const isScope = (value: unknown): value is Scope => value === 'project' || value === 'all';
@@ -98,8 +99,9 @@ export default function TrashPage() {
     }
   }
 
-  // "Leeren" in this project's view leaves trashed projects alone; they only go with "Alle Projekte".
-  const emptied = scope === 'project' ? trash.items.filter((i) => i.type !== 'project') : trash.items;
+  // "Leeren" in this project's view leaves trashed projects alone; they only go with "Alle Projekte". Only owners
+  // delete for good, so items of projects where the user is not owner stay (US-21).
+  const emptied = (scope === 'project' ? trash.items.filter((i) => i.type !== 'project') : trash.items).filter((i) => can(i.role, 'manageProject'));
   const summary = trashSummary(emptied);
 
   return (
@@ -227,6 +229,9 @@ interface TrashRowProps {
 
 function TrashRow({ item, now, showProject, busy, onRestore, onPurge }: TrashRowProps) {
   const title = trashTitle(item);
+  // A project comes back like it goes: by its owner. Notes and tasks: members (US-21).
+  const canRestore = can(item.role, item.type === 'project' ? 'manageProject' : 'edit');
+  const canPurge = can(item.role, 'manageProject');
   const details =
     item.type === 'note'
       ? item.snippet
@@ -262,13 +267,17 @@ function TrashRow({ item, now, showProject, busy, onRestore, onPurge }: TrashRow
         {timeLabel(new Date(item.deletedAt), now)}
       </time>
       <div className="flex shrink-0 gap-1">
-        <Button size="sm" variant="secondary" disabled={busy} onClick={onRestore} aria-label={`„${title}“ wiederherstellen`}>
-          <RestoreIcon className="size-3.5" />
-          Wiederherstellen
-        </Button>
-        <Button size="sm" variant="danger-ghost" disabled={busy} onClick={onPurge} aria-label={`„${title}“ endgültig löschen`}>
-          Endgültig löschen
-        </Button>
+        {canRestore && (
+          <Button size="sm" variant="secondary" disabled={busy} onClick={onRestore} aria-label={`„${title}“ wiederherstellen`}>
+            <RestoreIcon className="size-3.5" />
+            Wiederherstellen
+          </Button>
+        )}
+        {canPurge && (
+          <Button size="sm" variant="danger-ghost" disabled={busy} onClick={onPurge} aria-label={`„${title}“ endgültig löschen`}>
+            Endgültig löschen
+          </Button>
+        )}
       </div>
     </li>
   );

@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useToast } from '../../hooks/useToast';
+import { useAuth } from '../../hooks/useAuth';
+import { useCan } from '../../hooks/useProjectRole';
 import { useTemplates } from '../../hooks/useTemplates';
 import type { Template, TemplateInput, TemplateKind } from '../../types/template';
 import { boardApi, notesApi, templatesApi } from '../../utils/api';
@@ -37,6 +39,10 @@ export default function TemplatesSection({ projectId, projectName }: { projectId
   const { templates, reload } = useTemplates(projectId);
   const [editing, setEditing] = useState<{ template: Template | TemplateInput; board: TemplateBoardContext } | null>(null);
   const [deleting, setDeleting] = useState<Template | null>(null);
+  // Project templates: members; templates for all projects: administrators (US-21).
+  const canEdit = useCan('edit');
+  const isAdmin = useAuth().session?.user?.systemRole === 'admin';
+  const mayChange = (template: Template) => canEdit && (template.scope === 'project' || isAdmin);
 
   /** The editor offers this project's labels, columns, lanes and tags. */
   async function edit(template: Template | TemplateInput) {
@@ -86,32 +92,38 @@ export default function TemplatesSection({ projectId, projectName }: { projectId
                 {[template.title && `Titel: ${template.title}`, summary(template)].filter(Boolean).join(' · ') || 'Nur Text'}
               </p>
             </div>
-            <button type="button" onClick={() => void edit(template)} aria-label={`„${template.name}“ bearbeiten`} className={iconButtonClass}>
-              <PencilIcon className="size-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setDeleting(template)}
-              aria-label={`„${template.name}“ löschen`}
-              className={`${iconButtonClass} hover:text-danger-text`}
-            >
-              <TrashIcon className="size-4" />
-            </button>
+            {mayChange(template) && (
+              <>
+                <button type="button" onClick={() => void edit(template)} aria-label={`„${template.name}“ bearbeiten`} className={iconButtonClass}>
+                  <PencilIcon className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeleting(template)}
+                  aria-label={`„${template.name}“ löschen`}
+                  className={`${iconButtonClass} hover:text-danger-text`}
+                >
+                  <TrashIcon className="size-4" />
+                </button>
+              </>
+            )}
           </li>
         ))}
         {templates.length === 0 && <li className="px-3 py-3 text-sm text-fg-subtle">Noch keine Vorlagen.</li>}
       </ul>
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Button size="sm" onClick={() => void edit(EMPTY.note)}>
-          <NoteIcon className="size-3.5" />
-          Neue Notizvorlage
-        </Button>
-        <Button size="sm" onClick={() => void edit(EMPTY.task)}>
-          <TaskIcon className="size-3.5" />
-          Neue Taskvorlage
-        </Button>
-      </div>
+      {canEdit && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button size="sm" onClick={() => void edit(EMPTY.note)}>
+            <NoteIcon className="size-3.5" />
+            Neue Notizvorlage
+          </Button>
+          <Button size="sm" onClick={() => void edit(EMPTY.task)}>
+            <TaskIcon className="size-3.5" />
+            Neue Taskvorlage
+          </Button>
+        </div>
+      )}
 
       {editing && (
         <TemplateDialog

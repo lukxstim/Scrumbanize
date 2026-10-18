@@ -13,6 +13,8 @@ interface AttachmentsPanelProps {
   attachments: Attachment[];
   /** Applies an upload or removal to the owner's list (see useNotes / useBoard). */
   onUpdate: (update: (attachments: Attachment[]) => Attachment[]) => void;
+  /** Viewers (US-21): files open and download, but nothing is added or removed. */
+  readOnly?: boolean;
 }
 
 interface Upload {
@@ -41,7 +43,7 @@ function uploadError(error: unknown): string {
 let nextKey = 1;
 
 /** "Anhänge": drop zone and upload button, images as thumbnails, other files as a list. */
-export default function AttachmentsPanel({ owner, attachments, onUpdate }: AttachmentsPanelProps) {
+export default function AttachmentsPanel({ owner, attachments, onUpdate, readOnly = false }: AttachmentsPanelProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -98,7 +100,7 @@ export default function AttachmentsPanel({ owner, attachments, onUpdate }: Attac
     <section
       aria-labelledby={`${inputId}-heading`}
       onDragOver={(event) => {
-        if (!event.dataTransfer.types.includes('Files')) return;
+        if (readOnly || !event.dataTransfer.types.includes('Files')) return;
         event.preventDefault();
         setDragging(true);
       }}
@@ -113,12 +115,14 @@ export default function AttachmentsPanel({ owner, attachments, onUpdate }: Attac
           <PaperclipIcon className="size-3.5" />
           Anhänge {attachments.length > 0 && <span className="font-normal text-fg-subtle">({attachments.length})</span>}
         </h3>
-        <span className="text-xs text-fg-subtle">
-          Dateien hierher ziehen oder{' '}
-          <label htmlFor={inputId} className="cursor-pointer font-medium text-accent-text hover:underline">
-            auswählen
-          </label>
-        </span>
+        {!readOnly && (
+          <span className="text-xs text-fg-subtle">
+            Dateien hierher ziehen oder{' '}
+            <label htmlFor={inputId} className="cursor-pointer font-medium text-accent-text hover:underline">
+              auswählen
+            </label>
+          </span>
+        )}
         <input
           ref={inputRef}
           id={inputId}
@@ -173,15 +177,17 @@ export default function AttachmentsPanel({ owner, attachments, onUpdate }: Attac
               >
                 <img src={fileUrl(image.id)} alt={image.fileName} loading="lazy" className="size-full object-cover" />
               </button>
-              <button
-                type="button"
-                onClick={() => setRemoving(image)}
-                aria-label={`„${image.fileName}“ entfernen`}
-                title="Entfernen"
-                className="absolute top-1 right-1 grid size-6 place-items-center rounded-md bg-surface/90 text-fg-muted opacity-0 shadow-card transition-opacity hover:text-danger-text focus-visible:opacity-100 group-hover/att:opacity-100 [@media(hover:none)]:opacity-100"
-              >
-                ×
-              </button>
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={() => setRemoving(image)}
+                  aria-label={`„${image.fileName}“ entfernen`}
+                  title="Entfernen"
+                  className="absolute top-1 right-1 grid size-6 place-items-center rounded-md bg-surface/90 text-fg-muted opacity-0 shadow-card transition-opacity hover:text-danger-text focus-visible:opacity-100 group-hover/att:opacity-100 [@media(hover:none)]:opacity-100"
+                >
+                  ×
+                </button>
+              )}
             </li>
           ))}
         </ul>
@@ -216,14 +222,16 @@ export default function AttachmentsPanel({ owner, attachments, onUpdate }: Attac
               >
                 Herunterladen
               </a>
-              <button
-                type="button"
-                onClick={() => setRemoving(file)}
-                aria-label={`„${file.fileName}“ entfernen`}
-                className="rounded px-1.5 py-0.5 text-xs font-medium text-fg-subtle hover:bg-danger-muted hover:text-danger-text"
-              >
-                Entfernen
-              </button>
+              {!readOnly && (
+                <button
+                  type="button"
+                  onClick={() => setRemoving(file)}
+                  aria-label={`„${file.fileName}“ entfernen`}
+                  className="rounded px-1.5 py-0.5 text-xs font-medium text-fg-subtle hover:bg-danger-muted hover:text-danger-text"
+                >
+                  Entfernen
+                </button>
+              )}
             </li>
           ))}
         </ul>

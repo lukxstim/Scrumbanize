@@ -1,4 +1,5 @@
 import { text, type EditSummary } from '../activityText.js';
+import { currentUserId } from '../auth/currentUser.js';
 import type { Db } from '../database.js';
 
 export const ENTITY_TYPES = ['note', 'task', 'board', 'project'] as const;
@@ -31,6 +32,8 @@ export interface Activity {
   exists: boolean;
   /** The note or task is in the trash (and could be restored). */
   trashed: boolean;
+  /** Who did it (US-21); null before US-21, for the sample project, and for deleted accounts. */
+  author: { id: number; name: string; avatarColor: string; hasAvatar: boolean } | null;
 }
 
 interface ActivityRow {
@@ -44,6 +47,10 @@ interface ActivityRow {
   created_at: string;
   entity_exists?: number;
   entity_trashed?: number;
+  user_id: number | null;
+  author_name?: string | null;
+  author_color?: string | null;
+  author_avatar?: string | null;
 }
 
 export interface EditInput {
@@ -102,9 +109,9 @@ export function mergeChanges(earlier: EditSummary, later: EditSummary): EditSumm
 export type ActivityRepository = ReturnType<typeof createActivityRepository>;
 
 export function createActivityRepository(db: Db) {
-  const insert = db.prepare<[number, EntityType, number | null, ActionType, string, string, string]>(
-    `INSERT INTO activities (project_id, entity_type, entity_id, action_type, description, metadata, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  const insert = db.prepare<[number, EntityType, number | null, ActionType, string, string, string, number | null]>(
+    `INSERT INTO activities (project_id, entity_type, entity_id, action_type, description, metadata, created_at, user_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const selectLatestForEntity = db.prepare<[EntityType, number], ActivityRow>(
     `SELECT * FROM activities WHERE entity_type = ? AND entity_id = ? ORDER BY id DESC LIMIT 1`,
@@ -123,6 +130,8 @@ export function createActivityRepository(db: Db) {
       input.description,
       JSON.stringify(input.metadata ?? {}),
       now.toISOString(),
+      // Whoever makes the request (US-21); nobody outside one, e.g. for the sample project.
+      currentUserId() ?? null,
     );
   }
 
@@ -139,8 +148,10 @@ export function createActivityRepository(db: Db) {
       const latest = selectLatestForEntity.get(input.entityType, input.entityId);
       // Only "created" entries and other edit entries take further edits; "update" entries of other kinds
       // (links, attachments) carry no change summary to merge into and stay as they are.
+      // Only one person's edits are combined: someone else's change gets an entry of its own, with them as author.
       const recent =
         latest &&
+        latest.user_id === (currentUserId() ?? null) &&
         (latest.action_type === 'create' ||
           (latest.action_type === 'update' && (JSON.parse(latest.metadata) as { changes?: unknown }).changes !== undefined)) &&
         now.getTime() - new Date(latest.created_at).getTime() <= AGGREGATE_WINDOW_MS;
@@ -210,7 +221,7 @@ export function createActivityRepository(db: Db) {
 
       const rows = db
         .prepare<(string | number)[], ActivityRow>(
-          `SELECT a.*,
+          `SELECT a.*, u.name AS author_name, u.avatar_color AS author_color, u.avatar_file AS author_avatar,
              CASE a.entity_type
                WHEN 'note' THEN EXISTS (SELECT 1 FROM live_notes WHERE id = a.entity_id)
                WHEN 'task' THEN EXISTS (SELECT 1 FROM live_tasks WHERE id = a.entity_id)
@@ -221,7 +232,7 @@ export function createActivityRepository(db: Db) {
                WHEN 'task' THEN EXISTS (SELECT 1 FROM tasks WHERE id = a.entity_id AND deleted_at IS NOT NULL)
                ELSE 0
              END AS entity_trashed
-           FROM activities a
+           FROM activities a LEFT JOIN users u ON u.id = a.user_id
            WHERE a.project_id = ?
              ${options.type ? 'AND a.entity_type = ?' : ''}
              ${options.before ? 'AND a.id < ?' : ''}
@@ -242,6 +253,10 @@ export function createActivityRepository(db: Db) {
         createdAt: row.created_at,
         exists: row.entity_exists === 1,
         trashed: row.entity_trashed === 1,
+        author:
+          row.user_id !== null && row.author_name
+            ? { id: row.user_id, name: row.author_name, avatarColor: row.author_color!, hasAvatar: row.author_avatar !== null }
+            : null,
       }));
       return { items, nextCursor: rows.length > options.limit ? page.at(-1)!.id : null };
     },

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAuth } from '../../hooks/useAuth';
 import type { TaskPriority } from '../../types/task';
 import { TASK_PRIORITIES } from '../../types/task';
 import type { NoteTemplateDefaults, TaskTemplateDefaults, Template, TemplateInput, TemplateKind } from '../../types/template';
@@ -45,6 +46,8 @@ export default function TemplateDialog({ projectId, template, board, onSaved, on
   const kind: TemplateKind = template.kind;
   const [name, setName] = useState(template.name);
   const [scope, setScope] = useState(template.scope);
+  // Templates for all projects belong to everyone, so only administrators make them (US-21).
+  const isAdmin = useAuth().session?.user?.systemRole === 'admin';
   const [title, setTitle] = useState(template.title);
   const [content, setContent] = useState(template.content);
   const [noteDefaults, setNoteDefaults] = useState<NoteTemplateDefaults>(kind === 'note' ? (template.defaults as NoteTemplateDefaults) : { tags: [] });
@@ -121,7 +124,9 @@ export default function TemplateDialog({ projectId, template, board, onSaved, on
             </label>
             <select id="template-scope" value={scope} onChange={(e) => setScope(e.target.value as 'project' | 'global')} className={`mt-1 ${fieldClass}`}>
               <option value="project">Nur dieses Projekt</option>
-              <option value="global">Alle Projekte</option>
+              <option value="global" disabled={!isAdmin}>
+                {isAdmin ? 'Alle Projekte' : 'Alle Projekte (nur für Administratoren)'}
+              </option>
             </select>
           </div>
         </div>

@@ -1,4 +1,6 @@
 import { Router, type Response } from 'express';
+import type { Access } from '../auth/access.js';
+import { userOf } from '../auth/middleware.js';
 import { HttpError, notFound } from '../errors.js';
 import type { ActivityRepository } from '../repositories/activityRepository.js';
 import type { AnalyticsRepository } from '../repositories/analyticsRepository.js';
@@ -28,6 +30,7 @@ import { unwrapBoard } from './board.js';
 import { unwrapLabel, unwrapTemplate } from './labels.js';
 
 interface Repositories {
+  access: Access;
   activities: ActivityRepository;
   analytics: AnalyticsRepository;
   graph: GraphRepository;
@@ -41,23 +44,34 @@ interface Repositories {
 
 const projectIdOf = (res: Response) => res.locals.projectId as number;
 
-/** Lists and creation inside one project, mounted at /api/projects/:projectId. */
-export function projectScopedRouter({ activities, analytics, graph, labels, templates, projects, notes, tasks, board }: Repositories): Router {
+/**
+ * Lists and creation inside one project, mounted at /api/projects/:projectId. Reading needs a role in the project
+ * (viewer); notes, tasks and labels: member; columns, swimlanes and column widths: owner; templates for all
+ * projects: a system administrator (US-21).
+ */
+export function projectScopedRouter({ access, activities, analytics, graph, labels, templates, projects, notes, tasks, board }: Repositories): Router {
   const router = Router({ mergeParams: true });
+  const member = access.atLeast('member');
+  const owner = access.atLeast('owner');
 
-  router.use((req, res, next) => {
+  router.use(access.requireRole('viewer', (req) => {
     const projectId = idParamSchema.parse((req.params as { projectId?: string }).projectId);
-    if (!projects.exists(projectId)) throw notFound('Project not found');
-    res.locals.projectId = projectId;
-    next();
-  });
+    return projects.exists(projectId) ? projectId : undefined;
+  }));
+
+  /** Templates for all projects belong to everyone, so only administrators change them. */
+  function checkTemplateScope(res: Response, global: boolean) {
+    if (global && userOf(res)?.systemRole !== 'admin') {
+      throw new HttpError(403, 'forbidden', 'Only administrators may change templates for all projects');
+    }
+  }
 
   router.get('/notes', (req, res) => {
     const { q, tag } = noteListQuerySchema.parse(req.query);
     res.json(notes.list(projectIdOf(res), { q, tags: tag }));
   });
 
-  router.post('/notes', (req, res) => {
+  router.post('/notes', member, (req, res) => {
     res.status(201).json(notes.create(projectIdOf(res), noteInputSchema.parse(req.body)));
   });
 
@@ -80,7 +94,7 @@ export function projectScopedRouter({ activities, analytics, graph, labels, temp
   });
 
   // A task converted from a note always lands in that note's project; a given lane must be one of the project's.
-  router.post('/tasks', (req, res) => {
+  router.post('/tasks', member, (req, res) => {
     const input = taskInputSchema.parse(req.body);
     if (input.sourceNoteId !== undefined) {
       const noteProjectId = tasks.noteProjectId(input.sourceNoteId);
@@ -111,18 +125,18 @@ export function projectScopedRouter({ activities, analytics, graph, labels, temp
     });
   });
 
-  router.post('/columns', (req, res) => {
+  router.post('/columns', owner, (req, res) => {
     res.status(201).json(unwrapBoard(board.createColumn(projectIdOf(res), columnInputSchema.parse(req.body)), 'Column'));
   });
 
-  router.put('/column-widths', (req, res) => {
+  router.put('/column-widths', owner, (req, res) => {
     const { widths } = columnWidthsSchema.parse(req.body);
     const result = board.setColumnWidths(projectIdOf(res), widths);
     if (!result.ok) throw new HttpError(400, 'invalid_target', 'Every column must belong to this project');
     res.json(result.value);
   });
 
-  router.post('/lanes', (req, res) => {
+  router.post('/lanes', owner, (req, res) => {
     const { name } = laneInputSchema.parse(req.body);
     res.status(201).json(unwrapBoard(board.createLane(projectIdOf(res), name), 'Lane'));
   });
@@ -131,7 +145,7 @@ export function projectScopedRouter({ activities, analytics, graph, labels, temp
     res.json(labels.list(projectIdOf(res)));
   });
 
-  router.post('/labels', (req, res) => {
+  router.post('/labels', member, (req, res) => {
     res.status(201).json(unwrapLabel(labels.create(projectIdOf(res), labelInputSchema.parse(req.body))));
   });
 
@@ -141,17 +155,23 @@ export function projectScopedRouter({ activities, analytics, graph, labels, temp
     res.json(templates.list(projectIdOf(res), kind));
   });
 
-  router.post('/templates', (req, res) => {
-    res.status(201).json(unwrapTemplate(templates.create(projectIdOf(res), templateInputSchema.parse(req.body))));
+  router.post('/templates', member, (req, res) => {
+    const input = templateInputSchema.parse(req.body);
+    checkTemplateScope(res, input.scope === 'global');
+    res.status(201).json(unwrapTemplate(templates.create(projectIdOf(res), input)));
   });
 
-  router.patch('/templates/:id', (req, res) => {
+  router.patch('/templates/:id', member, (req, res) => {
     const id = idParamSchema.parse(req.params.id);
-    res.json(unwrapTemplate(templates.update(projectIdOf(res), id, templatePatchSchema.parse(req.body))));
+    const patch = templatePatchSchema.parse(req.body);
+    checkTemplateScope(res, access.templateProject(id) === null || patch.scope === 'global');
+    res.json(unwrapTemplate(templates.update(projectIdOf(res), id, patch)));
   });
 
-  router.delete('/templates/:id', (req, res) => {
-    if (!templates.remove(projectIdOf(res), idParamSchema.parse(req.params.id))) throw notFound('Template not found');
+  router.delete('/templates/:id', member, (req, res) => {
+    const id = idParamSchema.parse(req.params.id);
+    checkTemplateScope(res, access.templateProject(id) === null);
+    if (!templates.remove(projectIdOf(res), id)) throw notFound('Template not found');
     res.status(204).end();
   });
 

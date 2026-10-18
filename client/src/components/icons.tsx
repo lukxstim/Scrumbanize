@@ -43,6 +43,15 @@ export const CheckIcon = (props: SVGProps<SVGSVGElement>) => (
   </Icon>
 );
 
+/** Two people: project members (US-21). */
+export const UsersIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <circle cx="6" cy="5.5" r="2.25" />
+    <path d="M2 13.5c0-2.2 1.8-3.75 4-3.75s4 1.55 4 3.75" />
+    <path d="M10.5 3.4a2.25 2.25 0 0 1 0 4.2M11.5 9.9c1.5.4 2.5 1.7 2.5 3.6" />
+  </Icon>
+);
+
 export const PencilIcon = (props: SVGProps<SVGSVGElement>) => (
   <Icon {...props}>
     <path d="M10.5 2.5 13.5 5.5 5.5 13.5H2.5V10.5z" />

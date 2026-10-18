@@ -34,6 +34,7 @@ import {
 import { THEME_LABELS } from './ThemeSwitcher';
 import Dialog from './ui/Dialog';
 import Kbd from './ui/Kbd';
+import { can } from '../utils/permissions';
 
 interface CommandPaletteProps {
   open: boolean;
@@ -122,6 +123,8 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
   let createGroup: { heading: string; items: Item[] } | undefined;
 
   if (activeProject) {
+    // Viewers cannot create anything in the project (US-21), so they get no "Neue Notiz", "Neuer Task" or templates.
+    const mayCreate = can(activeProject.role, 'edit');
     const create = (state: CreateRequest) => () =>
       navigate(state.create === 'note' ? paths.notes(activeProject.id) : paths.board(activeProject.id), { state });
     const actions: Item[] = trimmed
@@ -145,7 +148,7 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
           { id: 'create-note', label: 'Neue Notiz', keywords: 'notiz anlegen erstellen', icon: <PlusIcon />, run: create({ create: 'note', title: '' }) },
           { id: 'create-task', label: 'Neuer Task', keywords: 'task anlegen erstellen', icon: <PlusIcon />, run: create({ create: 'task', title: '' }) },
         ];
-    createGroup = { heading: trimmed ? 'Neu anlegen' : 'Aktionen', items: actions };
+    if (mayCreate) createGroup = { heading: trimmed ? 'Neu anlegen' : 'Aktionen', items: actions };
 
     // "Notiz aus Vorlage …" and "Task aus Vorlage …", found by the template's name.
     const fromTemplates: Item[] = templates
@@ -157,8 +160,8 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
         run: create({ create: template.kind, title: '', templateId: template.id }),
       }))
       .filter((item) => matchesQuery(trimmed, item.label, item.keywords));
-    if (fromTemplates.length > 0) groups.push({ heading: 'Vorlagen', items: fromTemplates });
-    if (!trimmed) groups.push(createGroup);
+    if (mayCreate && fromTemplates.length > 0) groups.push({ heading: 'Vorlagen', items: fromTemplates });
+    if (!trimmed && createGroup) groups.push(createGroup);
 
     groups.push({
       heading: 'Navigation',

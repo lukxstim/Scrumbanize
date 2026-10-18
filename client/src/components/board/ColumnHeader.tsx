@@ -28,6 +28,8 @@ interface ColumnHeaderProps {
   /** -1 moves left, 1 moves right. */
   onMove: (direction: -1 | 1) => void;
   onDelete: () => void;
+  /** Owners (US-21): drag, rename, WIP limit, width, menu. Others only see the header. */
+  manage?: boolean;
 }
 
 /** Drag the header (or press Space on it) to reorder columns. `data-column-header` is measured while dragging. */
@@ -43,10 +45,12 @@ export default function ColumnHeader({
   onResize,
   onMove,
   onDelete,
+  manage = true,
 }: ColumnHeaderProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: columnDragId(column.id),
     data: { type: 'column' },
+    disabled: !manage,
   });
   const [renaming, setRenaming] = useState(false);
   const [editingWip, setEditingWip] = useState(false);
@@ -58,11 +62,11 @@ export default function ColumnHeader({
       data-column-header={column.id}
       {...attributes}
       {...listeners}
-      aria-roledescription="verschiebbare Spalte"
+      aria-roledescription={manage ? 'verschiebbare Spalte' : undefined}
       aria-label={`Spalte „${column.name}“`}
       // The board sets the variable from the saved widths; a resize handle changes it while dragging.
       style={{ width: `var(${columnWidthVar(column.id)}, ${width}px)` }}
-      className={`relative flex shrink-0 cursor-grab touch-manipulation select-none items-center gap-2 rounded-lg px-3 py-2 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+      className={`relative flex shrink-0 ${manage ? 'cursor-grab' : ''} touch-manipulation select-none items-center gap-2 rounded-lg px-3 py-2 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
         isDragging
           ? 'border border-dashed border-accent-line bg-accent-muted [&>*]:invisible'
           : overLimit
@@ -77,6 +81,7 @@ export default function ColumnHeader({
         onEditingChange={setRenaming}
         onRename={onRename}
         className="text-sm font-semibold"
+        readOnly={!manage}
       />
       <div className="flex-1" />
       <WipLimitControl
@@ -86,27 +91,30 @@ export default function ColumnHeader({
         onChange={onWipLimitChange}
         editing={editingWip}
         onEditingChange={setEditingWip}
+        readOnly={!manage}
       />
-      <div {...isolate}>
-        <Menu
-          label={`Spalte „${column.name}“: Aktionen`}
-          trigger={<span aria-hidden="true">⋯</span>}
-          triggerClassName="grid size-6 place-items-center rounded-md text-base leading-none text-fg-subtle hover:bg-surface/70 hover:text-fg"
-          items={[
-            { label: 'Umbenennen', onSelect: () => setRenaming(true) },
-            { label: 'WIP-Limit ändern', onSelect: () => setEditingWip(true) },
-            {
-              label: 'Breite zurücksetzen',
-              onSelect: () => onResize(null),
-              disabledReason: column.width === null ? 'Die Spalte hat schon die Standardbreite' : undefined,
-            },
-            { label: 'Nach links', onSelect: () => onMove(-1), disabledReason: isFirst ? 'Schon ganz links' : undefined },
-            { label: 'Nach rechts', onSelect: () => onMove(1), disabledReason: isLast ? 'Schon ganz rechts' : undefined },
-            { label: 'Spalte löschen …', onSelect: onDelete, danger: true, disabledReason: deleteDisabledReason },
-          ]}
-        />
-      </div>
-      <ColumnResizeHandle columnId={column.id} columnName={column.name} width={width} onResize={onResize} />
+      {manage && (
+        <div {...isolate}>
+          <Menu
+            label={`Spalte „${column.name}“: Aktionen`}
+            trigger={<span aria-hidden="true">⋯</span>}
+            triggerClassName="grid size-6 place-items-center rounded-md text-base leading-none text-fg-subtle hover:bg-surface/70 hover:text-fg"
+            items={[
+              { label: 'Umbenennen', onSelect: () => setRenaming(true) },
+              { label: 'WIP-Limit ändern', onSelect: () => setEditingWip(true) },
+              {
+                label: 'Breite zurücksetzen',
+                onSelect: () => onResize(null),
+                disabledReason: column.width === null ? 'Die Spalte hat schon die Standardbreite' : undefined,
+              },
+              { label: 'Nach links', onSelect: () => onMove(-1), disabledReason: isFirst ? 'Schon ganz links' : undefined },
+              { label: 'Nach rechts', onSelect: () => onMove(1), disabledReason: isLast ? 'Schon ganz rechts' : undefined },
+              { label: 'Spalte löschen …', onSelect: onDelete, danger: true, disabledReason: deleteDisabledReason },
+            ]}
+          />
+        </div>
+      )}
+      {manage && <ColumnResizeHandle columnId={column.id} columnName={column.name} width={width} onResize={onResize} />}
     </div>
   );
 }

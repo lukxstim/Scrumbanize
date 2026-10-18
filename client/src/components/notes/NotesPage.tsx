@@ -1,6 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { useNotes } from '../../hooks/useNotes';
+import { useCan } from '../../hooks/useProjectRole';
 import { useProjects } from '../../hooks/useProjects';
 import { useTemplates } from '../../hooks/useTemplates';
 import type { NoteTemplate, TemplateInput } from '../../types/template';
@@ -27,6 +28,8 @@ import TagFilter from './TagFilter';
 export default function NotesPage() {
   const { projectId: projectParam, noteId } = useParams();
   const projectId = Number(projectParam);
+  // Viewers read notes only (US-21).
+  const canEdit = useCan('edit');
   const { notes, status, reload, updateAttachments, createNote, saveNote, deleteNote, createTaskFromNote, discardTask } = useNotes(projectId);
   const navigate = useNavigate();
   const location = useLocation();
@@ -69,7 +72,7 @@ export default function NotesPage() {
   // "Neue Notiz" from the command palette arrives as navigation state; handle it once the notes are loaded.
   const handledRequest = useRef<unknown>(null);
   useEffect(() => {
-    if (status !== 'ready' || !isCreateRequest(location.state) || location.state.create !== 'note') return;
+    if (status !== 'ready' || !canEdit || !isCreateRequest(location.state) || location.state.create !== 'note') return;
     if (handledRequest.current === location.state) return;
     const template = noteTemplates.find((t) => t.id === location.state.templateId);
     // A request for a template waits until the templates are loaded.
@@ -111,28 +114,30 @@ export default function NotesPage() {
             <h1 className="text-sm font-semibold text-fg">Notizen</h1>
             {/* Icons only: title, switch and the split button share the sidebar's width. */}
             <NotesViewSwitch projectId={projectId} view="list" compact />
-            {/* One split button: "Neue Notiz" and, joined to it, the arrow for templates. */}
-            <div className="ml-auto flex shrink-0 items-stretch rounded-md shadow-sm">
-              <Button variant="primary" size="sm" className="rounded-r-none !shadow-none active:!scale-100" onClick={() => void handleCreate()}>
-                <PlusIcon className="size-3.5" />
-                Neue Notiz
-              </Button>
-              <Menu
-                label="Neue Notiz aus Vorlage"
-                triggerClassName={buttonClass('primary', 'sm', 'w-7 !px-0 rounded-l-none border-l border-accent-fg/30 !shadow-none active:!scale-100')}
-                trigger={<ChevronDownIcon className="size-3.5" />}
-                items={[
-                  ...noteTemplates.map((template) => ({
-                    label: `${template.name}${template.scope === 'global' ? '' : ' (Projekt)'}`,
-                    onSelect: () => void handleCreate('', template),
-                  })),
-                  {
-                    label: 'Neue Vorlage …',
-                    onSelect: () => setTemplateDraft({ kind: 'note', scope: 'project', name: '', title: '', content: '', defaults: { tags: [] } }),
-                  },
-                ]}
-              />
-            </div>
+            {/* One split button: "Neue Notiz" and, joined to it, the arrow for templates. Not for viewers (US-21). */}
+            {canEdit && (
+              <div className="ml-auto flex shrink-0 items-stretch rounded-md shadow-sm">
+                <Button variant="primary" size="sm" className="rounded-r-none !shadow-none active:!scale-100" onClick={() => void handleCreate()}>
+                  <PlusIcon className="size-3.5" />
+                  Neue Notiz
+                </Button>
+                <Menu
+                  label="Neue Notiz aus Vorlage"
+                  triggerClassName={buttonClass('primary', 'sm', 'w-7 !px-0 rounded-l-none border-l border-accent-fg/30 !shadow-none active:!scale-100')}
+                  trigger={<ChevronDownIcon className="size-3.5" />}
+                  items={[
+                    ...noteTemplates.map((template) => ({
+                      label: `${template.name}${template.scope === 'global' ? '' : ' (Projekt)'}`,
+                      onSelect: () => void handleCreate('', template),
+                    })),
+                    {
+                      label: 'Neue Vorlage …',
+                      onSelect: () => setTemplateDraft({ kind: 'note', scope: 'project', name: '', title: '', content: '', defaults: { tags: [] } }),
+                    },
+                  ]}
+                />
+              </div>
+            )}
           </div>
           <SearchBar value={query} onChange={setQuery} />
           <TagFilter tags={tagCounts} selected={activeTags} onToggle={toggleTag} onClear={() => setSelectedTags([])} />
@@ -180,6 +185,7 @@ export default function NotesPage() {
             onCreateTask={createTaskFromNote}
             onDiscardTask={discardTask}
             onUpdateAttachments={updateAttachments}
+            readOnly={!canEdit}
             onSaveAsTemplate={(input) =>
               setTemplateDraft({ kind: 'note', scope: 'project', name: input.title || 'Neue Vorlage', title: input.title, content: input.content, defaults: { tags: input.tags } })
             }
@@ -191,18 +197,22 @@ export default function NotesPage() {
             </div>
             <div>
               <p className="text-sm font-medium text-fg">Keine Notiz ausgewählt</p>
-              <p className="mt-1 text-sm text-fg-subtle">Wähle links eine Notiz aus oder lege eine neue an.</p>
+              <p className="mt-1 text-sm text-fg-subtle">
+                {canEdit ? 'Wähle links eine Notiz aus oder lege eine neue an.' : 'Wähle links eine Notiz aus.'}
+              </p>
             </div>
-            <div className="flex items-center gap-3">
-              <Button variant="secondary" size="sm" onClick={() => void handleCreate()}>
-                <PlusIcon className="size-3.5" />
-                Neue Notiz
-              </Button>
-              <span className="flex items-center gap-1 text-xs text-fg-subtle">
-                oder <Kbd>{modKey}</Kbd>
-                <Kbd>K</Kbd>
-              </span>
-            </div>
+            {canEdit && (
+              <div className="flex items-center gap-3">
+                <Button variant="secondary" size="sm" onClick={() => void handleCreate()}>
+                  <PlusIcon className="size-3.5" />
+                  Neue Notiz
+                </Button>
+                <span className="flex items-center gap-1 text-xs text-fg-subtle">
+                  oder <Kbd>{modKey}</Kbd>
+                  <Kbd>K</Kbd>
+                </span>
+              </div>
+            )}
           </div>
         )}
       </main>

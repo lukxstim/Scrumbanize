@@ -22,7 +22,8 @@ interface BoardViewBarProps {
   onChange: (view: TaskView) => void;
   /** The project's labels, to filter by. */
   labels: Label[];
-  onManageLabels: () => void;
+  /** Undefined for viewers (US-21): no "Labels verwalten". */
+  onManageLabels?: () => void;
   /** Tasks shown and in total, for the "x von y" hint while filtering. */
   shown: number;
   total: number;
@@ -126,7 +127,7 @@ function LabelFilter({
   labels: Label[];
   selected: LabelFilter[];
   onChange: (next: LabelFilter[]) => void;
-  onManage: () => void;
+  onManage?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -179,18 +180,20 @@ function LabelFilter({
               <span className="truncate">{option.name}</span>
             </label>
           ))}
-          <div className="mt-1 border-t border-line pt-1">
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                onManage();
-              }}
-              className="w-full rounded px-2 py-1.5 text-left text-sm text-accent-text hover:bg-surface-hover"
-            >
-              Labels verwalten …
-            </button>
-          </div>
+          {onManage && (
+            <div className="mt-1 border-t border-line pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  onManage();
+                }}
+                className="w-full rounded px-2 py-1.5 text-left text-sm text-accent-text hover:bg-surface-hover"
+              >
+                Labels verwalten …
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

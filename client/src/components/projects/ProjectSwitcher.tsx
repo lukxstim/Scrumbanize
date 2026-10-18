@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router';
+import { useAuth } from '../../hooks/useAuth';
 import { useProjects } from '../../hooks/useProjects';
 import { useToast } from '../../hooks/useToast';
 import type { Project, ProjectInput } from '../../types/project';
 import { trashApi } from '../../utils/api';
 import { onNewProjectRequest } from '../../utils/appEvents';
 import { paths, sectionPath, type Section } from '../../utils/paths';
+import { can, ROLE_LABELS } from '../../utils/permissions';
 import { colorDot, countLabel, PROJECT_COLORS } from '../../utils/projects';
-import { CheckIcon, ChevronDownIcon, PencilIcon, PlusIcon } from '../icons';
+import { CheckIcon, ChevronDownIcon, PencilIcon, PlusIcon, UsersIcon } from '../icons';
 import { menuItemClass, popoverClass } from '../ui/styles';
 import DeleteProjectDialog from './DeleteProjectDialog';
+import MembersDialog from './MembersDialog';
 import ProjectDialog from './ProjectDialog';
 
 interface ProjectSwitcherProps {
@@ -18,12 +21,14 @@ interface ProjectSwitcherProps {
   section: Section;
 }
 
-type OpenDialog = 'create' | 'edit' | 'delete' | null;
+type OpenDialog = 'create' | 'edit' | 'delete' | 'members' | null;
 
 export default function ProjectSwitcher({ active, section }: ProjectSwitcherProps) {
   const { projects, reload, createProject, updateProject, deleteProject } = useProjects();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  // Members and roles only exist with login (US-21); the desktop app has one user.
+  const withMembers = useAuth().session?.mode === 'required';
   const [dialog, setDialog] = useState<OpenDialog>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -185,6 +190,7 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
                   <span className="block truncate text-sm font-medium text-fg">{project.name}</span>
                   <span className="block text-xs text-fg-subtle">
                     {countLabel(project.noteCount, 'Notiz', 'Notizen')} · {countLabel(project.taskCount, 'Task', 'Tasks')}
+                    {withMembers && project.role !== 'owner' && ` · ${ROLE_LABELS[project.role]}`}
                   </span>
                 </span>
                 {project.id === active.id && <CheckIcon className="size-4 shrink-0 text-accent-text" />}
@@ -201,15 +207,18 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
             <PlusIcon className="size-4 text-fg-subtle" />
             Neues Projekt
           </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => openDialog('edit')}
-            className={`py-2 ${menuItemClass}`}
-          >
-            <PencilIcon className="size-4 text-fg-subtle" />
-            <span className="truncate">„{active.name}“ bearbeiten …</span>
-          </button>
+          {withMembers && (
+            <button type="button" role="menuitem" onClick={() => openDialog('members')} className={`py-2 ${menuItemClass}`}>
+              <UsersIcon className="size-4 text-fg-subtle" />
+              <span className="truncate">Mitglieder von „{active.name}“ …</span>
+            </button>
+          )}
+          {can(active.role, 'manageProject') && (
+            <button type="button" role="menuitem" onClick={() => openDialog('edit')} className={`py-2 ${menuItemClass}`}>
+              <PencilIcon className="size-4 text-fg-subtle" />
+              <span className="truncate">„{active.name}“ bearbeiten …</span>
+            </button>
+          )}
         </div>
       )}
 
@@ -231,6 +240,7 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
           deleteDisabledReason={projects.length <= 1 ? 'Das letzte Projekt kann nicht gelöscht werden.' : undefined}
         />
       )}
+      {dialog === 'members' && <MembersDialog project={active} onClose={() => setDialog(null)} />}
       {dialog === 'delete' && (
         <DeleteProjectDialog project={active} onConfirm={remove} onClose={() => setDialog('edit')} />
       )}

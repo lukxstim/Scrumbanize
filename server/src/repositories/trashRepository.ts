@@ -133,17 +133,21 @@ export function createTrashRepository(db: Db) {
       return projects.purge(id) !== undefined;
     },
 
-    /** Empties the trash of one project, or everything including trashed projects. Returns what was purged. */
-    empty: db.transaction((projectId?: number) => {
+    /**
+     * Empties the trash of one project, or everything including trashed projects – limited to `ownProjects` (those the
+     * user owns) when given. Returns what was purged.
+     */
+    empty: db.transaction((projectId?: number, ownProjects?: Set<number>) => {
       if (projectId !== undefined) return { ...emptyProject(projectId), projects: 0 };
-      const projectIds = [...new Set([...selectNotes.all(null, null), ...selectTasks.all(null, null)].map((i) => i.project_id))];
+      const mine = (id: number) => !ownProjects || ownProjects.has(id);
+      const projectIds = [...new Set([...selectNotes.all(null, null), ...selectTasks.all(null, null)].map((i) => i.project_id))].filter(mine);
       const total = { notes: 0, tasks: 0, projects: 0 };
       for (const id of projectIds) {
         const purged = emptyProject(id);
         total.notes += purged.notes;
         total.tasks += purged.tasks;
       }
-      for (const project of selectProjects.all()) {
+      for (const project of selectProjects.all().filter((p) => mine(p.id))) {
         projects.purge(project.id);
         total.projects++;
       }

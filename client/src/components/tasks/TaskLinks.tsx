@@ -14,10 +14,12 @@ interface TaskLinksProps {
   onRemove: (linkId: number) => Promise<void>;
   /** Shows the linked task's details instead. */
   onOpen: (id: number) => void;
+  /** Viewers (US-21): links can be followed, not added or removed. */
+  readOnly?: boolean;
 }
 
 /** "Verknüpfungen" in the task details: links grouped by kind, and a picker to add one. */
-export default function TaskLinks({ task, candidates, onAdd, onRemove, onOpen }: TaskLinksProps) {
+export default function TaskLinks({ task, candidates, onAdd, onRemove, onOpen, readOnly = false }: TaskLinksProps) {
   const [adding, setAdding] = useState(false);
   const [kind, setKind] = useState<LinkKind>('relates');
   const [query, setQuery] = useState('');
@@ -50,7 +52,7 @@ export default function TaskLinks({ task, candidates, onAdd, onRemove, onOpen }:
         <h3 id="task-links-heading" className={labelClass}>
           Verknüpfungen
         </h3>
-        {!adding && (
+        {!adding && !readOnly && (
           <button
             type="button"
             onClick={() => setAdding(true)}
@@ -85,15 +87,17 @@ export default function TaskLinks({ task, candidates, onAdd, onRemove, onOpen }:
                   >
                     {link.task.columnName}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => void remove(link.id)}
-                    aria-label={`Verknüpfung mit „${link.task.title}“ entfernen`}
-                    title="Verknüpfung entfernen"
-                    className={`!size-6 text-base leading-none ${iconButtonClass}`}
-                  >
-                    ×
-                  </button>
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      onClick={() => void remove(link.id)}
+                      aria-label={`Verknüpfung mit „${link.task.title}“ entfernen`}
+                      title="Verknüpfung entfernen"
+                      className={`!size-6 text-base leading-none ${iconButtonClass}`}
+                    >
+                      ×
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>

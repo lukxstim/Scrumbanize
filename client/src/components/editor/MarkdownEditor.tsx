@@ -21,6 +21,8 @@ interface MarkdownEditorProps {
   autoFocus?: boolean;
   /** Minimum height of the writing area, e.g. "min-h-64". */
   minHeightClass?: string;
+  /** Viewers (US-21): shown formatted (or as source if it needs that), but not editable. */
+  readOnly?: boolean;
 }
 
 /**
@@ -35,11 +37,13 @@ export default function MarkdownEditor({
   placeholder,
   autoFocus,
   minHeightClass = 'min-h-48',
+  readOnly = false,
 }: MarkdownEditorProps) {
   const [preferred, setPreferred] = useStoredState<Mode>('scrumbanize.editorMode', 'rich', isMode);
   // Decided when opening, so typing such content in the source view does not switch views under the cursor.
   const [sourceOnly] = useState(() => needsSourceMode(value));
-  const mode: Mode = sourceOnly ? 'source' : preferred;
+  // Reading is always formatted; the source view is for editing.
+  const mode: Mode = sourceOnly ? 'source' : readOnly ? 'rich' : preferred;
   const { selection, textareaHandlers } = useTextSelection();
 
   useEffect(() => {
@@ -74,6 +78,7 @@ export default function MarkdownEditor({
           autoFocus={autoFocus}
           toolbarTrailing={modeSwitch}
           contentClassName={minHeightClass}
+          readOnly={readOnly}
         />
       </Suspense>
     );
@@ -87,10 +92,11 @@ export default function MarkdownEditor({
             ? 'Enthält HTML oder Fußnoten – nur als Markdown bearbeitbar.'
             : 'Markdown-Quelltext'}
         </span>
-        {sourceOnly ? null : modeSwitch}
+        {sourceOnly || readOnly ? null : modeSwitch}
       </div>
       <textarea
         value={value}
+        readOnly={readOnly}
         onChange={(event) => onChange(event.target.value)}
         {...textareaHandlers}
         autoFocus={autoFocus}

@@ -1,6 +1,8 @@
 import { lazy, Suspense, useRef, useState, type ReactNode } from 'react';
 import { useParams } from 'react-router';
+import { useAuth } from '../../hooks/useAuth';
 import { desktopBridge } from '../../hooks/useDesktopSettings';
+import { useCan } from '../../hooks/useProjectRole';
 import { useProjects } from '../../hooks/useProjects';
 import { useToast } from '../../hooks/useToast';
 import { ApiError, backupApi, exportUrls, type PreparedRestore } from '../../utils/api';
@@ -38,6 +40,9 @@ export default function SettingsPage() {
   const { projects } = useProjects();
   const project = projects.find((p) => p.id === projectId);
   const [importing, setImporting] = useState(false);
+  // A backup holds every project of every user, and a restore replaces them: administrators only (US-21).
+  const isAdmin = useAuth().session?.user?.systemRole === 'admin';
+  const canEdit = useCan('edit');
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
@@ -51,23 +56,27 @@ export default function SettingsPage() {
 
         {desktopBridge && <DesktopSection />}
 
-        <Section title="Backup" description="Eine ZIP-Datei mit allen Projekten, Notizen, Tasks, dem Aktivitätsprotokoll und allen Anhängen.">
-          <a href={backupApi.downloadUrl} download className={buttonClass('primary', 'sm')}>
-            <DownloadIcon className="size-3.5" />
-            Backup herunterladen
-          </a>
-          <p className="mt-3 text-xs text-fg-subtle">Das Backup lässt sich erstellen, während Scrumbanize benutzt wird. Bewahre es an einem sicheren Ort auf.</p>
-        </Section>
+        {isAdmin && (
+          <Section title="Backup" description="Eine ZIP-Datei mit allen Projekten, Notizen, Tasks, dem Aktivitätsprotokoll und allen Anhängen.">
+            <a href={backupApi.downloadUrl} download className={buttonClass('primary', 'sm')}>
+              <DownloadIcon className="size-3.5" />
+              Backup herunterladen
+            </a>
+            <p className="mt-3 text-xs text-fg-subtle">Das Backup lässt sich erstellen, während Scrumbanize benutzt wird. Bewahre es an einem sicheren Ort auf.</p>
+          </Section>
+        )}
 
-        <RestoreSection />
+        {isAdmin && <RestoreSection />}
 
         {project && <TemplatesSection projectId={project.id} projectName={project.name} />}
 
-        <Section title="Import" description="Markdown-Dateien, Ordner (z. B. Obsidian) oder ZIP-Exporte (z. B. Notion) als Notizen übernehmen.">
-          <Button size="sm" onClick={() => setImporting(true)}>
-            Notizen importieren …
-          </Button>
-        </Section>
+        {canEdit && (
+          <Section title="Import" description="Markdown-Dateien, Ordner (z. B. Obsidian) oder ZIP-Exporte (z. B. Notion) als Notizen übernehmen.">
+            <Button size="sm" onClick={() => setImporting(true)}>
+              Notizen importieren …
+            </Button>
+          </Section>
+        )}
 
         {project && (
           <Section title={`Export aus „${project.name}“`} description="Einzelne Notizen lassen sich auch direkt im Editor exportieren, das Board über die Leiste darüber.">

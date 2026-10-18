@@ -14,6 +14,7 @@ import {
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useLocation, useMatch, useNavigate, useParams } from 'react-router';
 import { useBoard } from '../../hooks/useBoard';
+import { useCan } from '../../hooks/useProjectRole';
 import { useProjects } from '../../hooks/useProjects';
 import { useTemplates } from '../../hooks/useTemplates';
 import { useStoredState } from '../../hooks/useStoredState';
@@ -126,6 +127,9 @@ export default function BoardPage() {
   const shown = applyView(cells, view, today, doneColumnId);
   const { lanes } = board;
   const showLanes = lanes.length > 1;
+  // Viewers only look; members move and edit tasks; owners also shape the board (US-21).
+  const canEdit = useCan('edit');
+  const canManage = useCan('manageBoard');
   const widthOf = (column: BoardColumn) => columnWidth(column, compact);
   // One CSS variable per column width on the board; headers and cells read it, a resize handle changes it while dragging.
   const widthVars = Object.fromEntries(columns.map((c) => [columnWidthVar(c.id), `${widthOf(c)}px`])) as CSSProperties;
@@ -242,7 +246,7 @@ export default function BoardPage() {
   const handledRequest = useRef<unknown>(null);
   useEffect(() => {
     const state = location.state;
-    if (board.status !== 'ready' || !isCreateRequest(state) || state.create !== 'task') return;
+    if (board.status !== 'ready' || !canEdit || !isCreateRequest(state) || state.create !== 'task') return;
     if (handledRequest.current === state) return;
     // A request for a template waits until the templates are loaded.
     if (state.templateId !== undefined && !taskTemplates.some((t) => t.id === state.templateId)) return;
@@ -444,7 +448,7 @@ export default function BoardPage() {
           view={view}
           onChange={setView}
           labels={board.labels}
-          onManageLabels={() => setLabelsOpen(true)}
+          onManageLabels={canEdit ? () => setLabelsOpen(true) : undefined}
           shown={Object.values(shown).reduce((sum, list) => sum + list.length, 0)}
           total={Object.values(cells).reduce((sum, list) => sum + list.length, 0)}
         />
@@ -469,12 +473,17 @@ export default function BoardPage() {
           trigger={<span aria-hidden="true">⋯</span>}
           triggerClassName="grid size-7 place-items-center rounded-md text-base leading-none text-fg-muted hover:bg-surface-strong hover:text-fg"
           items={[
-            { label: 'An Fenster anpassen', onSelect: fitToWindow },
-            {
-              label: 'Spaltenbreiten zurücksetzen',
-              onSelect: () => void board.setColumnWidths(board.columns.filter((c) => c.width !== null).map((c) => ({ id: c.id, width: null }))),
-              disabledReason: hasCustomWidths ? undefined : 'Alle Spalten haben die Standardbreite',
-            },
+            // Column widths apply to everyone in the project, so only owners change them.
+            ...(canManage
+              ? [
+                  { label: 'An Fenster anpassen', onSelect: fitToWindow },
+                  {
+                    label: 'Spaltenbreiten zurücksetzen',
+                    onSelect: () => void board.setColumnWidths(board.columns.filter((c) => c.width !== null).map((c) => ({ id: c.id, width: null }))),
+                    disabledReason: hasCustomWidths ? undefined : 'Alle Spalten haben die Standardbreite',
+                  },
+                ]
+              : []),
             { label: 'Board als CSV exportieren (Excel)', onSelect: () => startDownload(exportUrls.boardCsv(projectId)) },
           ]}
         />
@@ -518,14 +527,10 @@ export default function BoardPage() {
                   onResize={(width) => void board.setColumnWidths([{ id: column.id, width }])}
                   onMove={(direction) => step(board.columns, column.id, direction, board.moveColumn)}
                   onDelete={() => setDeleting({ kind: 'column', id: column.id })}
+                  manage={canManage}
                 />
               ))}
-              <AddItemButton
-                label="Spalte"
-                placeholder="Name der Spalte …"
-                onAdd={board.addColumn}
-                className="w-56 shrink-0"
-              />
+              {canManage && <AddItemButton label="Spalte" placeholder="Name der Spalte …" onAdd={board.addColumn} className="w-56 shrink-0" />}
             </div>
 
             {lanes.map((lane, laneIndex) => {
@@ -548,6 +553,7 @@ export default function BoardPage() {
                       onRename={(name) => void board.renameLane(lane.id, name)}
                       onMove={(direction) => step(lanes, lane.id, direction, board.moveLane)}
                       onDelete={() => setDeleting({ kind: 'lane', id: lane.id })}
+                      manage={canManage}
                     />
                   )}
                   {!collapsed && (
@@ -571,8 +577,9 @@ export default function BoardPage() {
                             overLimit={wipState(columnCount(cells, column.id), column.wipLimit) === 'over-limit'}
                             onOpenTask={(id) => navigate(paths.task(projectId, id))}
                             onMoveTask={(id, columnId) => moveToCellEnd(id, columnId)}
+                            readOnly={!canEdit}
                             footer={
-                              columnIndex === 0 ? (
+                              columnIndex === 0 && canEdit ? (
                                 <NewTaskForm
                                   key={laneIndex === 0 ? newTaskRequest : 0}
                                   defaultOpen={laneIndex === 0 && newTaskRequest > 0}
@@ -593,12 +600,7 @@ export default function BoardPage() {
               );
             })}
 
-            <AddItemButton
-              label="Swimlane"
-              placeholder="Name der Swimlane …"
-              onAdd={board.addLane}
-              className="sticky left-4 w-56"
-            />
+            {canManage && <AddItemButton label="Swimlane" placeholder="Name der Swimlane …" onAdd={board.addLane} className="sticky left-4 w-56" />}
           </div>
         </div>
 
@@ -662,6 +664,7 @@ export default function BoardPage() {
       {openTask && (
         <TaskDetailDialog
           key={openTask.id}
+          readOnly={!canEdit}
           task={openTask}
           columns={board.columns}
           lanes={lanes}

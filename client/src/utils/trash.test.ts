@@ -8,6 +8,7 @@ const item = (type: TrashItem['type'], id: number, title = `Item ${id}`): TrashI
   projectId: 1,
   projectName: 'Allgemein',
   projectColor: 'slate',
+  role: 'owner',
   title,
   deletedAt: '2026-10-15T10:00:00.000Z',
 });
@@ -34,7 +35,7 @@ describe('trash helpers', () => {
   });
 
   it('says what was restored and where it is', () => {
-    const project = { id: 5, name: 'Studium (2)', color: 'sky' as const, noteCount: 0, taskCount: 0, createdAt: '', updatedAt: '' };
+    const project = { id: 5, name: 'Studium (2)', color: 'sky' as const, role: 'owner' as const, noteCount: 0, taskCount: 0, createdAt: '', updatedAt: '' };
     expect(restoredMessage({ type: 'project', item: project, renamedFrom: 'Studium' })).toEqual({
       message: 'Projekt „Studium“ als „Studium (2)“ wiederhergestellt – der Name war inzwischen vergeben.',
       link: '/p/5/notes',

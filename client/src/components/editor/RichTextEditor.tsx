@@ -15,6 +15,8 @@ export interface RichTextEditorProps {
   /** Extra controls at the end of the toolbar (the Formatiert/Markdown switch). */
   toolbarTrailing?: ReactNode;
   contentClassName?: string;
+  /** Viewers (US-21): the text formatted as usual, without toolbar; checklists cannot be ticked. */
+  readOnly?: boolean;
 }
 
 /** The WYSIWYG editor (Tiptap). It reads and writes Markdown; loaded on demand (see MarkdownEditor). */
@@ -27,6 +29,7 @@ export default function RichTextEditor({
   autoFocus = false,
   toolbarTrailing,
   contentClassName = '',
+  readOnly = false,
 }: RichTextEditorProps) {
   // The editor is created once; the latest callbacks are read through refs.
   const onChangeRef = useRef(onChange);
@@ -40,7 +43,8 @@ export default function RichTextEditor({
     extensions: editorExtensions(placeholder),
     content: value,
     contentType: 'markdown',
-    autofocus: autoFocus ? 'end' : false,
+    editable: !readOnly,
+    autofocus: autoFocus && !readOnly ? 'end' : false,
     editorProps: {
       attributes: {
         'aria-label': label,
@@ -66,7 +70,7 @@ export default function RichTextEditor({
   if (!editor) return null;
   return (
     <div className="flex flex-col">
-      <EditorToolbar editor={editor} trailing={toolbarTrailing} />
+      {!readOnly && <EditorToolbar editor={editor} trailing={toolbarTrailing} />}
       <EditorContent editor={editor} className="pt-3" />
     </div>
   );

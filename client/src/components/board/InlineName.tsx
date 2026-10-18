@@ -9,10 +9,12 @@ interface InlineNameProps {
   onEditingChange: (editing: boolean) => void;
   onRename: (name: string) => void;
   className?: string;
+  /** Without the right to rename (US-21): just the name. */
+  readOnly?: boolean;
 }
 
 /** A name that turns into an input on double-click (or when `editing` is set, e.g. from a menu). */
-export default function InlineName({ name, label, editing, onEditingChange, onRename, className = '' }: InlineNameProps) {
+export default function InlineName({ name, label, editing, onEditingChange, onRename, className = '', readOnly = false }: InlineNameProps) {
   const [text, setText] = useState(name);
   const [wasEditing, setWasEditing] = useState(editing);
 
@@ -48,6 +50,7 @@ export default function InlineName({ name, label, editing, onEditingChange, onRe
     );
   }
 
+  if (readOnly) return <span className={`min-w-0 truncate ${className}`}>{name}</span>;
   return (
     <span
       title="Doppelklick zum Umbenennen"

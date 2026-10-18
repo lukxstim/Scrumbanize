@@ -7,6 +7,14 @@ export type UsersRepository = ReturnType<typeof createUsersRepository>;
 export type SystemRole = 'admin' | 'user';
 export type ProjectRole = 'owner' | 'member' | 'viewer';
 
+/** A member of a project as the members dialog shows them. */
+export interface Member {
+  user: Pick<User, 'id' | 'name' | 'email' | 'avatarColor' | 'hasAvatar'>;
+  role: ProjectRole;
+}
+
+export type MemberResult = { ok: true; member: Member } | { ok: false; reason: 'not_found' | 'already_member' | 'last_owner' };
+
 /** A user as the API shows them; never the password hash. */
 export interface User {
   id: number;
@@ -76,6 +84,27 @@ export function createUsersRepository(db: Db) {
      ON CONFLICT (project_id, user_id) DO UPDATE SET role = excluded.role`,
   );
   const selectAllProjectIds = db.prepare<[], { id: number }>(`SELECT id FROM projects`);
+  const selectMembers = db.prepare<[number], UserRow & { role: ProjectRole }>(
+    `SELECT u.*, m.role FROM project_members m JOIN users u ON u.id = m.user_id
+     WHERE m.project_id = ?
+     ORDER BY CASE m.role WHEN 'owner' THEN 0 WHEN 'member' THEN 1 ELSE 2 END, u.name COLLATE NOCASE, u.id`,
+  );
+  const selectMember = db.prepare<[number, number], { role: ProjectRole }>(`SELECT role FROM project_members WHERE project_id = ? AND user_id = ?`);
+  const countOwners = db.prepare<[number], { n: number }>(`SELECT COUNT(*) AS n FROM project_members WHERE project_id = ? AND role = 'owner'`);
+  const updateRole = db.prepare<[ProjectRole, number, number]>(`UPDATE project_members SET role = ? WHERE project_id = ? AND user_id = ?`);
+  const deleteMember = db.prepare<[number, number]>(`DELETE FROM project_members WHERE project_id = ? AND user_id = ?`);
+
+  const toMember = (row: UserRow & { role: ProjectRole }): Member => {
+    const { id, name, email, avatarColor, hasAvatar } = toUser(row);
+    return { user: { id, name, email, avatarColor, hasAvatar }, role: row.role };
+  };
+  const memberOf = (projectId: number, userId: number) => {
+    const row = selectMembers.all(projectId).find((m) => m.id === userId);
+    return row && toMember(row);
+  };
+  /** A project always keeps an owner: the last one can neither leave nor become something else. */
+  const isLastOwner = (projectId: number, userId: number) =>
+    selectMember.get(projectId, userId)?.role === 'owner' && countOwners.get(projectId)!.n === 1;
 
   function createUser(input: { email: string; name: string; passwordHash: string | null; systemRole: SystemRole }): User {
     const now = new Date().toISOString();
@@ -125,6 +154,38 @@ export function createUsersRepository(db: Db) {
     addMember(projectId: number, userId: number, role: ProjectRole): void {
       insertMember.run(projectId, userId, role, new Date().toISOString());
     },
+
+    /** Owners first, then members and viewers, each by name. */
+    members(projectId: number): Member[] {
+      return selectMembers.all(projectId).map(toMember);
+    },
+
+    /** An active account with a password (not the local user), for adding it to a project by email. */
+    activeUserByEmail(email: string): User | undefined {
+      const row = selectByEmail.get(email.trim());
+      return row && row.password_hash && !row.disabled_at ? toUser(row) : undefined;
+    },
+
+    invite: db.transaction((projectId: number, userId: number, role: ProjectRole): MemberResult => {
+      if (selectMember.get(projectId, userId)) return { ok: false, reason: 'already_member' };
+      insertMember.run(projectId, userId, role, new Date().toISOString());
+      return { ok: true, member: memberOf(projectId, userId)! };
+    }),
+
+    setRole: db.transaction((projectId: number, userId: number, role: ProjectRole): MemberResult => {
+      if (!selectMember.get(projectId, userId)) return { ok: false, reason: 'not_found' };
+      if (role !== 'owner' && isLastOwner(projectId, userId)) return { ok: false, reason: 'last_owner' };
+      updateRole.run(role, projectId, userId);
+      return { ok: true, member: memberOf(projectId, userId)! };
+    }),
+
+    removeMember: db.transaction((projectId: number, userId: number): MemberResult => {
+      const member = memberOf(projectId, userId);
+      if (!member) return { ok: false, reason: 'not_found' };
+      if (isLastOwner(projectId, userId)) return { ok: false, reason: 'last_owner' };
+      deleteMember.run(projectId, userId);
+      return { ok: true, member };
+    }),
 
     /** A new session; returns the token for the cookie (only its hash is stored). */
     createSession(userId: number, userAgent: string | undefined, now = new Date()): { token: string; expiresAt: Date } {

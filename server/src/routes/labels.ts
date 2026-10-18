@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { Access } from '../auth/access.js';
 import { HttpError, notFound } from '../errors.js';
 import type { LabelResult, LabelsRepository } from '../repositories/labelsRepository.js';
 import type { TemplateResult, TemplatesRepository } from '../repositories/templatesRepository.js';
@@ -20,26 +21,28 @@ export function unwrapTemplate(result: TemplateResult) {
 }
 
 /** Single labels by id, mounted at /api/labels. Listing and creating are project-scoped (see projectScoped.ts). */
-export function labelsRouter(labels: LabelsRepository): Router {
+export function labelsRouter(labels: LabelsRepository, access: Access): Router {
   const router = Router();
+  const read = access.requireRole('viewer', access.of.label());
+  const edit = access.requireRole('member', access.of.label());
 
-  router.patch('/:id', (req, res) => {
+  router.patch('/:id', edit, (req, res) => {
     res.json(unwrapLabel(labels.update(idParamSchema.parse(req.params.id), labelPatchSchema.parse(req.body))));
   });
 
-  router.post('/:id/move', (req, res) => {
+  router.post('/:id/move', edit, (req, res) => {
     const { index } = reorderSchema.parse(req.body);
     res.json(unwrapLabel(labels.move(idParamSchema.parse(req.params.id), index)));
   });
 
   /** How many tasks carry the label, for the confirmation before deleting. */
-  router.get('/:id/usage', (req, res) => {
+  router.get('/:id/usage', read, (req, res) => {
     const id = idParamSchema.parse(req.params.id);
     if (labels.projectOf(id) === undefined) throw notFound('Label not found');
     res.json({ tasks: labels.usage(id) });
   });
 
-  router.delete('/:id', (req, res) => {
+  router.delete('/:id', edit, (req, res) => {
     if (!labels.remove(idParamSchema.parse(req.params.id))) throw notFound('Label not found');
     res.status(204).end();
   });

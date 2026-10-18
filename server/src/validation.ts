@@ -179,6 +179,10 @@ const emailSchema = z.string().trim().toLowerCase().max(254).email();
 const userNameSchema = z.string().trim().min(1).max(80);
 const newPasswordSchema = z.string().min(10).max(200);
 
+export const PROJECT_ROLES = ['owner', 'member', 'viewer'] as const;
+export const memberInputSchema = z.object({ email: z.string().trim().max(254), role: z.enum(PROJECT_ROLES) });
+export const memberPatchSchema = z.object({ role: z.enum(PROJECT_ROLES) });
+
 export const loginSchema = z.object({ email: z.string().trim().max(254), password: z.string().max(200) });
 export const setupSchema = z.object({
   code: z.string().trim().min(1).max(20),

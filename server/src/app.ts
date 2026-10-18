@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import express from 'express';
 import type { Db } from './database.js';
+import { createAccess } from './auth/access.js';
 import { authenticate, requireAuth, sameOriginForChanges, type AuthMode } from './auth/middleware.js';
 import { createRateLimiter } from './auth/rateLimit.js';
 import { createSetupCode } from './auth/setupCode.js';
@@ -31,6 +32,7 @@ import { backupRouter } from './routes/backup.js';
 import { columnsRouter, lanesRouter } from './routes/board.js';
 import { exportsRouter } from './routes/exports.js';
 import { labelsRouter } from './routes/labels.js';
+import { membersRouter } from './routes/members.js';
 import { notesRouter } from './routes/notes.js';
 import { projectScopedRouter } from './routes/projectScoped.js';
 import { projectsRouter } from './routes/projects.js';
@@ -84,6 +86,7 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   const users = createUsersRepository(db);
   const authMode = options.auth ?? 'local';
   const setupCode = createSetupCode(options.onSetupCode ?? (() => {}));
+  const access = createAccess(db, authMode);
   // 10 failed attempts per 15 minutes, per IP address and per email.
   const limiter = createRateLimiter({ limit: 10, windowMs: 15 * 60 * 1000 });
   if (authMode === 'required' && users.setupRequired()) setupCode.current();
@@ -123,19 +126,21 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   api.get('/meta', (_req, res) => {
     res.json({ sampleProjectId: meta.sampleProjectId(), desktop: options.desktop ?? null, restoredAt: meta.get('restored_at') ?? null });
   });
-  api.use('/projects', projectsRouter(projects));
-  api.use('/projects/:projectId', projectScopedRouter({ activities, analytics, graph, labels, templates, projects, notes, tasks, board }));
-  api.use('/notes', notesRouter(notes));
-  api.use('/tasks', tasksRouter(tasks));
-  api.use('/columns', columnsRouter(board));
-  api.use('/lanes', lanesRouter(board));
-  api.use('/labels', labelsRouter(labels));
-  api.use('/search', searchRouter(search));
-  api.use('/reminders', remindersRouter(reminders));
-  api.use('/trash', trashRouter(trash, projects, () => attachments.sweep()));
-  api.use(attachmentsRouter(attachments));
-  api.use('/backup', backupRouter(db, uploadsDir, restore));
-  api.use(exportsRouter({ projects, notes, tasks, board, attachments }));
+  // Every route below checks the user's role in the project it touches (auth/access.ts, US-21).
+  api.use('/projects', projectsRouter(projects, access));
+  api.use('/projects/:projectId/members', membersRouter(users, activities, access));
+  api.use('/projects/:projectId', projectScopedRouter({ access, activities, analytics, graph, labels, templates, projects, notes, tasks, board }));
+  api.use('/notes', notesRouter(notes, access));
+  api.use('/tasks', tasksRouter(tasks, access));
+  api.use('/columns', columnsRouter(board, access));
+  api.use('/lanes', lanesRouter(board, access));
+  api.use('/labels', labelsRouter(labels, access));
+  api.use('/search', searchRouter(search, access));
+  api.use('/reminders', remindersRouter(reminders, access));
+  api.use('/trash', trashRouter(trash, projects, () => attachments.sweep(), access));
+  api.use(attachmentsRouter(attachments, access));
+  api.use('/backup', backupRouter(db, uploadsDir, restore, access));
+  api.use(exportsRouter({ access, projects, notes, tasks, board, attachments }));
   api.use(apiNotFoundHandler);
   app.use('/api', api);
 

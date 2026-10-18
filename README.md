@@ -310,6 +310,24 @@ Unter `/setup` legt man mit diesem Code das erste Konto an. Es wird Administrato
 - **Hinter einem Reverse Proxy** (z. B. Caddy mit HTTPS): `TRUST_PROXY=1` setzen, damit der Server HTTPS und die echte IP-Adresse erkennt, und `BASE_URL` auf die öffentliche Adresse.
 - **Ohne Anmeldung** (nur in einem vertrauenswürdigen Netz!): `AUTH=off`.
 
+### Rollen in Projekten
+
+Jede Person sieht nur die Projekte, in denen sie Mitglied ist – auch Administratoren. Wer ein Projekt anlegt, ist dessen Owner. Mitglieder verwaltet man über den Projektnamen oben links → **„Mitglieder von …“** (die Person braucht schon ein Konto).
+
+| | Betrachter | Mitglied | Owner |
+|---|:-:|:-:|:-:|
+| Board, Notizen, Kalender, Statistiken, Graph ansehen, exportieren | ✓ | ✓ | ✓ |
+| Notizen und Tasks anlegen, bearbeiten, verschieben, löschen; Labels, Anhänge, Verknüpfungen, Projektvorlagen, Import | | ✓ | ✓ |
+| Notizen und Tasks aus dem Papierkorb wiederherstellen | | ✓ | ✓ |
+| Spalten, Swimlanes, WIP-Limits, Spaltenbreiten | | | ✓ |
+| Projekt umbenennen/löschen/wiederherstellen, Mitglieder verwalten, endgültig löschen | | | ✓ |
+
+- Ein Projekt hat immer mindestens einen Owner; der letzte kann weder gehen noch seine Rolle abgeben.
+- Jede und jeder kann ein Projekt selbst verlassen.
+- **Administratoren** machen zusätzlich Backups und Wiederherstellungen und ändern Vorlagen für alle Projekte – aber nur in Projekten, in denen sie Mitglied sind, sehen sie Inhalte. Ein Backup enthält allerdings alle Projekte aller Benutzer.
+- Der Verlauf nennt, wer etwas getan hat (Einträge von vor US-21 haben keinen Namen).
+- In der Desktop-App und mit `AUTH=off` ist der lokale Benutzer Owner von allem.
+
 Die SQLite-Datenbank und die Anhänge liegen im Volume `scrumbanize-data` (im Container unter `/data/scrumbanize.db` und `/data/uploads/`) und bleibt bei Neustarts und Updates erhalten. Backup und Wiederherstellung gehen in der App über **Einstellungen** (Zahnrad oben rechts); Sicherungen vor einer Wiederherstellung landen unter `/data/backups/`. Ohne Browser, z. B. für ein nächtliches Backup:
 
 ```sh
@@ -365,7 +383,7 @@ npm-Workspaces mit drei Paketen:
 
 ## REST-API
 
-Alle Endpunkte außer `/api/health` und `/api/auth/*` verlangen eine Anmeldung (sonst 401 `unauthenticated`); ohne Anmeldung (Desktop-App, `AUTH=off`) gilt jede Anfrage als vom lokalen Benutzer. Listen und Neuanlagen gehören zu einem Projekt (`/api/projects/:projectId/…`). Einzelne Notizen und Tasks werden über ihre projektübergreifend eindeutige ID angesprochen.
+Alle Endpunkte außer `/api/health` und `/api/auth/*` verlangen eine Anmeldung (sonst 401 `unauthenticated`); ohne Anmeldung (Desktop-App, `AUTH=off`) gilt jede Anfrage als vom lokalen Benutzer. Jeder Endpunkt prüft außerdem die Rolle im betroffenen Projekt (siehe [Rollen in Projekten](#rollen-in-projekten)): Wer nicht Mitglied ist, bekommt 404, wer eine zu niedrige Rolle hat, 403 `forbidden`. Listen über alle Projekte (Suche, Papierkorb, Erinnerungen) enthalten nur die eigenen Projekte; Backup und Wiederherstellung nur für Administratoren. Listen und Neuanlagen gehören zu einem Projekt (`/api/projects/:projectId/…`). Einzelne Notizen und Tasks werden über ihre projektübergreifend eindeutige ID angesprochen.
 
 | Methode | Pfad              | Beschreibung |
 |---------|-------------------|--------------|
@@ -375,7 +393,11 @@ Alle Endpunkte außer `/api/health` und `/api/auth/*` verlangen eine Anmeldung (
 | POST    | `/api/auth/login` | `{ "email", "password" }` → Sitzungs-Cookie und `{ "user" }`; falsch: 401 `wrong_credentials`, zu viele Versuche: 429 |
 | POST    | `/api/auth/logout` | Beendet die Sitzung (204) |
 | GET     | `/api/meta`       | Angaben zur Installation: `{ "sampleProjectId", "desktop", "restoredAt" }` – das Beispielprojekt des ersten Starts (`null`, wenn es (nicht mehr) existiert oder im Papierkorb liegt), Version der Desktop-App (sonst `null`) und Zeitpunkt der letzten Wiederherstellung eines Backups (sonst `null`) |
-| GET     | `/api/projects`   | Alle Projekte, alphabetisch, mit `noteCount` und `taskCount` |
+| GET     | `/api/projects`   | Die Projekte, in denen man Mitglied ist, alphabetisch, mit `noteCount`, `taskCount` und der eigenen `role` (`owner`, `member`, `viewer`) |
+| GET     | `/api/projects/:id/members` | Mitglieder mit Rolle: `[{ user: { id, name, email, avatarColor, hasAvatar }, role }]`, Owner zuerst |
+| POST    | `/api/projects/:id/members` | Owner: `{ "email", "role" }` – ein vorhandenes Konto hinzufügen (404 `user_not_found`, 409 `already_member`) |
+| PATCH   | `/api/projects/:id/members/:userId` | Owner: `{ "role" }`; der letzte Owner bleibt Owner (409 `last_owner`) |
+| DELETE  | `/api/projects/:id/members/:userId` | Owner entfernt jemanden, jede Person sich selbst (Projekt verlassen); nicht der letzte Owner (409) |
 | POST    | `/api/projects`   | Projekt anlegen: `{ "name", "color" }` – Farben: `slate`, `red`, `amber`, `emerald`, `sky`, `indigo`, `violet`, `pink`. Namen sind eindeutig (ohne Groß-/Kleinschreibung), sonst 409 |
 | PATCH   | `/api/projects/:id` | Name und/oder Farbe ändern |
 | DELETE  | `/api/projects/:id` | Projekt mit allen Notizen und Tasks in den Papierkorb verschieben; das letzte Projekt nicht (409) |

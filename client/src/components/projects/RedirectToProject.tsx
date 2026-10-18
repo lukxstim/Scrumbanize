@@ -3,6 +3,7 @@ import { useProjects } from '../../hooks/useProjects';
 import { sectionPath, type Section } from '../../utils/paths';
 import { defaultProject } from '../../utils/projects';
 import Skeleton from '../ui/Skeleton';
+import NoProjects from './NoProjects';
 
 /** Placeholder while the project list loads, or an error with a retry button. */
 export function ProjectsLoading() {
@@ -32,6 +33,7 @@ export default function RedirectToProject({ section = 'notes' }: { section?: Sec
   const { projects, status, sampleProjectId } = useProjects();
   const target = defaultProject(projects, sampleProjectId);
 
+  if (status === 'ready' && projects.length === 0) return <NoProjects />;
   if (status !== 'ready' || !target) return <ProjectsLoading />;
   return <Navigate to={sectionPath(target.id, section)} replace />;
 }

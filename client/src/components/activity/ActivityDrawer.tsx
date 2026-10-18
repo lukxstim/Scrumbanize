@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useActivities } from '../../hooks/useActivities';
+import { useAuth } from '../../hooks/useAuth';
 import type { ActivityEntity } from '../../types/activity';
 import { groupByDay } from '../../utils/activity';
 import { ClockIcon } from '../icons';
@@ -31,6 +32,8 @@ interface ActivityDrawerProps {
  * It is open while mounted; following an entry's link closes it (the URL loses `?activity`).
  */
 export default function ActivityDrawer({ projectId, projectName, onClose }: ActivityDrawerProps) {
+  // Who did what only matters with several people (US-21); the desktop app has just one.
+  const showAuthor = useAuth().session?.mode === 'required';
   const [filter, setFilter] = useState<Filter>('all');
   const log = useActivities(projectId, filter === 'all' ? undefined : filter);
   const { hasMore, loadingMore, loadMore } = log;
@@ -118,7 +121,7 @@ export default function ActivityDrawer({ projectId, projectName, onClose }: Acti
               </h3>
               <ul>
                 {group.items.map((activity) => (
-                  <ActivityItem key={activity.id} activity={activity} now={now} />
+                  <ActivityItem key={activity.id} activity={activity} now={now} showAuthor={showAuthor} />
                 ))}
               </ul>
             </section>

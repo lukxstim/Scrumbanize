@@ -4,7 +4,7 @@ import type { GraphData } from '../types/graph';
 import type { Attachment, AttachmentOwner } from '../types/attachment';
 import type { AuthSession, AuthUser } from '../types/auth';
 import type { Note, NoteInput } from '../types/note';
-import type { Project, ProjectInput } from '../types/project';
+import type { Project, ProjectInput, ProjectMember, ProjectRole } from '../types/project';
 import type { ProjectColor } from '../types/project';
 import type { BoardColumn, Label, Lane, LinkKind, Task, TaskInput, TaskPatch } from '../types/task';
 import type { Template, TemplateInput, TemplateKind } from '../types/template';
@@ -52,6 +52,16 @@ export const authApi = {
   setup: (input: { code: string; name: string; email: string; password: string }) =>
     request<{ user: AuthUser }>('/auth/setup', { method: 'POST', body: JSON.stringify(input) }),
   logout: () => request<void>('/auth/logout', { method: 'POST' }),
+};
+
+/** The members of a project and their roles (US-21). */
+export const membersApi = {
+  list: (projectId: number) => request<ProjectMember[]>(`/projects/${projectId}/members`),
+  add: (projectId: number, email: string, role: ProjectRole) =>
+    request<ProjectMember>(`/projects/${projectId}/members`, { method: 'POST', body: JSON.stringify({ email, role }) }),
+  setRole: (projectId: number, userId: number, role: ProjectRole) =>
+    request<ProjectMember>(`/projects/${projectId}/members/${userId}`, { method: 'PATCH', body: JSON.stringify({ role }) }),
+  remove: (projectId: number, userId: number) => request<void>(`/projects/${projectId}/members/${userId}`, { method: 'DELETE' }),
 };
 
 /** Set when the app runs inside the desktop app. */

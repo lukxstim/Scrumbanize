@@ -31,6 +31,8 @@ interface NoteEditorProps {
   onUpdateAttachments: (noteId: number, update: (attachments: Attachment[]) => Attachment[]) => void;
   /** Opens the template editor with this note as starting point. */
   onSaveAsTemplate?: (input: NoteInput) => void;
+  /** Viewers (US-21): read, export and view as mindmap; no changes. */
+  readOnly?: boolean;
 }
 
 export default function NoteEditor({
@@ -43,6 +45,7 @@ export default function NoteEditor({
   onDiscardTask,
   onUpdateAttachments,
   onSaveAsTemplate,
+  readOnly = false,
 }: NoteEditorProps) {
   const [draft, setDraft] = useState<NoteInput>({ title: note.title, content: note.content, tags: note.tags });
   const [conversion, setConversion] = useState<{ draft: TaskDraft; fromSelection: boolean } | null>(null);
@@ -110,16 +113,18 @@ export default function NoteEditor({
       }}
     >
       <div className="flex items-center gap-2 border-b border-line px-6 py-2.5">
-        <Button
-          size="sm"
-          // Keep the text selection (and the editor's focus) when the button is clicked.
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={startConversion}
-          className={selection ? 'border-accent-line text-accent-text' : ''}
-        >
-          <BoardIcon className="size-3.5" />
-          {selection ? 'Auswahl in Task umwandeln' : 'In Task umwandeln'}
-        </Button>
+        {!readOnly && (
+          <Button
+            size="sm"
+            // Keep the text selection (and the editor's focus) when the button is clicked.
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={startConversion}
+            className={selection ? 'border-accent-line text-accent-text' : ''}
+          >
+            <BoardIcon className="size-3.5" />
+            {selection ? 'Auswahl in Task umwandeln' : 'In Task umwandeln'}
+          </Button>
+        )}
         <Button size="sm" variant="ghost" onClick={() => setMindmapOpen(true)} title="Überschriften und Listen der Notiz als Mindmap">
           <MindmapIcon className="size-3.5" />
           Als Mindmap
@@ -137,20 +142,27 @@ export default function NoteEditor({
           items={[
             { label: 'Als Markdown (.md)', onSelect: () => void download('md') },
             { label: 'Als HTML (druckbar)', onSelect: () => void download('html') },
-            ...(onSaveAsTemplate ? [{ label: 'Als Vorlage speichern …', onSelect: () => onSaveAsTemplate(draft) }] : []),
+            ...(onSaveAsTemplate && !readOnly ? [{ label: 'Als Vorlage speichern …', onSelect: () => onSaveAsTemplate(draft) }] : []),
           ]}
         />
         <div className="flex-1" />
-        <SaveIndicator status={status} onRetry={() => void flush()} />
-        <Button variant="danger-ghost" size="sm" onClick={() => void moveToTrash()}>
-          Löschen
-        </Button>
+        {readOnly ? (
+          <span className="text-xs text-fg-subtle">Nur lesen</span>
+        ) : (
+          <>
+            <SaveIndicator status={status} onRetry={() => void flush()} />
+            <Button variant="danger-ghost" size="sm" onClick={() => void moveToTrash()}>
+              Löschen
+            </Button>
+          </>
+        )}
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-3 px-8 py-8">
           <input
             value={draft.title}
+            readOnly={readOnly}
             onChange={(event) => change({ title: event.target.value })}
             placeholder="Titel"
             aria-label="Titel"
@@ -158,7 +170,9 @@ export default function NoteEditor({
             autoFocus={autoFocusTitle}
             className="bg-transparent text-2xl font-semibold tracking-tight text-fg placeholder:text-fg-faint focus:outline-none"
           />
-          <TagInput tags={draft.tags} suggestions={tagSuggestions} onChange={(tags) => change({ tags })} />
+          <fieldset disabled={readOnly} className="min-w-0">
+            <TagInput tags={draft.tags} suggestions={tagSuggestions} onChange={(tags) => change({ tags })} />
+          </fieldset>
           <LinkedTasks projectId={note.projectId} tasks={note.tasks} />
           <hr className="my-1 border-line" />
           <MarkdownEditor
@@ -168,11 +182,13 @@ export default function NoteEditor({
             label="Inhalt"
             placeholder="Schreibe deine Notiz …"
             minHeightClass="min-h-64"
+            readOnly={readOnly}
           />
           <AttachmentsPanel
             owner={{ type: 'note', id: note.id }}
             attachments={note.attachments}
             onUpdate={(update) => onUpdateAttachments(note.id, update)}
+            readOnly={readOnly}
           />
         </div>
       </div>

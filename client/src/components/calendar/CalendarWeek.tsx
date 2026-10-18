@@ -25,7 +25,8 @@ interface CalendarWeekProps {
   dayHeaders: 'number' | 'weekday';
   minHeightClass: string;
   onOpenTask: (id: number) => void;
-  onAddTask: (day: string) => void;
+  /** Undefined for viewers (US-21): no "+" on the days. */
+  onAddTask?: (day: string) => void;
   /** "+N weitere" opens the week view of that day. */
   onShowWeek: (day: string) => void;
 }
@@ -68,7 +69,7 @@ export default function CalendarWeek({
             today={today}
             outside={month !== undefined && !sameMonth(day, month)}
             header={dayHeaders}
-            onAdd={() => onAddTask(day)}
+            onAdd={onAddTask && (() => onAddTask(day))}
           />
         ))}
         {bars
@@ -113,7 +114,7 @@ function CalendarDay({
   today: string;
   outside: boolean;
   header: 'number' | 'weekday';
-  onAdd: () => void;
+  onAdd?: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `day:${day}`, data: { day } });
   const isToday = day === today;
@@ -143,15 +144,17 @@ function CalendarDay({
             {header === 'weekday' || dayNumber === 1 ? formatDayMonth(day) : dayNumber}
           </span>
         </span>
-        <button
-          type="button"
-          onClick={onAdd}
-          aria-label={`Task fällig am ${formatDateLong(day)} anlegen`}
-          title="Task an diesem Tag anlegen"
-          className="grid size-5 place-items-center rounded text-fg-subtle opacity-0 transition-opacity hover:bg-surface-hover hover:text-fg focus-visible:opacity-100 group-hover/day:opacity-100 [@media(hover:none)]:opacity-100"
-        >
-          <PlusIcon className="size-3.5" />
-        </button>
+        {onAdd && (
+          <button
+            type="button"
+            onClick={onAdd}
+            aria-label={`Task fällig am ${formatDateLong(day)} anlegen`}
+            title="Task an diesem Tag anlegen"
+            className="grid size-5 place-items-center rounded text-fg-subtle opacity-0 transition-opacity hover:bg-surface-hover hover:text-fg focus-visible:opacity-100 group-hover/day:opacity-100 [@media(hover:none)]:opacity-100"
+          >
+            <PlusIcon className="size-3.5" />
+          </button>
+        )}
       </div>
     </div>
   );

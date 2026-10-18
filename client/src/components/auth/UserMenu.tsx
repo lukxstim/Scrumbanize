@@ -4,8 +4,8 @@ import { initialsOf } from '../../utils/auth';
 import { colorDot } from '../../utils/projects';
 import Menu from '../Menu';
 
-/** Initials on the user's color; a profile picture follows with US-21c. */
-export function Avatar({ user, className = 'size-7 text-xs' }: { user: AuthUser; className?: string }) {
+/** Initials on the user's color (also for project members and activity authors); a profile picture follows with US-21c. */
+export function Avatar({ user, className = 'size-7 text-xs' }: { user: Pick<AuthUser, 'name' | 'avatarColor'>; className?: string }) {
   return (
     <span aria-hidden="true" className={`grid shrink-0 place-items-center rounded-full font-semibold text-white ${colorDot(user.avatarColor)} ${className}`}>
       {initialsOf(user.name)}
