@@ -183,6 +183,15 @@ export const PROJECT_ROLES = ['owner', 'member', 'viewer'] as const;
 export const memberInputSchema = z.object({ email: z.string().trim().max(254), role: z.enum(PROJECT_ROLES) });
 export const memberPatchSchema = z.object({ role: z.enum(PROJECT_ROLES) });
 
+// Accounts (US-21c)
+export const profilePatchSchema = z.object({ name: userNameSchema.optional(), avatarColor: z.enum(PROJECT_COLORS).optional() });
+export const passwordChangeSchema = z.object({ current: z.string().max(200), password: newPasswordSchema });
+export const registerSchema = z.object({ token: z.string().min(10).max(200), name: userNameSchema, password: newPasswordSchema });
+export const resetPasswordSchema = z.object({ token: z.string().min(10).max(200), password: newPasswordSchema });
+export const invitationSchema = z.object({ email: emailSchema });
+export const accountPatchSchema = z.object({ systemRole: z.enum(['admin', 'user']).optional(), disabled: z.boolean().optional() });
+export const handOverSchema = z.object({ toUserId: z.number().int().positive() });
+
 export const loginSchema = z.object({ email: z.string().trim().max(254), password: z.string().max(200) });
 export const setupSchema = z.object({
   code: z.string().trim().min(1).max(20),

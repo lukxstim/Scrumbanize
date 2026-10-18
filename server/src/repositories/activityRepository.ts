@@ -1,5 +1,6 @@
 import { text, type EditSummary } from '../activityText.js';
 import { currentUserId } from '../auth/currentUser.js';
+import { avatarUrl } from './usersRepository.js';
 import type { Db } from '../database.js';
 
 export const ENTITY_TYPES = ['note', 'task', 'board', 'project'] as const;
@@ -33,7 +34,7 @@ export interface Activity {
   /** The note or task is in the trash (and could be restored). */
   trashed: boolean;
   /** Who did it (US-21); null before US-21, for the sample project, and for deleted accounts. */
-  author: { id: number; name: string; avatarColor: string; hasAvatar: boolean } | null;
+  author: { id: number; name: string; avatarColor: string; avatarUrl: string | null } | null;
 }
 
 interface ActivityRow {
@@ -255,7 +256,7 @@ export function createActivityRepository(db: Db) {
         trashed: row.entity_trashed === 1,
         author:
           row.user_id !== null && row.author_name
-            ? { id: row.user_id, name: row.author_name, avatarColor: row.author_color!, hasAvatar: row.author_avatar !== null }
+            ? { id: row.user_id, name: row.author_name, avatarColor: row.author_color!, avatarUrl: avatarUrl(row.user_id, row.author_avatar ?? null) }
             : null,
       }));
       return { items, nextCursor: rows.length > options.limit ? page.at(-1)!.id : null };

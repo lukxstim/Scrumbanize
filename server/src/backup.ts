@@ -85,9 +85,12 @@ export async function writeBackup(db: Db, uploadsDir: string, out: Writable, now
       createdAt: now.toISOString(),
       counts: countData(db),
     };
-    const storedNames = (db.prepare(`SELECT stored_name FROM attachments ORDER BY id`).all() as { stored_name: string }[]).map(
-      (r) => r.stored_name,
-    );
+    // The files of attachments and the profile pictures (US-21c).
+    const storedNames = (
+      db.prepare(`SELECT stored_name FROM attachments UNION ALL SELECT avatar_file FROM users WHERE avatar_file IS NOT NULL`).all() as {
+        stored_name: string;
+      }[]
+    ).map((r) => r.stored_name);
 
     const zip = createZipStream(out);
     await zip.addText(MANIFEST_NAME, `${JSON.stringify(manifest, null, 2)}\n`);
@@ -279,6 +282,43 @@ export function replaceData(db: Db, sourceFile: string): void {
   }
 }
 
+interface RestorerRow {
+  email: string;
+  name: string;
+  password_hash: string | null;
+  avatar_color: string;
+}
+
+/**
+ * A backup without an administrator who can log in – from the desktop app, or from before US-21 – would lock everyone
+ * out of a server with login. Then the administrator who restored it is kept (same email and password, without
+ * picture, whose file is gone with the old uploads) and becomes owner of every restored project, as after the setup.
+ * Their sessions are gone like everyone's, so they log in again. Returns whether that happened.
+ */
+export function keepRestoringAdmin(db: Db, restorer: RestorerRow | undefined, now = new Date()): boolean {
+  if (!restorer?.password_hash) return false;
+  const admins = db
+    .prepare(`SELECT COUNT(*) AS n FROM users WHERE system_role = 'admin' AND password_hash IS NOT NULL AND disabled_at IS NULL`)
+    .get() as { n: number };
+  if (admins.n > 0) return false;
+  const stamp = now.toISOString();
+  db.transaction(() => {
+    const existing = db.prepare(`SELECT id FROM users WHERE email = ?`).get(restorer.email) as { id: number } | undefined;
+    const id = existing
+      ? (db
+          .prepare(`UPDATE users SET name = ?, password_hash = ?, system_role = 'admin', disabled_at = NULL, updated_at = ? WHERE id = ? RETURNING id`)
+          .get(restorer.name, restorer.password_hash, stamp, existing.id) as { id: number }).id
+      : (db
+          .prepare(`INSERT INTO users (email, name, password_hash, system_role, avatar_color, created_at, updated_at) VALUES (?, ?, ?, 'admin', ?, ?, ?) RETURNING id`)
+          .get(restorer.email, restorer.name, restorer.password_hash, restorer.avatar_color, stamp, stamp) as { id: number }).id;
+    db.prepare(
+      `INSERT INTO project_members (project_id, user_id, role, created_at) SELECT id, ?, 'owner', ? FROM projects WHERE true
+       ON CONFLICT (project_id, user_id) DO UPDATE SET role = 'owner'`,
+    ).run(id, stamp);
+  })();
+  return true;
+}
+
 export interface PreparedRestore {
   token: string;
   manifest: BackupManifest | null;
@@ -344,13 +384,18 @@ export function createRestoreService(options: { db: Db; uploadsDir: string; onRe
       }
     },
 
-    /** Replaces all data with the prepared backup, after a safety copy of the current state. */
-    async apply(token: string, now = new Date()): Promise<{ counts: BackupCounts; safetyCopy: string }> {
+    /**
+     * Replaces all data with the prepared backup, after a safety copy of the current state. `restoredBy`: the
+     * administrator restoring it, who is kept when the backup has no administrator that can log in (see
+     * keepRestoringAdmin).
+     */
+    async apply(token: string, now = new Date(), restoredBy?: number): Promise<{ counts: BackupCounts; safetyCopy: string; keptAdmin: boolean }> {
       if (busy) throw new HttpError(409, 'restore_busy', 'A restore is already running');
       if (!pending || pending.token !== token) throw new HttpError(404, 'restore_expired', 'The prepared backup is gone; upload it again');
       busy = true;
       const prepared = pending;
       pending = null;
+      const restorer = restoredBy === undefined ? undefined : (db.prepare(`SELECT * FROM users WHERE id = ?`).get(restoredBy) as RestorerRow | undefined);
       try {
         const safetyCopy = await writeSafetyCopy(now);
 
@@ -370,8 +415,9 @@ export function createRestoreService(options: { db: Db; uploadsDir: string; onRe
           throw error;
         }
         if (hadUploads) discard(oldUploads);
+        const keptAdmin = keepRestoringAdmin(db, restorer, now);
         options.onRestored();
-        return { counts: prepared.counts, safetyCopy: path.basename(safetyCopy) };
+        return { counts: prepared.counts, safetyCopy: path.basename(safetyCopy), keptAdmin };
       } finally {
         discard(prepared.dir);
         busy = false;

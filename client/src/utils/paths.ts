@@ -12,6 +12,12 @@ export const paths = {
   settings: (projectId: number) => `/p/${projectId}/settings`,
 };
 
+/** Pages of the account (US-21c), outside the projects, so they work without any project, too. */
+export const accountPaths = {
+  profile: '/profil',
+  users: '/benutzer',
+};
+
 /** The top-level pages of a project (the header tabs). */
 export type Section = 'notes' | 'graph' | 'board' | 'calendar' | 'analytics' | 'trash' | 'settings';
 

@@ -7,7 +7,8 @@ export interface AuthUser {
   name: string;
   systemRole: 'admin' | 'user';
   avatarColor: ProjectColor;
-  hasAvatar: boolean;
+  /** The profile picture, or null for initials (US-21c). */
+  avatarUrl: string | null;
 }
 
 /**

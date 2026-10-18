@@ -6,7 +6,7 @@ import type { RateLimiter } from '../auth/rateLimit.js';
 import type { SetupCode } from '../auth/setupCode.js';
 import { HttpError } from '../errors.js';
 import type { UsersRepository } from '../repositories/usersRepository.js';
-import { loginSchema, setupSchema } from '../validation.js';
+import { loginSchema, registerSchema, resetPasswordSchema, setupSchema } from '../validation.js';
 
 interface AuthRouterOptions {
   mode: AuthMode;
@@ -75,6 +75,51 @@ export function authRouter({ mode, users, setupCode, limiter }: AuthRouterOption
     limiter.reset(emailKey);
     login(req, res, candidate.user.id);
     res.json({ user: candidate.user });
+  });
+
+  // One-time links (US-21c). The tokens are 256 random bits, so there is nothing to guess; a used or expired link
+  // simply no longer works (410).
+  const gone = () => new HttpError(410, 'invalid_link', 'This link is no longer valid');
+
+  /** What the invitation page shows before the account is created. */
+  router.get('/invitation/:token', (req, res) => {
+    const found = mode === 'required' ? users.findToken(String(req.params.token), 'invite') : undefined;
+    if (!found) throw gone();
+    res.json({ email: found.email });
+  });
+
+  /** Accepting an invitation: the account is created with the invited email and logged in. */
+  router.post('/register', async (req, res) => {
+    if (mode !== 'required') throw new HttpError(409, 'no_login', 'This installation has no login');
+    const { token, name, password } = registerSchema.parse(req.body);
+    const found = users.findToken(token, 'invite');
+    if (!found) throw gone();
+    if (users.accounts().some((a) => a.email === found.email)) {
+      throw new HttpError(409, 'email_taken', 'There is already an account with this email');
+    }
+    const user = users.register(token, { email: found.email, name, passwordHash: await hashPassword(password) });
+    if (!user) throw gone();
+    login(req, res, user.id);
+    res.status(201).json({ user });
+  });
+
+  router.get('/reset/:token', (req, res) => {
+    const found = mode === 'required' ? users.findToken(String(req.params.token), 'reset') : undefined;
+    if (!found) throw gone();
+    res.json({ email: found.email, name: found.user!.name });
+  });
+
+  /** A new password from a reset link: every session of the account ends, then this browser is logged in. */
+  router.post('/reset', async (req, res) => {
+    if (mode !== 'required') throw new HttpError(409, 'no_login', 'This installation has no login');
+    const { token, password } = resetPasswordSchema.parse(req.body);
+    const found = users.findToken(token, 'reset');
+    if (!found) throw gone();
+    const passwordHash = await hashPassword(password);
+    if (!users.useToken(token)) throw gone();
+    users.setPassword(found.user!.id, passwordHash);
+    login(req, res, found.user!.id);
+    res.json({ user: users.get(found.user!.id) });
   });
 
   router.post('/logout', (req, res) => {

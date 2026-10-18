@@ -9,7 +9,7 @@ export type ProjectRole = 'owner' | 'member' | 'viewer';
 
 /** A member of a project as the members dialog shows them. */
 export interface Member {
-  user: Pick<User, 'id' | 'name' | 'email' | 'avatarColor' | 'hasAvatar'>;
+  user: Pick<User, 'id' | 'name' | 'email' | 'avatarColor' | 'avatarUrl'>;
   role: ProjectRole;
 }
 
@@ -22,7 +22,8 @@ export interface User {
   name: string;
   systemRole: SystemRole;
   avatarColor: ProjectColor;
-  hasAvatar: boolean;
+  /** The profile picture, or null for initials; its file name in the URL, so a new picture is a new address. */
+  avatarUrl: string | null;
 }
 
 interface UserRow {
@@ -48,13 +49,16 @@ export const LOCAL_USER_EMAIL = 'local@scrumbanize.invalid';
 export const hashToken = (token: string) => crypto.createHash('sha256').update(token).digest('hex');
 export const newToken = () => crypto.randomBytes(32).toString('base64url');
 
+/** Where the app loads a profile picture from (US-21c). */
+export const avatarUrl = (userId: number, file: string | null) => (file ? `/api/users/${userId}/avatar?v=${encodeURIComponent(file)}` : null);
+
 const toUser = (row: UserRow): User => ({
   id: row.id,
   email: row.email,
   name: row.name,
   systemRole: row.system_role,
   avatarColor: row.avatar_color,
-  hasAvatar: row.avatar_file !== null,
+  avatarUrl: avatarUrl(row.id, row.avatar_file),
 });
 
 /** Users, their sessions and project memberships (US-21). */
@@ -95,8 +99,8 @@ export function createUsersRepository(db: Db) {
   const deleteMember = db.prepare<[number, number]>(`DELETE FROM project_members WHERE project_id = ? AND user_id = ?`);
 
   const toMember = (row: UserRow & { role: ProjectRole }): Member => {
-    const { id, name, email, avatarColor, hasAvatar } = toUser(row);
-    return { user: { id, name, email, avatarColor, hasAvatar }, role: row.role };
+    const { id, name, email, avatarColor, avatarUrl } = toUser(row);
+    return { user: { id, name, email, avatarColor, avatarUrl }, role: row.role };
   };
   const memberOf = (projectId: number, userId: number) => {
     const row = selectMembers.all(projectId).find((m) => m.id === userId);
@@ -219,5 +223,168 @@ export function createUsersRepository(db: Db) {
     deleteSession(token: string): void {
       deleteSession.run(hashToken(token));
     },
+
+    // --- Profile (US-21c) ---------------------------------------------------------------------------------------
+
+    updateProfile(userId: number, patch: { name?: string; avatarColor?: ProjectColor }): User {
+      const row = selectById.get(userId)!;
+      db.prepare(`UPDATE users SET name = ?, avatar_color = ?, updated_at = ? WHERE id = ?`).run(
+        patch.name ?? row.name,
+        patch.avatarColor ?? row.avatar_color,
+        new Date().toISOString(),
+        userId,
+      );
+      return toUser(selectById.get(userId)!);
+    },
+
+    passwordHashOf(userId: number): string | null {
+      return selectById.get(userId)?.password_hash ?? null;
+    },
+
+    /** A new password ends every session of the account except `keepToken` (the one that changed it). */
+    setPassword: db.transaction((userId: number, passwordHash: string, keepToken?: string) => {
+      db.prepare(`UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?`).run(passwordHash, new Date().toISOString(), userId);
+      if (keepToken) db.prepare(`DELETE FROM sessions WHERE user_id = ? AND token_hash != ?`).run(userId, hashToken(keepToken));
+      else db.prepare(`DELETE FROM sessions WHERE user_id = ?`).run(userId);
+    }),
+
+    /** Sets (or removes, with null) the profile picture; returns the file it replaces, for deleting. */
+    setAvatarFile(userId: number, file: string | null): string | null {
+      const previous = selectById.get(userId)?.avatar_file ?? null;
+      db.prepare(`UPDATE users SET avatar_file = ?, updated_at = ? WHERE id = ?`).run(file, new Date().toISOString(), userId);
+      return previous;
+    },
+
+    avatarFileOf(userId: number): string | null {
+      return selectById.get(userId)?.avatar_file ?? null;
+    },
+
+    /** Whether two people share a project, so one may see the other's picture (members, activity log). */
+    shareAProject(userId: number, otherId: number): boolean {
+      return (
+        db
+          .prepare(`SELECT 1 FROM project_members a JOIN project_members b ON a.project_id = b.project_id WHERE a.user_id = ? AND b.user_id = ? LIMIT 1`)
+          .get(userId, otherId) !== undefined
+      );
+    },
+
+    // --- One-time links: invitations and password resets (US-21c) ------------------------------------------------
+
+    /**
+     * A one-time link: invitations last 7 days and name an email, resets last 24 hours and name an account (earlier,
+     * unused reset links of that account stop working). Only the token's hash is stored.
+     */
+    createToken(input: { kind: 'invite'; email: string; createdBy: number } | { kind: 'reset'; userId: number; createdBy: number }, now = new Date()) {
+      const token = newToken();
+      const expiresAt = new Date(now.getTime() + (input.kind === 'invite' ? 7 : 1) * DAY);
+      if (input.kind === 'reset') db.prepare(`DELETE FROM auth_tokens WHERE kind = 'reset' AND user_id = ? AND used_at IS NULL`).run(input.userId);
+      db.prepare(`INSERT INTO auth_tokens (token_hash, kind, user_id, email, created_by, expires_at) VALUES (?, ?, ?, ?, ?, ?)`).run(
+        hashToken(token),
+        input.kind,
+        input.kind === 'reset' ? input.userId : null,
+        input.kind === 'invite' ? input.email : null,
+        input.createdBy,
+        expiresAt.toISOString(),
+      );
+      return { token, expiresAt };
+    },
+
+    /** A valid (unused, unexpired) link of `kind`; for resets only if the account is still active. */
+    findToken(token: string, kind: 'invite' | 'reset', now = new Date()): { email: string; user: User | null } | undefined {
+      const row = db
+        .prepare<[string, string, string], { user_id: number | null; email: string | null }>(
+          `SELECT user_id, email FROM auth_tokens WHERE token_hash = ? AND kind = ? AND used_at IS NULL AND expires_at > ?`,
+        )
+        .get(hashToken(token), kind, now.toISOString());
+      if (!row) return undefined;
+      if (kind === 'invite') return { email: row.email!, user: null };
+      const user = row.user_id === null ? undefined : selectById.get(row.user_id);
+      if (!user || user.disabled_at || !user.password_hash) return undefined;
+      return { email: user.email, user: toUser(user) };
+    },
+
+    /** Marks a link as used; false if it was used meanwhile (two tabs). */
+    useToken(token: string, now = new Date()): boolean {
+      return db.prepare(`UPDATE auth_tokens SET used_at = ? WHERE token_hash = ? AND used_at IS NULL`).run(now.toISOString(), hashToken(token)).changes === 1;
+    },
+
+    /** The account of an accepted invitation: a standard user, logged in right away. Undefined if the email is taken. */
+    register: db.transaction((token: string, input: { email: string; name: string; passwordHash: string }): User | undefined => {
+      if (selectByEmail.get(input.email)) return undefined;
+      if (db.prepare(`UPDATE auth_tokens SET used_at = ? WHERE token_hash = ? AND used_at IS NULL`).run(new Date().toISOString(), hashToken(token)).changes !== 1) {
+        return undefined;
+      }
+      return createUser({ ...input, systemRole: 'user' });
+    }),
+
+    /** Open invitations, newest first; the token hash serves as id (the token itself is not stored). */
+    openInvitations(now = new Date()) {
+      return db
+        .prepare<[string], { token_hash: string; email: string; expires_at: string; created_by_name: string | null }>(
+          `SELECT t.token_hash, t.email, t.expires_at, u.name AS created_by_name FROM auth_tokens t LEFT JOIN users u ON u.id = t.created_by
+           WHERE t.kind = 'invite' AND t.used_at IS NULL AND t.expires_at > ? ORDER BY t.expires_at DESC`,
+        )
+        .all(now.toISOString())
+        .map((r) => ({ id: r.token_hash, email: r.email, expiresAt: r.expires_at, createdBy: r.created_by_name }));
+    },
+
+    revokeInvitation(id: string): boolean {
+      return db.prepare(`DELETE FROM auth_tokens WHERE token_hash = ? AND kind = 'invite' AND used_at IS NULL`).run(id).changes === 1;
+    },
+
+    // --- User management (US-21c) ---------------------------------------------------------------------------------
+
+    /**
+     * Every account except the local user, with the projects only they own (name only – administrators do not see
+     * projects' contents), so a disabled account never leaves a project without owner.
+     */
+    accounts(): (User & { disabled: boolean; createdAt: string; soleOwnerOf: { id: number; name: string }[] })[] {
+      const rows = db.prepare<[string], UserRow & { created_at: string }>(`SELECT * FROM users WHERE email != ? ORDER BY name COLLATE NOCASE, id`).all(LOCAL_USER_EMAIL);
+      return rows.map((row) => ({ ...toUser(row), disabled: row.disabled_at !== null, createdAt: row.created_at, soleOwnerOf: soleOwnerOf(row.id) }));
+    },
+
+    /** Administrators who can log in; the last one may neither lose the role nor be disabled. */
+    activeAdminCount(): number {
+      return countAdmins.get()!.n;
+    },
+
+    isActiveAdmin(userId: number): boolean {
+      const row = selectById.get(userId);
+      return !!row && row.system_role === 'admin' && !!row.password_hash && !row.disabled_at;
+    },
+
+    soleOwnerOf,
+
+    setSystemRole(userId: number, role: SystemRole): void {
+      db.prepare(`UPDATE users SET system_role = ?, updated_at = ? WHERE id = ?`).run(role, new Date().toISOString(), userId);
+    },
+
+    /** Disabling ends the account's sessions and its open reset links at once. */
+    setDisabled: db.transaction((userId: number, disabled: boolean) => {
+      db.prepare(`UPDATE users SET disabled_at = ?, updated_at = ? WHERE id = ?`).run(disabled ? new Date().toISOString() : null, new Date().toISOString(), userId);
+      if (disabled) {
+        db.prepare(`DELETE FROM sessions WHERE user_id = ?`).run(userId);
+        db.prepare(`DELETE FROM auth_tokens WHERE kind = 'reset' AND user_id = ?`).run(userId);
+      }
+    }),
+
+    /** Makes `toUserId` an owner of every project that only `userId` owns; returns how many. */
+    handOver: db.transaction((userId: number, toUserId: number): number => {
+      const projects = soleOwnerOf(userId);
+      const now = new Date().toISOString();
+      for (const project of projects) insertMember.run(project.id, toUserId, 'owner', now);
+      return projects.length;
+    }),
   };
+
+  /** Projects (also in the trash) whose only owner is `userId`. */
+  function soleOwnerOf(userId: number): { id: number; name: string }[] {
+    return db
+      .prepare<[number], { id: number; name: string }>(
+        `SELECT p.id, p.name FROM projects p JOIN project_members m ON m.project_id = p.id AND m.user_id = ? AND m.role = 'owner'
+         WHERE (SELECT COUNT(*) FROM project_members o WHERE o.project_id = p.id AND o.role = 'owner') = 1
+         ORDER BY p.name COLLATE NOCASE`,
+      )
+      .all(userId);
+  }
 }

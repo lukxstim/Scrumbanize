@@ -52,6 +52,51 @@ export const authApi = {
   setup: (input: { code: string; name: string; email: string; password: string }) =>
     request<{ user: AuthUser }>('/auth/setup', { method: 'POST', body: JSON.stringify(input) }),
   logout: () => request<void>('/auth/logout', { method: 'POST' }),
+  // One-time links (US-21c)
+  invitation: (token: string) => request<{ email: string }>(`/auth/invitation/${encodeURIComponent(token)}`),
+  register: (token: string, name: string, password: string) =>
+    request<{ user: AuthUser }>('/auth/register', { method: 'POST', body: JSON.stringify({ token, name, password }) }),
+  resetInfo: (token: string) => request<{ email: string; name: string }>(`/auth/reset/${encodeURIComponent(token)}`),
+  reset: (token: string, password: string) => request<{ user: AuthUser }>('/auth/reset', { method: 'POST', body: JSON.stringify({ token, password }) }),
+};
+
+/** The user's own account (US-21c). */
+export const accountApi = {
+  update: (patch: { name?: string; avatarColor?: ProjectColor }) => request<{ user: AuthUser }>('/account', { method: 'PATCH', body: JSON.stringify(patch) }),
+  changePassword: (current: string, password: string) =>
+    request<void>('/account/password', { method: 'POST', body: JSON.stringify({ current, password }) }),
+  /** A picture the browser already shrank (see utils/avatar.ts). */
+  uploadAvatar: (picture: Blob) =>
+    request<{ user: AuthUser }>('/account/avatar', { method: 'PUT', body: picture, headers: { 'Content-Type': picture.type || 'application/octet-stream' } }),
+  removeAvatar: () => request<{ user: AuthUser }>('/account/avatar', { method: 'DELETE' }),
+};
+
+export interface Account extends AuthUser {
+  disabled: boolean;
+  createdAt: string;
+  /** Projects only this account owns: it cannot be disabled before they have another owner. */
+  soleOwnerOf: { id: number; name: string }[];
+}
+
+export interface Invitation {
+  id: string;
+  email: string;
+  expiresAt: string;
+  createdBy: string | null;
+}
+
+/** User management for administrators (US-21c). Links are made here and passed on by hand. */
+export const adminApi = {
+  users: () => request<Account[]>('/admin/users'),
+  update: (id: number, patch: { systemRole?: 'admin' | 'user'; disabled?: boolean }) =>
+    request<Account>(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  handOver: (id: number, toUserId: number) =>
+    request<{ projects: number }>(`/admin/users/${id}/hand-over`, { method: 'POST', body: JSON.stringify({ toUserId }) }),
+  resetLink: (id: number) => request<{ token: string; expiresAt: string }>(`/admin/users/${id}/reset-link`, { method: 'POST' }),
+  invitations: () => request<Invitation[]>('/admin/invitations'),
+  invite: (email: string) =>
+    request<{ token: string; email: string; expiresAt: string }>('/admin/invitations', { method: 'POST', body: JSON.stringify({ email }) }),
+  revokeInvitation: (id: string) => request<void>(`/admin/invitations/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };
 
 /** The members of a project and their roles (US-21). */
@@ -300,7 +345,8 @@ export const backupApi = {
   },
   /** Replaces all data with the prepared backup (after a safety copy on the server). */
   restore: (token: string) =>
-    request<{ counts: BackupCounts; safetyCopy: string }>(`/backup/restore/${encodeURIComponent(token)}`, { method: 'POST' }),
+    // `keptAdmin`: the backup had no administrator, so the one restoring it was kept (US-21c).
+    request<{ counts: BackupCounts; safetyCopy: string; keptAdmin: boolean }>(`/backup/restore/${encodeURIComponent(token)}`, { method: 'POST' }),
   cancelRestore: (token: string) => request<void>(`/backup/restore/${encodeURIComponent(token)}`, { method: 'DELETE' }),
 };
 

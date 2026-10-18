@@ -310,6 +310,18 @@ Unter `/setup` legt man mit diesem Code das erste Konto an. Es wird Administrato
 - **Hinter einem Reverse Proxy** (z. B. Caddy mit HTTPS): `TRUST_PROXY=1` setzen, damit der Server HTTPS und die echte IP-Adresse erkennt, und `BASE_URL` auf die öffentliche Adresse.
 - **Ohne Anmeldung** (nur in einem vertrauenswürdigen Netz!): `AUTH=off`.
 
+### Konten, Einladungen und Passwörter
+
+Konten gibt es nur auf Einladung. Ein Administrator öffnet über das eigene Bild oben rechts die **Benutzerverwaltung**:
+
+- **Einladen:** E-Mail-Adresse eingeben, „Einladungslink erstellen“ und den Link selbst weitergeben (Scrumbanize verschickt keine E-Mails). Mit dem Link legt die Person ihr Konto an; er gilt 7 Tage und einmal. Danach fügen die Owner sie ihren Projekten hinzu.
+- **Passwort vergessen:** „Link für neues Passwort“ beim Konto – gilt 24 Stunden und einmal; danach ist die Person auf allen Geräten abgemeldet. Ältere Links desselben Kontos gelten dann nicht mehr.
+- **Administrator machen**, **deaktivieren** (sofort abgemeldet, Name bleibt im Verlauf) und **wieder aktivieren**. Ist jemand einziger Owner eines Projekts, lassen sich dessen Projekte zuerst an ein anderes Konto **übergeben**; vorher geht das Deaktivieren nicht. Es bleibt immer mindestens ein Administrator.
+
+Unter **Profil** ändert jede Person Name, Farbe und Passwort (mit dem aktuellen; andere Geräte werden abgemeldet) und lädt ein **Profilbild** hoch: Der Browser schneidet es auf ein Quadrat von 256 × 256 Pixeln zu und speichert es als WebP; der Server nimmt nur PNG, JPEG und WebP an (nach Inhalt geprüft, höchstens 2 MB). Bilder sieht nur, wer mit der Person ein Projekt teilt, und Administratoren. Sie liegen bei den Anhängen in `uploads/` und sind Teil von Backups.
+
+**Wiederherstellen** auf einem Server mit Anmeldung: Danach sind alle abgemeldet und melden sich mit den Konten aus dem Backup an. Enthält das Backup keinen Administrator, der sich anmelden kann (z. B. aus der Desktop-App oder von vor US-21), bleibt das Konto der Person erhalten, die wiederherstellt, und wird Owner aller Projekte.
+
 ### Rollen in Projekten
 
 Jede Person sieht nur die Projekte, in denen sie Mitglied ist – auch Administratoren. Wer ein Projekt anlegt, ist dessen Owner. Mitglieder verwaltet man über den Projektnamen oben links → **„Mitglieder von …“** (die Person braucht schon ein Konto).
@@ -324,7 +336,7 @@ Jede Person sieht nur die Projekte, in denen sie Mitglied ist – auch Administr
 
 - Ein Projekt hat immer mindestens einen Owner; der letzte kann weder gehen noch seine Rolle abgeben.
 - Jede und jeder kann ein Projekt selbst verlassen.
-- **Administratoren** machen zusätzlich Backups und Wiederherstellungen und ändern Vorlagen für alle Projekte – aber nur in Projekten, in denen sie Mitglied sind, sehen sie Inhalte. Ein Backup enthält allerdings alle Projekte aller Benutzer.
+- **Administratoren** verwalten die Konten, machen Backups und Wiederherstellungen und ändern Vorlagen für alle Projekte – aber nur in Projekten, in denen sie Mitglied sind, sehen sie Inhalte. Ein Backup enthält allerdings alle Projekte aller Benutzer.
 - Der Verlauf nennt, wer etwas getan hat (Einträge von vor US-21 haben keinen Namen).
 - In der Desktop-App und mit `AUTH=off` ist der lokale Benutzer Owner von allem.
 
@@ -392,6 +404,21 @@ Alle Endpunkte außer `/api/health` und `/api/auth/*` verlangen eine Anmeldung (
 | POST    | `/api/auth/setup` | Erstes Konto (Administrator, Owner aller Projekte): `{ "code", "name", "email", "password" }` – nur solange es keinen Administrator gibt (sonst 409), Code aus der Server-Ausgabe (sonst 403) |
 | POST    | `/api/auth/login` | `{ "email", "password" }` → Sitzungs-Cookie und `{ "user" }`; falsch: 401 `wrong_credentials`, zu viele Versuche: 429 |
 | POST    | `/api/auth/logout` | Beendet die Sitzung (204) |
+| GET     | `/api/auth/invitation/:token` | Ohne Anmeldung: `{ "email" }` einer gültigen Einladung, sonst 410 `invalid_link` |
+| POST    | `/api/auth/register` | Einladung annehmen: `{ "token", "name", "password" }` → neues Konto (Standardbenutzer), angemeldet; 409 `email_taken`, 410 bei benutztem oder abgelaufenem Link |
+| GET     | `/api/auth/reset/:token` | Ohne Anmeldung: `{ "email", "name" }` eines gültigen Links für ein neues Passwort, sonst 410 |
+| POST    | `/api/auth/reset` | `{ "token", "password" }` → neues Passwort, alle Sitzungen des Kontos enden, dieser Browser ist angemeldet |
+| PATCH   | `/api/account` | Eigenes Profil: `{ "name"?, "avatarColor"? }` |
+| POST    | `/api/account/password` | `{ "current", "password" }` – falsches aktuelles Passwort: 403 `wrong_password`; die anderen Sitzungen enden |
+| PUT     | `/api/account/avatar` | Profilbild als Request-Body (PNG, JPEG oder WebP nach Inhalt, max. 2 MB; sonst 415/413) |
+| DELETE  | `/api/account/avatar` | Profilbild entfernen |
+| GET     | `/api/users/:id/avatar` | Das Profilbild – für die Person selbst, Administratoren und alle, die mit ihr ein Projekt teilen |
+| GET     | `/api/admin/users` | Administratoren: alle Konten mit `disabled` und `soleOwnerOf` (Projekte, deren einziger Owner das Konto ist – nur Namen) |
+| PATCH   | `/api/admin/users/:id` | `{ "systemRole"?, "disabled"? }` – 409 `last_admin`, `sole_owner` (erst übergeben) oder `self` |
+| POST    | `/api/admin/users/:id/hand-over` | `{ "toUserId" }` macht ein anderes aktives Konto zum Owner aller Projekte, die nur dieses besitzt |
+| POST    | `/api/admin/users/:id/reset-link` | Neuer Link für ein Passwort (24 Stunden): `{ "token", "expiresAt" }` – die App macht daraus `/passwort/<token>` |
+| GET/POST | `/api/admin/invitations` | Offene Einladungen / neue Einladung `{ "email" }` → `{ "token", "expiresAt" }` (7 Tage; die App macht daraus `/einladung/<token>`) |
+| DELETE  | `/api/admin/invitations/:id` | Einladung zurückziehen |
 | GET     | `/api/meta`       | Angaben zur Installation: `{ "sampleProjectId", "desktop", "restoredAt" }` – das Beispielprojekt des ersten Starts (`null`, wenn es (nicht mehr) existiert oder im Papierkorb liegt), Version der Desktop-App (sonst `null`) und Zeitpunkt der letzten Wiederherstellung eines Backups (sonst `null`) |
 | GET     | `/api/projects`   | Die Projekte, in denen man Mitglied ist, alphabetisch, mit `noteCount`, `taskCount` und der eigenen `role` (`owner`, `member`, `viewer`) |
 | GET     | `/api/projects/:id/members` | Mitglieder mit Rolle: `[{ user: { id, name, email, avatarColor, hasAvatar }, role }]`, Owner zuerst |

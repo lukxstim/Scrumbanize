@@ -18,6 +18,6 @@ export type ProjectInput = Pick<Project, 'name' | 'color'>;
 
 /** A member of a project as the members dialog shows them. */
 export interface ProjectMember {
-  user: { id: number; name: string; email: string; avatarColor: ProjectColor; hasAvatar: boolean };
+  user: { id: number; name: string; email: string; avatarColor: ProjectColor; avatarUrl: string | null };
   role: ProjectRole;
 }

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Router, type RequestHandler } from 'express';
 import multer from 'multer';
 import type { Access } from '../auth/access.js';
+import { userOf } from '../auth/middleware.js';
 import { backupFileName, MAX_BACKUP_SIZE, writeBackup, type RestoreService } from '../backup.js';
 import type { Db } from '../database.js';
 import { HttpError } from '../errors.js';
@@ -54,7 +55,7 @@ export function backupRouter(db: Db, uploadsDir: string, restore: RestoreService
 
   /** Step 2: replace all data with the checked backup. */
   router.post('/restore/:token', async (req, res) => {
-    res.json(await restore.apply(String(req.params.token)));
+    res.json(await restore.apply(String(req.params.token), new Date(), userOf(res)?.id));
   });
 
   router.delete('/restore/:token', (req, res) => {

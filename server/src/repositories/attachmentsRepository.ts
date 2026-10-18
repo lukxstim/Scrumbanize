@@ -93,7 +93,10 @@ export function createAttachmentsRepository(db: Db, uploadsDir: string) {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
   );
   const deleteRow = db.prepare<[number]>(`DELETE FROM attachments WHERE id = ?`);
-  const selectStoredNames = db.prepare<[], { stored_name: string }>(`SELECT stored_name FROM attachments`);
+  // Profile pictures (US-21c) live in the same folder and must survive a sweep.
+  const selectStoredNames = db.prepare<[], { stored_name: string }>(
+    `SELECT stored_name FROM attachments UNION SELECT avatar_file FROM users WHERE avatar_file IS NOT NULL`,
+  );
   const selectProjectNoteFiles = db.prepare<[number], AttachmentRow>(
     `SELECT a.* FROM attachments a JOIN live_notes n ON n.id = a.note_id WHERE n.project_id = ? ORDER BY a.id`,
   );

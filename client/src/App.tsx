@@ -30,6 +30,8 @@ import { ACTIVITY_PARAM, paths, withActivityDrawer } from './utils/paths';
 const AnalyticsPage = lazy(() => import('./components/analytics/AnalyticsPage'));
 const GraphPage = lazy(() => import('./components/graph/GraphPage'));
 const SettingsPage = lazy(() => import('./components/settings/SettingsPage'));
+const ProfilePage = lazy(() => import('./components/account/ProfilePage'));
+const UsersPage = lazy(() => import('./components/account/UsersPage'));
 
 
 /** Round icon buttons at the right of the header (activity, trash). */
@@ -283,6 +285,23 @@ export default function App() {
             }
           />
         </Route>
+        {/* The own account and user management (US-21c), outside the projects. */}
+        <Route
+          path="/profil"
+          element={
+            <Suspense fallback={null}>
+              <ProfilePage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/benutzer"
+          element={
+            <Suspense fallback={null}>
+              <UsersPage />
+            </Suspense>
+          }
+        />
         {/* Addresses from before projects existed, and anything unknown, open the last project. */}
         <Route path="/board" element={<RedirectToProject section="board" />} />
         <Route path="*" element={<RedirectToProject />} />

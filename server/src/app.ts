@@ -26,6 +26,8 @@ import { createTasksRepository } from './repositories/tasksRepository.js';
 import { createTemplatesRepository } from './repositories/templatesRepository.js';
 import { createTrashRepository } from './repositories/trashRepository.js';
 import { createUsersRepository } from './repositories/usersRepository.js';
+import { accountRouter, avatarsRouter } from './routes/account.js';
+import { adminRouter } from './routes/admin.js';
 import { attachmentsRouter } from './routes/attachments.js';
 import { authRouter } from './routes/auth.js';
 import { backupRouter } from './routes/backup.js';
@@ -126,6 +128,10 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   api.get('/meta', (_req, res) => {
     res.json({ sampleProjectId: meta.sampleProjectId(), desktop: options.desktop ?? null, restoredAt: meta.get('restored_at') ?? null });
   });
+  // The user's own account, profile pictures, and user management for administrators (US-21c).
+  api.use('/account', accountRouter({ mode: authMode, users, uploadsDir, limiter }));
+  api.use('/users', avatarsRouter({ mode: authMode, users, uploadsDir }));
+  api.use('/admin', adminRouter(users, access));
   // Every route below checks the user's role in the project it touches (auth/access.ts, US-21).
   api.use('/projects', projectsRouter(projects, access));
   api.use('/projects/:projectId/members', membersRouter(users, activities, access));

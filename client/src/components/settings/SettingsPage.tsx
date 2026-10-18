@@ -1,4 +1,4 @@
-import { lazy, Suspense, useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useRef, useState } from 'react';
 import { useParams } from 'react-router';
 import { useAuth } from '../../hooks/useAuth';
 import { desktopBridge } from '../../hooks/useDesktopSettings';
@@ -11,6 +11,7 @@ import { countLabel } from '../../utils/projects';
 import ConfirmDialog from '../ConfirmDialog';
 import { DownloadIcon, RestoreIcon } from '../icons';
 import Button, { buttonClass } from '../ui/Button';
+import Section from '../ui/Section';
 import DesktopSection from './DesktopSection';
 import TemplatesSection from './TemplatesSection';
 
@@ -108,15 +109,6 @@ export default function SettingsPage() {
   );
 }
 
-function Section({ title, description, children }: { title: string; description: string; children: ReactNode }) {
-  return (
-    <section aria-label={title} className="rounded-xl border border-line bg-surface p-5 shadow-card">
-      <h2 className="text-sm font-semibold text-fg">{title}</h2>
-      <p className="mt-0.5 mb-4 text-sm text-fg-subtle">{description}</p>
-      {children}
-    </section>
-  );
-}
 
 type RestoreState =
   | { kind: 'idle'; error?: string }
@@ -126,6 +118,8 @@ type RestoreState =
 
 /** Upload and check first, show what the backup contains, replace only after confirming. */
 function RestoreSection() {
+  // With login, a restore ends every session (backups contain none), so everyone logs in again (US-21).
+  const withLogin = useAuth().session?.mode === 'required';
   const toast = useToast();
   const [state, setState] = useState<RestoreState>({ kind: 'idle' });
   const [confirming, setConfirming] = useState(false);
@@ -153,7 +147,9 @@ function RestoreSection() {
     setState({ kind: 'restoring' });
     try {
       const result = await backupApi.restore(token);
-      toast({ message: `Backup wiederhergestellt: ${summary(result.counts)}. Die App wird neu geladen …` });
+      toast({
+        message: `Backup wiederhergestellt: ${summary(result.counts)}. ${withLogin ? 'Bitte melde dich gleich neu an …' : 'Die App wird neu geladen …'}`,
+      });
       // Every project, note and task may be different now.
       setTimeout(() => window.location.assign('/'), 1500);
     } catch (error) {
@@ -235,7 +231,11 @@ function RestoreSection() {
       <ConfirmDialog
         open={confirming}
         title="Alle Daten ersetzen?"
-        message="Alle Projekte, Notizen, Tasks und Anhänge werden durch das Backup ersetzt. Der jetzige Stand wird vorher gesichert."
+        message={`Alle Projekte, Notizen, Tasks und Anhänge werden durch das Backup ersetzt. Der jetzige Stand wird vorher gesichert.${
+          withLogin
+            ? ' Danach sind alle abgemeldet und melden sich mit den Konten aus dem Backup an. Enthält es keinen Administrator (z. B. aus der Desktop-App), bleibt dein Konto erhalten und wird Owner aller Projekte.'
+            : ''
+        }`}
         confirmLabel="Ersetzen"
         onConfirm={() => void restore()}
         onCancel={() => setConfirming(false)}

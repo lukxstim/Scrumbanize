@@ -68,7 +68,7 @@ describe('first start', () => {
       .post('/api/auth/setup')
       .send({ code: codes[0]!.toLowerCase().replace('-', ''), ...ADMIN, email: ' Lukas@Example.com ' });
     expect(res.status).toBe(201);
-    expect(res.body.user).toMatchObject({ name: 'Lukas', email: 'lukas@example.com', systemRole: 'admin', hasAvatar: false });
+    expect(res.body.user).toMatchObject({ name: 'Lukas', email: 'lukas@example.com', systemRole: 'admin', avatarUrl: null });
     expect(res.body.user).not.toHaveProperty('passwordHash');
     expect(cookieOf(res)).toMatch(/HttpOnly/);
     expect(cookieOf(res)).toMatch(/SameSite=Lax/);

@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Route, Routes } from 'react-router';
 import App from './App';
+import { InvitePage, ResetPage } from './components/auth/LinkPages';
 import LoginPage from './components/auth/LoginPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import SetupPage from './components/auth/SetupPage';
@@ -19,6 +20,8 @@ createRoot(document.getElementById('root')!).render(
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/setup" element={<SetupPage />} />
+            <Route path="/einladung/:token" element={<InvitePage />} />
+            <Route path="/passwort/:token" element={<ResetPage />} />
             <Route element={<ProtectedRoute />}>
               <Route
                 path="*"

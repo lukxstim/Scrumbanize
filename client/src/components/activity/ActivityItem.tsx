@@ -48,7 +48,10 @@ export default function ActivityItem({ activity, now, showAuthor = false }: { ac
         </span>
         {showAuthor && activity.author && (
           <span className="mt-0.5 flex items-center gap-1.5 text-xs text-fg-subtle">
-            <Avatar user={{ name: activity.author.name, avatarColor: activity.author.avatarColor as ProjectColor }} className="size-4 text-[8px]" />
+            <Avatar
+              user={{ name: activity.author.name, avatarColor: activity.author.avatarColor as ProjectColor, avatarUrl: activity.author.avatarUrl }}
+              className="size-4 text-[8px]"
+            />
             {activity.author.name}
           </span>
         )}

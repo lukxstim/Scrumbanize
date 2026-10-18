@@ -18,7 +18,7 @@ export interface Activity {
   /** The note or task is in the trash. */
   trashed: boolean;
   /** Who did it (US-21); null for older entries, the sample project and deleted accounts. */
-  author: { id: number; name: string; avatarColor: string; hasAvatar: boolean } | null;
+  author: { id: number; name: string; avatarColor: string; avatarUrl: string | null } | null;
 }
 
 export interface ActivityPage {

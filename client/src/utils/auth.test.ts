@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { AuthSession, AuthUser } from '../types/auth';
 import { authErrorMessage, initialsOf, protectedRedirect, safeNextPath } from './auth';
 
-const user: AuthUser = { id: 1, email: 'l@example.com', name: 'Lukas', systemRole: 'admin', avatarColor: 'indigo', hasAvatar: false };
+const user: AuthUser = { id: 1, email: 'l@example.com', name: 'Lukas', systemRole: 'admin', avatarColor: 'indigo', avatarUrl: null };
 const session = (patch: Partial<AuthSession>): AuthSession => ({ mode: 'required', setupRequired: false, user: null, ...patch });
 
 describe('protectedRedirect', () => {
