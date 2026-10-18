@@ -10,6 +10,7 @@
     "build": "node build.mjs",
     "start": "npm run build && electron .",
     "dist": "npm run build && electron-builder --win --x64",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -20,6 +21,7 @@
     "electron": "^44.7.2",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.2",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.4"
   }
 }

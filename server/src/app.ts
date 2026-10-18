@@ -16,6 +16,7 @@ import { createLabelsRepository } from './repositories/labelsRepository.js';
 import { createMetaRepository } from './repositories/metaRepository.js';
 import { createNotesRepository } from './repositories/notesRepository.js';
 import { createProjectsRepository } from './repositories/projectsRepository.js';
+import { createRemindersRepository } from './repositories/remindersRepository.js';
 import { createSearchRepository } from './repositories/searchRepository.js';
 import { createTasksRepository } from './repositories/tasksRepository.js';
 import { createTemplatesRepository } from './repositories/templatesRepository.js';
@@ -28,6 +29,7 @@ import { labelsRouter } from './routes/labels.js';
 import { notesRouter } from './routes/notes.js';
 import { projectScopedRouter } from './routes/projectScoped.js';
 import { projectsRouter } from './routes/projects.js';
+import { remindersRouter } from './routes/reminders.js';
 import { searchRouter } from './routes/search.js';
 import { tasksRouter } from './routes/tasks.js';
 import { trashRouter } from './routes/trash.js';
@@ -62,6 +64,7 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   const templates = createTemplatesRepository(db);
   const trash = createTrashRepository(db);
   const meta = createMetaRepository(db);
+  const reminders = createRemindersRepository(db);
   // Backups and restores work next to the uploads folder (in the data directory), so the fallback gets its own parent.
   const uploadsDir = options.uploadsDir ?? path.join(os.tmpdir(), `scrumbanize-${randomUUID()}`, 'uploads');
   const attachments = createAttachmentsRepository(db, uploadsDir);
@@ -99,6 +102,7 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   api.use('/lanes', lanesRouter(board));
   api.use('/labels', labelsRouter(labels));
   api.use('/search', searchRouter(search));
+  api.use('/reminders', remindersRouter(reminders));
   api.use('/trash', trashRouter(trash, projects, () => attachments.sweep()));
   api.use(attachmentsRouter(attachments));
   api.use('/backup', backupRouter(db, uploadsDir, restore));

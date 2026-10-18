@@ -159,6 +159,9 @@ export const searchQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
+/** GET /api/reminders/due?date=…: the caller's local date, since only it knows its time zone. */
+export const remindersQuerySchema = z.object({ date: dateSchema });
+
 /** At most this many days between `from` and `to`, so a report stays quick. */
 export const MAX_ANALYTICS_DAYS = 2 * 366;
 

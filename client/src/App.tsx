@@ -14,6 +14,7 @@ import RedirectToProject from './components/projects/RedirectToProject';
 import Tour from './components/onboarding/Tour';
 import ThemeSwitcher from './components/ThemeSwitcher';
 import Kbd, { modKey } from './components/ui/Kbd';
+import { desktopBridge } from './hooks/useDesktopSettings';
 import { useProjects } from './hooks/useProjects';
 import { useStoredState } from './hooks/useStoredState';
 import { useRestoreNotice } from './hooks/useRestoreNotice';
@@ -120,6 +121,9 @@ export default function App() {
       });
     }, 3000);
   }, [desktop, reminder, setReminder, toast]);
+
+  // Desktop app only: a click on a reminder notification opens its task (or the calendar).
+  useEffect(() => desktopBridge?.onNavigate((path) => navigate(path)), [navigate]);
 
   // ⌘K / Ctrl+K opens the command palette from anywhere, also while typing.
   useEffect(() => {

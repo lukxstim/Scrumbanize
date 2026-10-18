@@ -1,5 +1,6 @@
 import { lazy, Suspense, useRef, useState, type ReactNode } from 'react';
 import { useParams } from 'react-router';
+import { desktopBridge } from '../../hooks/useDesktopSettings';
 import { useProjects } from '../../hooks/useProjects';
 import { useToast } from '../../hooks/useToast';
 import { ApiError, backupApi, exportUrls, type PreparedRestore } from '../../utils/api';
@@ -8,6 +9,7 @@ import { countLabel } from '../../utils/projects';
 import ConfirmDialog from '../ConfirmDialog';
 import { DownloadIcon, RestoreIcon } from '../icons';
 import Button, { buttonClass } from '../ui/Button';
+import DesktopSection from './DesktopSection';
 import TemplatesSection from './TemplatesSection';
 
 const ImportWizard = lazy(() => import('../import/ImportWizard'));
@@ -30,7 +32,7 @@ const summary = (counts: PreparedRestore['counts']) =>
     countLabel(counts.attachments, 'Anhang', 'Anhänge'),
   ].join(' · ');
 
-/** Settings of the whole installation at /p/:projectId/settings: backup, restore, import, exports. */
+/** Settings of the whole installation at /p/:projectId/settings: backup, restore, import, exports, and the desktop app's own. */
 export default function SettingsPage() {
   const projectId = Number(useParams().projectId);
   const { projects } = useProjects();
@@ -42,8 +44,12 @@ export default function SettingsPage() {
       <div className="mx-auto max-w-3xl space-y-6 px-6 py-8">
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-fg">Einstellungen</h1>
-          <p className="mt-1 text-sm text-fg-subtle">Sicherung, Wiederherstellung, Vorlagen, Import und Export deiner Daten.</p>
+          <p className="mt-1 text-sm text-fg-subtle">
+            {desktopBridge ? 'Sicherung, Wiederherstellung, Vorlagen, Import und Export deiner Daten sowie die Desktop-App.' : 'Sicherung, Wiederherstellung, Vorlagen, Import und Export deiner Daten.'}
+          </p>
         </div>
+
+        {desktopBridge && <DesktopSection />}
 
         <Section title="Backup" description="Eine ZIP-Datei mit allen Projekten, Notizen, Tasks, dem Aktivitätsprotokoll und allen Anhängen.">
           <a href={backupApi.downloadUrl} download className={buttonClass('primary', 'sm')}>

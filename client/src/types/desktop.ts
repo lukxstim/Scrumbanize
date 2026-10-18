@@ -1,0 +1,38 @@
+/**
+ * What the desktop app offers the page (US-18), as `window.scrumbanizeDesktop`; absent in the browser.
+ * Keep in sync with desktop/src/bridge.ts.
+ */
+
+export interface DesktopSettings {
+  closeToTray: boolean;
+  minimizeToTray: boolean;
+  notifications: boolean;
+  /** Electron accelerator, e.g. "CommandOrControl+Shift+Space". */
+  hotkey: string;
+  /** False when another program has taken the shortcut. */
+  hotkeyActive: boolean;
+  openAtLogin: boolean;
+  /** Only the installed or portable app can start with Windows, not an unpacked run. */
+  openAtLoginAvailable: boolean;
+}
+
+export type DesktopSettingsPatch = Partial<Pick<DesktopSettings, 'closeToTray' | 'minimizeToTray' | 'notifications' | 'hotkey' | 'openAtLogin'>>;
+
+export type UpdateSettingsResult =
+  | { ok: true; settings: DesktopSettings }
+  | { ok: false; error: 'invalid' | 'hotkey_taken'; settings: DesktopSettings };
+
+export interface DesktopBridge {
+  getSettings: () => Promise<DesktopSettings>;
+  updateSettings: (patch: DesktopSettingsPatch) => Promise<UpdateSettingsResult>;
+  /** Shows every task due today or overdue as a notification again, or that there are none. */
+  checkReminders: () => Promise<void>;
+  /** The desktop app asks to show a path of the app (a click on a notification); returns the unsubscribe. */
+  onNavigate: (handler: (path: string) => void) => () => void;
+}
+
+declare global {
+  interface Window {
+    scrumbanizeDesktop?: DesktopBridge;
+  }
+}

@@ -84,6 +84,13 @@ Aus Versehen gelöscht? Kein Problem: Gelöschtes landet zuerst im Papierkorb un
 - **Heller und dunkler Modus.**
 - **Verlauf**: Die Uhr oben rechts zeigt, was zuletzt passiert ist.
 
+### Erinnerungen und Infobereich (nur Desktop-App)
+- **Erinnerungen:** Ist ein Task heute fällig oder überfällig, meldet sich Windows mit einer Benachrichtigung – einmal am Tag, bis der Task in der letzten Spalte liegt. Ein Klick darauf öffnet den Task. Bei mehr als drei Tasks kommt eine Sammelmeldung.
+- **Im Infobereich weiterlaufen:** In den Einstellungen unter „Desktop-App“ lässt sich einschalten, dass Scrumbanize beim Schließen (oder Minimieren) neben der Uhr weiterläuft, statt sich zu beenden. Ein Klick auf das Symbol holt es zurück, **Beenden** geht über das Menü des Symbols (rechte Maustaste).
+- **Tastenkombination:** `Strg` + `Umschalt` + `Leertaste` holt Scrumbanize von überall nach vorne (in den Einstellungen änderbar).
+- **Mit Windows starten:** Scrumbanize startet dann bei der Anmeldung unsichtbar im Infobereich, damit Erinnerungen auch kommen, wenn du es nicht geöffnet hast.
+- Kommen keine Benachrichtigungen? In den Windows-Einstellungen unter **System → Benachrichtigungen** prüfen, ob sie für Scrumbanize erlaubt sind und „Nicht stören“ aus ist. Mit der **portablen Version** klappen Benachrichtigungen nicht immer zuverlässig – dafür besser den Installer verwenden.
+
 ## Deine Daten
 
 - Alles bleibt **auf deinem Computer** – es gibt kein Konto, keine Cloud und keine Werbung. Internet brauchst du nur zum Herunterladen.
@@ -157,6 +164,8 @@ Notizen, Tasks und Einstellungen liegen in **`%APPDATA%\Scrumbanize\`** (z. B. `
 | `scrumbanize.db` | Die Datenbank – dieselbe Art Datei wie bei Docker und in der Entwicklung |
 | `uploads\` | Die Dateien der Anhänge (unter zufälligen Namen; die Originalnamen stehen in der Datenbank) |
 | `window-state.json` | Fenstergröße und -position |
+| `desktop-settings.json` | Einstellungen der Desktop-App: Infobereich, Erinnerungen, Tastenkombination (bewusst nicht in der Datenbank, damit ein Backup sie nicht auf einen anderen Computer mitnimmt) |
+| `reminders-log.json` | Welche Tasks heute schon gemeldet wurden |
 | `logs\main.log` | Protokoll für die Fehlersuche |
 | `backups\` | Automatische Sicherungen vor jeder Wiederherstellung (die letzten 5) |
 
@@ -169,7 +178,9 @@ Notizen, Tasks und Einstellungen liegen in **`%APPDATA%\Scrumbanize\`** (z. B. `
 
 - Der Server läuft im Electron-Hauptprozess und lauscht nur auf `127.0.0.1:41723` (ist der Port belegt, auf einem freien Port). Er nimmt nur Anfragen des App-Fensters an (Prüfung von `Host`- und `Origin`-Header), sodass Webseiten im Browser die lokale API nicht erreichen.
 - Beim Beenden werden Server und Datenbank sauber geschlossen; es bleiben keine Prozesse im Hintergrund.
-- Eine Instanz pro Benutzer: Ein zweiter Start holt das vorhandene Fenster nach vorn. Links zu anderen Seiten öffnen sich im Standardbrowser.
+- Eine Instanz pro Benutzer: Ein zweiter Start holt das vorhandene Fenster nach vorn, auch wenn es im Infobereich versteckt ist. Links zu anderen Seiten öffnen sich im Standardbrowser.
+- **Infobereich und Erinnerungen (US-18):** Das Tray-Symbol ist da, solange die App läuft. Der Hauptprozess fragt alle 15 Minuten, nach dem Start und nach dem Aufwachen `GET /api/reminders/due` mit dem lokalen Datum ab und zeigt neue Tasks als Windows-Benachrichtigung (`desktop/src/reminders.ts`, Regeln in `reminderPlan.ts`). Die Seite erreicht Einstellungen und „Jetzt prüfen“ über ein Preload-Skript (`window.scrumbanizeDesktop`, `desktop/src/preload.ts`); der Hauptprozess nimmt nur Aufrufe der eigenen Seite an. Im Browser (Docker, Entwicklung) gibt es weder Bridge noch Einstellungsbereich.
+- **Autostart:** Windows startet die App mit `--hidden` (ohne Fenster). Die portable Version trägt die gestartete `.exe` ein (`PORTABLE_EXECUTABLE_FILE`), nicht die entpackte Kopie; ungepackte Starts (`npm run desktop`) können nicht mit Windows starten. Benachrichtigungen erscheinen unter der AppUserModelID `de.scrumbanize.app`, die die Verknüpfungen des Installers tragen – bei der portablen Version fehlt diese Verknüpfung, deshalb sind Benachrichtigungen dort nicht garantiert.
 
 ### Selbst bauen
 
@@ -244,7 +255,7 @@ Lokal liegen die Datenbank unter `data/scrumbanize.db` und die Anhänge unter `d
 npm-Workspaces mit drei Paketen:
 
 - `server/` – Express-REST-API mit SQLite (`better-sqlite3`). Start `src/start.ts` (`startServer()`, genutzt von `src/index.ts` und der Desktop-App), App-Aufbau `src/app.ts`, Schema und Migrationen `src/database.ts`.
-- `desktop/` – Electron-Hauptprozess (`src/main.ts`), mit esbuild zu `dist/main.cjs` gebündelt; Paketierung mit `electron-builder.yml`.
+- `desktop/` – Electron-Hauptprozess (`src/main.ts`) und Preload-Skript (`src/preload.ts`), mit esbuild zu `dist/main.cjs` und `dist/preload.cjs` gebündelt; Paketierung mit `electron-builder.yml`. Tests (Erinnerungsregeln, Einstellungen) unter `test/`.
 - `client/` – React-SPA mit TypeScript, Vite und Tailwind CSS. Farben kommen aus semantischen Design-Tokens (`bg-surface`, `text-fg-muted`, `border-line`, `bg-accent` …), definiert in `src/index.css` für hell und dunkel; wiederverwendbare Bausteine liegen in `src/components/ui/`.
 
 ## REST-API
@@ -300,5 +311,6 @@ Listen und Neuanlagen gehören zu einem Projekt (`/api/projects/:projectId/…`)
 | DELETE  | `/api/trash?project=` | Papierkorb leeren – mit `project` nur dessen Notizen und Tasks, sonst alles inklusive gelöschter Projekte: `{ notes, tasks, projects }` |
 | GET     | `/api/projects/:id/activities?type=&before=&limit=` | Aktivitätsprotokoll, neueste zuerst: `{ "items": [{ id, entityType, entityId, actionType, description, metadata, createdAt, exists }], "nextCursor" }`. `type`: `note`, `task`, `board` oder `project`; `before`: `nextCursor` der vorigen Seite; `limit` 1–100 (Standard 30). `exists` sagt, ob die Notiz bzw. der Task noch existiert |
 | GET     | `/api/search?q=&project=&limit=` | Suche über alle Projekte für die Befehlspalette: `{ "notes": [{ id, projectId, title, snippet }], "tasks": [{ id, projectId, title, columnName }] }` – Treffer des Projekts `project` zuerst, `limit` 1–50 (Standard 20) |
+| GET     | `/api/reminders/due?date=YYYY-MM-DD` | Offene Tasks aller Projekte, die an `date` oder früher fällig sind (nicht in der letzten Spalte, nicht im Papierkorb): `[{ id, projectId, projectName, title, dueDate, priority }]`, älteste Fälligkeit zuerst, dann nach Priorität. Das Datum gibt der Aufrufer vor (seine Zeitzone); genutzt von den Erinnerungen der Desktop-App |
 
 Notizen und Tasks enthalten ihre Anhänge (`attachments`). Tasks enthalten ihre Verknüpfungen (`links: [{ id, kind, task: { id, title, columnId, columnName, done } }]`, `done` = letzte Spalte). `priority` ist `low`, `medium`, `high`, `urgent` oder `null`; `startDate` und `dueDate` sind Kalendertage `YYYY-MM-DD` oder `null`, ein `startDate` braucht ein `dueDate` am selben Tag oder später. Tags werden normalisiert (Kleinschreibung, ohne Kommas, max. 32 Zeichen). Tags, die keine Notiz mehr verwendet, werden automatisch entfernt. Notizen enthalten ihre verknüpften Tasks (`tasks`). Tasks sind Kopien: spätere Änderungen an der Notiz werden nicht übernommen, und beim Löschen einer Notiz bleiben ihre Tasks erhalten. Was im Papierkorb liegt, liefern die übrigen Endpunkte nicht mehr (404) – auch nicht in Suche, Listen und Zählern. Fehler haben die Form `{ "error": { "code", "message" } }`.

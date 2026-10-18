@@ -25,10 +25,12 @@ files:
 asarUnpack:
   - "**/*.node"
 
-# The built React app, served by the bundled server.
+# The built React app, served by the bundled server, and the icon for the notification area (tray).
 extraResources:
   - from: ../client/dist
     to: client
+  - from: build/icon.png
+    to: tray.png
 
 win:
   target:

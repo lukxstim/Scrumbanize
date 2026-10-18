@@ -1,5 +1,6 @@
 import type { Db } from '../database.js';
 import type { TaskPriority } from '../validation.js';
+import { isDoneSql } from './doneColumn.js';
 
 export type GraphNode =
   | { id: string; type: 'note'; entityId: number; title: string; tags: string[] }
@@ -43,7 +44,7 @@ export function createGraphRepository(db: Db) {
     { id: number; title: string; column_name: string; done: number; priority: TaskPriority | null; source_note_id: number | null }
   >(
     `SELECT t.id, t.title, c.name AS column_name, t.priority,
-       t.column_id = (SELECT id FROM board_columns WHERE project_id = t.project_id ORDER BY position DESC, id DESC LIMIT 1) AS done,
+       ${isDoneSql('t')} AS done,
        (SELECT n.id FROM live_notes n WHERE n.id = t.source_note_id) AS source_note_id
      FROM live_tasks t JOIN board_columns c ON c.id = t.column_id
      WHERE t.project_id = ? ORDER BY t.id`,

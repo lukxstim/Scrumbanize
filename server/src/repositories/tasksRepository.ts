@@ -4,6 +4,7 @@ import { positionForIndex } from '../positions.js';
 import { type TaskInput, type TaskPatch, type TaskPriority, scheduleProblem } from '../validation.js';
 import { createActivityRepository } from './activityRepository.js';
 import { createAttachmentQueries, type Attachment } from './attachmentsRepository.js';
+import { isDoneSql } from './doneColumn.js';
 import type { Label } from './labelsRepository.js';
 
 export interface Task {
@@ -159,7 +160,7 @@ export function createTasksRepository(db: Db) {
   // The other end of each link of a task, with its column and whether that is the last ("done") column.
   const selectLinks = db.prepare<{ id: number }, LinkRow>(
     `SELECT l.id, l.type, l.source_task_id, o.id AS other_id, o.title AS other_title, o.column_id, c.name AS column_name,
-       o.column_id = (SELECT id FROM board_columns WHERE project_id = o.project_id ORDER BY position DESC, id DESC LIMIT 1) AS done
+       ${isDoneSql('o')} AS done
      FROM task_links l
      JOIN live_tasks o ON o.id = CASE WHEN l.source_task_id = @id THEN l.target_task_id ELSE l.source_task_id END
      JOIN board_columns c ON c.id = o.column_id
