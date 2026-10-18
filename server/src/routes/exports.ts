@@ -72,6 +72,7 @@ export function exportsRouter({ access, projects, notes, tasks, board, attachmen
 
   router.get('/projects/:projectId/export/board.csv', access.requireRole('viewer', access.of.project()), (req, res) => {
     const project = projectOf(req.params.projectId);
+    if (project.kind === 'notebook') throw new HttpError(409, 'notebook', 'Notebooks have no board');
     const csv = boardToCsv(tasks.list(project.id), board.listColumns(project.id), board.listLanes(project.id));
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', attachmentDisposition(`${safeFileName(project.name, 'Projekt')} – Board ${today()}.csv`));

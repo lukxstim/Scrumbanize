@@ -9,6 +9,9 @@ import CalendarPage from './components/calendar/CalendarPage';
 import TrashPage from './components/trash/TrashPage';
 import { BoardIcon, CalendarIcon, ChartIcon, HistoryIcon, SettingsIcon, NoteIcon, SearchIcon, TrashIcon } from './components/icons';
 import NotesPage from './components/notes/NotesPage';
+import KnowledgePage from './components/knowledge/KnowledgePage';
+import NewProjectHost from './components/projects/NewProjectHost';
+import { NotebookGlyph } from './components/projects/NotebookSymbol';
 import ProjectLayout from './components/projects/ProjectLayout';
 import ProjectSwitcher from './components/projects/ProjectSwitcher';
 import RedirectToProject from './components/projects/RedirectToProject';
@@ -24,7 +27,7 @@ import { useTrashCount } from './hooks/useTrash';
 import { onTourStartRequest } from './utils/appEvents';
 import { closedTourState, INITIAL_TOUR_STATE, isTourState, TOUR_STORAGE_KEY } from './utils/tour';
 import { isReminderState, REMINDER_STORAGE_KEY, reminderStep, type ReminderState } from './utils/updateReminder';
-import { ACTIVITY_PARAM, paths, withActivityDrawer } from './utils/paths';
+import { ACTIVITY_PARAM, KNOWLEDGE_PATH, paths, withActivityDrawer } from './utils/paths';
 
 // Loaded on first visit, so the charting library stays out of the main bundle.
 const AnalyticsPage = lazy(() => import('./components/analytics/AnalyticsPage'));
@@ -63,6 +66,9 @@ export default function App() {
   const toast = useToast();
   const projectMatch = useMatch('/p/:projectId/*');
   const activeProject = projects.find((p) => p.id === Number(projectMatch?.params.projectId));
+  // Notebooks (US-22) have notes only: no board, calendar or statistics tabs.
+  const inNotebook = activeProject?.kind === 'notebook';
+  const onKnowledge = useMatch(KNOWLEDGE_PATH) !== null || inNotebook;
   // A task's details are shown on the board, so the Board tab stays active there.
   const boardMatch = useMatch('/p/:projectId/board');
   const taskMatch = useMatch('/p/:projectId/tasks/:taskId');
@@ -94,7 +100,8 @@ export default function App() {
   const [tourState, setTourState] = useStoredState(TOUR_STORAGE_KEY, INITIAL_TOUR_STATE, isTourState);
   const [tourOpen, setTourOpen] = useState(false);
   const tourOffered = useRef(false);
-  const hasProject = activeProject !== undefined;
+  // Not in a notebook: the tour shows the board and its tabs.
+  const hasProject = activeProject?.kind === 'project';
   useEffect(() => {
     if (!hasProject || tourOffered.current || tourState.status === 'done') return;
     tourOffered.current = true;
@@ -167,13 +174,26 @@ export default function App() {
           <img src="/scrumbanize-logo.png" alt="" width={28} height={28} className="size-7 rounded-md shadow-sm" />
           <span className="sr-only text-sm font-semibold tracking-tight lg:not-sr-only">Scrumbanize</span>
         </Link>
+        {/* Knowledge outside the projects (US-22): the notebook overview; inside a notebook, the way back to it. */}
+        <Link
+          to={KNOWLEDGE_PATH}
+          title="Wissen: Notizbücher"
+          aria-current={onKnowledge && !inNotebook ? 'page' : undefined}
+          data-tour="knowledge"
+          className={`flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-accent lg:ml-1 ${
+            onKnowledge ? 'bg-surface-strong text-fg' : 'text-fg-subtle hover:bg-surface-hover hover:text-fg'
+          }`}
+        >
+          <NotebookGlyph icon="book" className="size-4" />
+          <span className="sr-only lg:not-sr-only">Wissen</span>
+        </Link>
         {activeProject && (
           <>
             <span className="shrink-0 text-fg-faint" aria-hidden="true">
               /
             </span>
             <ProjectSwitcher active={activeProject} section={section} />
-            <nav
+            {!inNotebook && <nav
               className="inline-flex shrink-0 rounded-lg bg-surface-muted p-0.5 ring-1 ring-line ring-inset lg:ml-2"
               aria-label="Hauptnavigation"
             >
@@ -193,7 +213,7 @@ export default function App() {
                 <ChartIcon className="size-3.5" />
                 <TabLabel>Statistiken</TabLabel>
               </NavLink>
-            </nav>
+            </nav>}
           </>
         )}
         <div className="flex-1" />
@@ -290,6 +310,7 @@ export default function App() {
             }
           />
         </Route>
+        <Route path={KNOWLEDGE_PATH} element={<KnowledgePage />} />
         {/* The own account and user management (US-21c), outside the projects. */}
         <Route
           path="/profil"
@@ -324,6 +345,8 @@ export default function App() {
           }}
         />
       )}
+
+      <NewProjectHost />
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} activeProject={activeProject} />
     </div>

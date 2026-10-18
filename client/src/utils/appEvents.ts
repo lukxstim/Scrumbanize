@@ -1,15 +1,18 @@
+import type { ProjectKind } from '../types/project';
+
 /** App-wide requests between components that are far apart, e.g. from the command palette. */
 
 const NEW_PROJECT = 'scrumbanize:new-project';
 
-/** Asks the project switcher to open its "Neues Projekt" dialog. */
-export function requestNewProject(): void {
-  window.dispatchEvent(new Event(NEW_PROJECT));
+/** Opens the "Neues Projekt" or "Neues Notizbuch" dialog (NewProjectHost). */
+export function requestNewProject(kind: ProjectKind = 'project'): void {
+  window.dispatchEvent(new CustomEvent<ProjectKind>(NEW_PROJECT, { detail: kind }));
 }
 
-export function onNewProjectRequest(handler: () => void): () => void {
-  window.addEventListener(NEW_PROJECT, handler);
-  return () => window.removeEventListener(NEW_PROJECT, handler);
+export function onNewProjectRequest(handler: (kind: ProjectKind) => void): () => void {
+  const listener = (event: Event) => handler((event as CustomEvent<ProjectKind>).detail);
+  window.addEventListener(NEW_PROJECT, listener);
+  return () => window.removeEventListener(NEW_PROJECT, listener);
 }
 
 /**

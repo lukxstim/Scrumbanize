@@ -78,6 +78,7 @@ async function fixture(): Promise<Fixture> {
   const label = (await owner.post('/api/projects/1/labels', { name: 'Eigenes', color: 'sky' })).body;
   const emptyColumn = (await owner.post('/api/projects/1/columns', { name: 'Leer' })).body;
   const lane = (await owner.post('/api/projects/1/lanes', { name: 'Zweite' })).body;
+  const folder = (await owner.post('/api/projects/1/folders', { name: 'Ordner' })).body;
   const attachment = (await request(app).post(`/api/notes/${note.id}/attachments`).set('Cookie', cookie.owner).attach('files', Buffer.from('Hallo'), 'hallo.txt')).body[0];
   // A second project, so the first can be deleted, and a trashed one with the same members.
   const second = (await owner.post('/api/projects', { name: 'Zweites', color: 'red' })).body;
@@ -94,6 +95,7 @@ async function fixture(): Promise<Fixture> {
     column: board.columns[0].id,
     emptyColumn: emptyColumn.id,
     lane: lane.id,
+    folder: folder.id,
     attachment: attachment.id,
     second: second.id,
     old: old.id,
@@ -113,7 +115,7 @@ const send = (method: 'post' | 'put' | 'patch' | 'delete', url: (f: Fixture) => 
 
 const CASES: Case[] = [
   // Reading: viewer
-  ...['notes', 'board', 'activities', 'analytics', 'graph', 'tags', 'labels', 'templates', 'members'].map(
+  ...['notes', 'board', 'activities', 'analytics', 'graph', 'tags', 'labels', 'templates', 'members', 'folders'].map(
     (part): Case => ({ name: `GET /projects/:id/${part}`, min: 'viewer', call: get(() => `/api/projects/1/${part}`) }),
   ),
   { name: 'GET /notes/:id', min: 'viewer', call: get((f) => `/api/notes/${f.ids.note}`) },
@@ -148,6 +150,10 @@ const CASES: Case[] = [
     min: 'member',
     call: (f, c) => request(f.app).post(`/api/notes/${f.ids.note}/attachments`).set('Cookie', c).attach('files', Buffer.from('x'), 'x.txt'),
   },
+  { name: 'POST /projects/:id/folders', min: 'member', call: send('post', () => '/api/projects/1/folders', () => ({ name: 'Neu' })) },
+  { name: 'PATCH /folders/:id', min: 'member', call: send('patch', (f) => `/api/folders/${f.ids.folder}`, () => ({ name: 'Anders' })) },
+  { name: 'DELETE /folders/:id', min: 'member', call: send('delete', (f) => `/api/folders/${f.ids.folder}`) },
+  { name: 'PUT /notes/:id/folder', min: 'member', call: send('put', (f) => `/api/notes/${f.ids.note}/folder`, (f) => ({ folderId: f.ids.folder })) },
   { name: 'DELETE /attachments/:id', min: 'member', call: send('delete', (f) => `/api/attachments/${f.ids.attachment}`) },
   { name: 'POST /trash/note/:id/restore', min: 'member', call: send('post', (f) => `/api/trash/note/${f.ids.trashedNote}/restore`) },
   // Board structure, project and deleting for good: owner

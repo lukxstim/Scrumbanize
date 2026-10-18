@@ -391,6 +391,37 @@ export const migrations: string[] = [
   );
   ALTER TABLE activities ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
   `,
+  // Notebooks, folders and links (US-22). A notebook is a project of its own kind: notes without a board, with the
+  // same members, roles, trash, activity log and backups. Names are unique per kind, so a project and a notebook may
+  // share one. Folders exist in projects and notebooks; deleting one moves its notes up (ON DELETE SET NULL is only
+  // the fallback, the app moves them to the parent). content_links mirrors the note:/task: links in notes and task
+  // descriptions, for backlinks.
+  `
+  ALTER TABLE projects ADD COLUMN kind TEXT NOT NULL DEFAULT 'project' CHECK (kind IN ('project', 'notebook'));
+  ALTER TABLE projects ADD COLUMN icon TEXT;
+  DROP INDEX idx_projects_live_name;
+  CREATE UNIQUE INDEX idx_projects_live_name ON projects(kind, name) WHERE deleted_at IS NULL;
+
+  CREATE TABLE note_folders (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    parent_id  INTEGER REFERENCES note_folders(id) ON DELETE CASCADE,
+    name       TEXT NOT NULL,
+    position   REAL NOT NULL,
+    created_at TEXT NOT NULL
+  );
+  CREATE INDEX idx_note_folders_project ON note_folders(project_id, parent_id, position);
+  ALTER TABLE notes ADD COLUMN folder_id INTEGER REFERENCES note_folders(id) ON DELETE SET NULL;
+
+  CREATE TABLE content_links (
+    source_type TEXT NOT NULL CHECK (source_type IN ('note', 'task')),
+    source_id   INTEGER NOT NULL,
+    target_type TEXT NOT NULL CHECK (target_type IN ('note', 'task')),
+    target_id   INTEGER NOT NULL,
+    PRIMARY KEY (source_type, source_id, target_type, target_id)
+  );
+  CREATE INDEX idx_content_links_target ON content_links(target_type, target_id);
+  `,
 ];
 
 export interface OpenOptions {

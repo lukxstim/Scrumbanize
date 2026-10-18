@@ -1,12 +1,14 @@
 import { lazy, Suspense, useState } from 'react';
+import { folderPath } from '../../utils/folders';
+import MoveToFolderDialog from './MoveToFolderDialog';
 import { useAutosave, type SaveStatus } from '../../hooks/useAutosave';
 import { useToast } from '../../hooks/useToast';
 import type { Attachment } from '../../types/attachment';
-import type { Note, NoteInput } from '../../types/note';
+import type { Folder, Note, NoteInput } from '../../types/note';
 import type { Task } from '../../types/task';
 import { buildTaskDraft, UNTITLED_NOTE, type TaskDraft } from '../../utils/taskFromNote';
 import { exportUrls, startDownload, type ExportFormat } from '../../utils/api';
-import { BoardIcon, DownloadIcon, MindmapIcon } from '../icons';
+import { BoardIcon, DownloadIcon, FolderIcon, MindmapIcon } from '../icons';
 import Menu from '../Menu';
 import AttachmentsPanel from '../attachments/AttachmentsPanel';
 import MarkdownEditor from '../editor/MarkdownEditor';
@@ -33,6 +35,11 @@ interface NoteEditorProps {
   onSaveAsTemplate?: (input: NoteInput) => void;
   /** Viewers (US-21): read, export and view as mindmap; no changes. */
   readOnly?: boolean;
+  /** The project's folders (US-22), for showing and changing where the note is. */
+  folders?: Folder[];
+  onMove?: (folderId: number | null) => Promise<void>;
+  /** False in notebooks: they have no board to put tasks on. */
+  withTasks?: boolean;
 }
 
 export default function NoteEditor({
@@ -46,7 +53,12 @@ export default function NoteEditor({
   onUpdateAttachments,
   onSaveAsTemplate,
   readOnly = false,
+  folders = [],
+  onMove,
+  withTasks = true,
 }: NoteEditorProps) {
+  const [moving, setMoving] = useState(false);
+  const path = folderPath(folders, note.folderId);
   const [draft, setDraft] = useState<NoteInput>({ title: note.title, content: note.content, tags: note.tags });
   const [conversion, setConversion] = useState<{ draft: TaskDraft; fromSelection: boolean } | null>(null);
   const toast = useToast();
@@ -113,7 +125,7 @@ export default function NoteEditor({
       }}
     >
       <div className="flex items-center gap-2 border-b border-line px-6 py-2.5">
-        {!readOnly && (
+        {!readOnly && withTasks && (
           <Button
             size="sm"
             // Keep the text selection (and the editor's focus) when the button is clicked.
@@ -145,6 +157,20 @@ export default function NoteEditor({
             ...(onSaveAsTemplate && !readOnly ? [{ label: 'Als Vorlage speichern …', onSelect: () => onSaveAsTemplate(draft) }] : []),
           ]}
         />
+        {/* Where the note is (US-22); a click moves it. */}
+        {(path.length > 0 || (onMove && !readOnly && folders.length > 0)) && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="min-w-0"
+            disabled={readOnly || !onMove}
+            onClick={() => setMoving(true)}
+            title={readOnly ? undefined : 'In einen anderen Ordner verschieben'}
+          >
+            <FolderIcon className="size-3.5 shrink-0" />
+            <span className="truncate">{path.length > 0 ? path.map((f) => f.name).join(' / ') : 'Kein Ordner'}</span>
+          </Button>
+        )}
         <div className="flex-1" />
         {readOnly ? (
           <span className="text-xs text-fg-subtle">Nur lesen</span>
@@ -206,6 +232,18 @@ export default function NoteEditor({
         <Suspense fallback={null}>
           <MindmapDialog title={draft.title} markdown={draft.content} onClose={() => setMindmapOpen(false)} />
         </Suspense>
+      )}
+      {moving && onMove && (
+        <MoveToFolderDialog
+          title={`„${draft.title.trim() || UNTITLED_NOTE}“ verschieben`}
+          folders={folders}
+          current={note.folderId}
+          onMove={async (folderId) => {
+            await onMove(folderId);
+            setMoving(false);
+          }}
+          onClose={() => setMoving(false)}
+        />
       )}
     </div>
   );

@@ -5,14 +5,15 @@ import { useProjects } from '../../hooks/useProjects';
 import { useToast } from '../../hooks/useToast';
 import type { Project, ProjectInput } from '../../types/project';
 import { trashApi } from '../../utils/api';
-import { onNewProjectRequest } from '../../utils/appEvents';
-import { paths, sectionPath, type Section } from '../../utils/paths';
+import { requestNewProject } from '../../utils/appEvents';
+import { KNOWLEDGE_PATH, sectionPath, type Section } from '../../utils/paths';
 import { can, ROLE_LABELS } from '../../utils/permissions';
-import { colorDot, countLabel, PROJECT_COLORS } from '../../utils/projects';
+import { colorDot, countLabel, KIND_WORDS, ofKind } from '../../utils/projects';
 import { CheckIcon, ChevronDownIcon, PencilIcon, PlusIcon, UsersIcon } from '../icons';
 import { menuItemClass, popoverClass } from '../ui/styles';
 import DeleteProjectDialog from './DeleteProjectDialog';
 import MembersDialog from './MembersDialog';
+import NotebookSymbol from './NotebookSymbol';
 import ProjectDialog from './ProjectDialog';
 
 interface ProjectSwitcherProps {
@@ -21,10 +22,24 @@ interface ProjectSwitcherProps {
   section: Section;
 }
 
-type OpenDialog = 'create' | 'edit' | 'delete' | 'members' | null;
+type OpenDialog = 'edit' | 'delete' | 'members' | null;
 
+/** A project's color dot, or a notebook's symbol (US-22). */
+export function ProjectMark({ project }: { project: Project }) {
+  return project.kind === 'notebook' ? (
+    <NotebookSymbol icon={project.icon} color={project.color} />
+  ) : (
+    <span className={`size-2.5 shrink-0 rounded-full ${colorDot(project.color)}`} aria-hidden="true" />
+  );
+}
+
+/** Switches between projects, or – inside a notebook – between notebooks (US-22). */
 export default function ProjectSwitcher({ active, section }: ProjectSwitcherProps) {
-  const { projects, reload, createProject, updateProject, deleteProject } = useProjects();
+  const { projects: all, reload, updateProject, deleteProject } = useProjects();
+  const kind = active.kind;
+  const notebook = kind === 'notebook';
+  const word = KIND_WORDS[kind];
+  const projects = ofKind(all, kind);
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   // Members and roles only exist with login (US-21); the desktop app has one user.
@@ -34,9 +49,6 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
-
-  // "Neues Projekt" from the command palette.
-  useEffect(() => onNewProjectRequest(() => setDialog('create')), []);
 
   const menuItems = () => [...(menuRef.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]') ?? [])];
 
@@ -92,7 +104,9 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
 
   function switchTo(project: Project) {
     closeMenu();
-    if (project.id !== active.id) navigate(sectionPath(project.id, section));
+    // Notebooks only have notes (and their graph, trash and settings).
+    const target = notebook && !['notes', 'graph', 'trash', 'settings'].includes(section) ? 'notes' : section;
+    if (project.id !== active.id) navigate(sectionPath(project.id, target));
   }
 
   function openDialog(which: OpenDialog) {
@@ -100,26 +114,21 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
     setDialog(which);
   }
 
-  async function create(input: ProjectInput) {
-    const project = await createProject(input);
-    setDialog(null);
-    navigate(paths.notes(project.id));
-    toast({ message: `Projekt „${project.name}“ angelegt.` });
-  }
-
   async function save(input: ProjectInput) {
-    await updateProject(active.id, input);
+    // The kind never changes.
+    const { kind: _kind, ...patch } = input;
+    await updateProject(active.id, patch);
     setDialog(null);
-    toast({ message: 'Projekt gespeichert.' });
+    toast({ message: `${word.one} gespeichert.` });
   }
 
   async function remove() {
     const { id, name } = active;
     await deleteProject(active.id);
     setDialog(null);
-    navigate('/', { replace: true });
+    navigate(notebook ? KNOWLEDGE_PATH : '/', { replace: true });
     toast({
-      message: `Projekt „${name}“ in den Papierkorb verschoben.`,
+      message: `${word.one} „${name}“ in den Papierkorb verschoben.`,
       action: {
         label: 'Rückgängig',
         onClick: async () => {
@@ -131,15 +140,12 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
               toast({ message: `Wiederhergestellt als „${result.item.name}“ – der Name war inzwischen vergeben.` });
             }
           } catch {
-            toast({ message: 'Das Projekt konnte nicht wiederhergestellt werden.', tone: 'error' });
+            toast({ message: `${notebook ? 'Das Notizbuch' : 'Das Projekt'} konnte nicht wiederhergestellt werden.`, tone: 'error' });
           }
         },
       },
     });
   }
-
-  // New projects start with a color that is not used yet, if there is one.
-  const unusedColor = PROJECT_COLORS.find((c) => !projects.some((p) => p.color === c.value))?.value ?? 'indigo';
 
   return (
     <div ref={containerRef} className="relative">
@@ -148,7 +154,7 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
         type="button"
         aria-haspopup="menu"
         aria-expanded={menuOpen}
-        aria-label={`Projekt: ${active.name}. Projekt wechseln`}
+        aria-label={`${word.one}: ${active.name}. ${word.one} wechseln`}
         data-tour="project-switcher"
         onClick={() => setMenuOpen((open) => !open)}
         onKeyDown={(event) => {
@@ -159,7 +165,7 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
         }}
         className="flex h-8 max-w-36 items-center gap-2 lg:max-w-44 2xl:max-w-64 rounded-md px-2.5 text-sm font-medium text-fg transition-colors duration-150 hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-accent aria-expanded:bg-surface-hover"
       >
-        <span className={`size-2.5 shrink-0 rounded-full ${colorDot(active.color)}`} aria-hidden="true" />
+        <ProjectMark project={active} />
         <span className="truncate">{active.name}</span>
         <ChevronDownIcon className="size-3.5 shrink-0 text-fg-subtle" />
       </button>
@@ -168,12 +174,12 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
         <div
           ref={menuRef}
           role="menu"
-          aria-label="Projekte"
+          aria-label={word.many}
           onKeyDown={onMenuKeyDown}
           className={`absolute left-0 top-full z-30 mt-1 w-72 origin-top-left ${popoverClass}`}
         >
           <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-fg-subtle" aria-hidden="true">
-            Projekte
+            {word.many}
           </div>
           <div className="max-h-80 overflow-y-auto">
             {projects.map((project) => (
@@ -185,11 +191,12 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
                 onClick={() => switchTo(project)}
                 className={`py-2 ${menuItemClass}`}
               >
-                <span className={`size-2.5 shrink-0 rounded-full ${colorDot(project.color)}`} aria-hidden="true" />
+                <ProjectMark project={project} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-fg">{project.name}</span>
                   <span className="block text-xs text-fg-subtle">
-                    {countLabel(project.noteCount, 'Notiz', 'Notizen')} · {countLabel(project.taskCount, 'Task', 'Tasks')}
+                    {countLabel(project.noteCount, 'Notiz', 'Notizen')}
+                    {!notebook && ` · ${countLabel(project.taskCount, 'Task', 'Tasks')}`}
                     {withMembers && project.role !== 'owner' && ` · ${ROLE_LABELS[project.role]}`}
                   </span>
                 </span>
@@ -201,11 +208,14 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
           <button
             type="button"
             role="menuitem"
-            onClick={() => openDialog('create')}
+            onClick={() => {
+              closeMenu(false);
+              requestNewProject(kind);
+            }}
             className={`py-2 ${menuItemClass}`}
           >
             <PlusIcon className="size-4 text-fg-subtle" />
-            Neues Projekt
+            {word.new}
           </button>
           {withMembers && (
             <button type="button" role="menuitem" onClick={() => openDialog('members')} className={`py-2 ${menuItemClass}`}>
@@ -222,22 +232,14 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
         </div>
       )}
 
-      {dialog === 'create' && (
-        <ProjectDialog
-          mode="create"
-          initial={{ name: '', color: unusedColor }}
-          onSubmit={create}
-          onClose={() => setDialog(null)}
-        />
-      )}
       {dialog === 'edit' && (
         <ProjectDialog
           mode="edit"
-          initial={{ name: active.name, color: active.color }}
+          initial={{ name: active.name, color: active.color, kind, icon: active.icon }}
           onSubmit={save}
           onClose={() => setDialog(null)}
           onDelete={() => setDialog('delete')}
-          deleteDisabledReason={projects.length <= 1 ? 'Das letzte Projekt kann nicht gelöscht werden.' : undefined}
+          deleteDisabledReason={!notebook && projects.length <= 1 ? 'Das letzte Projekt kann nicht gelöscht werden.' : undefined}
         />
       )}
       {dialog === 'members' && <MembersDialog project={active} onClose={() => setDialog(null)} />}

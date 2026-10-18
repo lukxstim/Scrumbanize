@@ -34,6 +34,7 @@ export function createAccess(db: Db, mode: AuthMode) {
     lane: db.prepare<[number], { project_id: number }>(`SELECT project_id FROM lanes WHERE id = ?`),
     label: db.prepare<[number], { project_id: number }>(`SELECT project_id FROM labels WHERE id = ?`),
     attachment: db.prepare<[number], { project_id: number }>(`SELECT project_id FROM attachments WHERE id = ?`),
+    folder: db.prepare<[number], { project_id: number }>(`SELECT project_id FROM note_folders WHERE id = ?`),
   };
   const selectTemplate = db.prepare<[number], { project_id: number | null }>(`SELECT project_id FROM templates WHERE id = ?`);
 
@@ -105,6 +106,7 @@ export function createAccess(db: Db, mode: AuthMode) {
     lane: (): ProjectOf => (req) => projectOfStatements.lane.get(id(req))?.project_id,
     label: (): ProjectOf => (req) => projectOfStatements.label.get(id(req))?.project_id,
     attachment: (): ProjectOf => (req) => projectOfStatements.attachment.get(id(req))?.project_id,
+    folder: (): ProjectOf => (req) => projectOfStatements.folder.get(id(req))?.project_id,
   };
 
   return {

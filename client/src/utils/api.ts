@@ -3,7 +3,7 @@ import type { AnalyticsQuery, AnalyticsReport } from '../types/analytics';
 import type { GraphData } from '../types/graph';
 import type { Attachment, AttachmentOwner } from '../types/attachment';
 import type { AuthSession, AuthUser } from '../types/auth';
-import type { Note, NoteInput } from '../types/note';
+import type { Folder, Note, NoteInput } from '../types/note';
 import type { Project, ProjectInput, ProjectMember, ProjectRole } from '../types/project';
 import type { ProjectColor } from '../types/project';
 import type { BoardColumn, Label, Lane, LinkKind, Task, TaskInput, TaskPatch } from '../types/task';
@@ -136,12 +136,28 @@ export const notesApi = {
   /** The tags of the project's notes, with how many notes use each. */
   tags: (projectId: number) => request<{ id: number; name: string; noteCount: number }[]>(`/projects/${projectId}/tags`),
   get: (id: number) => request<Note>(`/notes/${id}`),
-  create: (projectId: number, input: NoteInput) =>
-    request<Note>(`/projects/${projectId}/notes`, { method: 'POST', body: JSON.stringify(input) }),
+  /** `folderId`: right into a folder of the project (US-22). */
+  create: (projectId: number, input: NoteInput, folderId?: number | null) =>
+    request<Note>(`/projects/${projectId}/notes`, { method: 'POST', body: JSON.stringify({ ...input, folderId: folderId ?? null }) }),
+  /** Into a folder of the note's project, or (null) to the top level. */
+  moveToFolder: (id: number, folderId: number | null) =>
+    request<Note>(`/notes/${id}/folder`, { method: 'PUT', body: JSON.stringify({ folderId }) }),
   update: (id: number, input: NoteInput) =>
     request<Note>(`/notes/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
   /** Moves the note to the trash. */
   remove: (id: number) => trashRequest<void>(`/notes/${id}`, { method: 'DELETE' }),
+};
+
+/** Folders of notes (US-22). */
+export const foldersApi = {
+  list: (projectId: number) => request<Folder[]>(`/projects/${projectId}/folders`),
+  create: (projectId: number, name: string, parentId: number | null) =>
+    request<Folder>(`/projects/${projectId}/folders`, { method: 'POST', body: JSON.stringify({ name, parentId }) }),
+  /** Renames and/or moves the folder (into `parentId`, at `index` among its siblings). */
+  update: (id: number, patch: { name?: string; parentId?: number | null; index?: number }) =>
+    request<Folder>(`/folders/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  /** Its notes and subfolders move up one level. */
+  remove: (id: number) => request<void>(`/folders/${id}`, { method: 'DELETE' }),
 };
 
 export const tasksApi = {

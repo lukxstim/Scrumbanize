@@ -112,6 +112,12 @@ export const FolderIcon = (props: SVGProps<SVGSVGElement>) => (
   </Icon>
 );
 
+export const FolderPlusIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h2.6l1.4 1.5h5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5zM8 7v3.5M6.25 8.75h3.5" />
+  </Icon>
+);
+
 export const CompactIcon = (props: SVGProps<SVGSVGElement>) => (
   <Icon {...props}>
     <path d="M3 4h10M3 8h10M3 12h10" />

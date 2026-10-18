@@ -19,6 +19,7 @@ import { createGraphRepository } from './repositories/graphRepository.js';
 import { createLabelsRepository } from './repositories/labelsRepository.js';
 import { createMetaRepository } from './repositories/metaRepository.js';
 import { createNotesRepository } from './repositories/notesRepository.js';
+import { createFoldersRepository } from './repositories/foldersRepository.js';
 import { createProjectsRepository } from './repositories/projectsRepository.js';
 import { createRemindersRepository } from './repositories/remindersRepository.js';
 import { createSearchRepository } from './repositories/searchRepository.js';
@@ -36,6 +37,7 @@ import { exportsRouter } from './routes/exports.js';
 import { labelsRouter } from './routes/labels.js';
 import { membersRouter } from './routes/members.js';
 import { notesRouter } from './routes/notes.js';
+import { foldersRouter } from './routes/folders.js';
 import { projectScopedRouter } from './routes/projectScoped.js';
 import { projectsRouter } from './routes/projects.js';
 import { remindersRouter } from './routes/reminders.js';
@@ -73,6 +75,7 @@ export interface AppOptions {
 export function createApp(db: Db, options: AppOptions = {}): express.Express {
   const app = express();
   const notes = createNotesRepository(db);
+  const folders = createFoldersRepository(db);
   const tasks = createTasksRepository(db);
   const board = createBoardRepository(db);
   const projects = createProjectsRepository(db);
@@ -135,8 +138,9 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   // Every route below checks the user's role in the project it touches (auth/access.ts, US-21).
   api.use('/projects', projectsRouter(projects, access));
   api.use('/projects/:projectId/members', membersRouter(users, activities, access));
-  api.use('/projects/:projectId', projectScopedRouter({ access, activities, analytics, graph, labels, templates, projects, notes, tasks, board }));
-  api.use('/notes', notesRouter(notes, access));
+  api.use('/projects/:projectId', projectScopedRouter({ access, activities, analytics, graph, labels, templates, projects, notes, tasks, board, folders }));
+  api.use('/notes', notesRouter(notes, folders, access));
+  api.use('/folders', foldersRouter(folders, access));
   api.use('/tasks', tasksRouter(tasks, access));
   api.use('/columns', columnsRouter(board, access));
   api.use('/lanes', lanesRouter(board, access));

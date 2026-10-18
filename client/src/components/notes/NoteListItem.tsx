@@ -1,3 +1,4 @@
+import type { DragEvent } from 'react';
 import type { Note } from '../../types/note';
 import { formatDate, snippet } from '../../utils/format';
 import { UNTITLED_NOTE } from '../../utils/taskFromNote';
@@ -6,9 +7,13 @@ interface NoteListItemProps {
   note: Note;
   selected: boolean;
   onSelect: (id: number) => void;
+  /** In the folder tree (US-22): the depth of its folder, for the indent. */
+  depth?: number;
+  /** Makes the note draggable onto folders. */
+  dragProps?: { onDragStart: (event: DragEvent) => void; onDragEnd: () => void };
 }
 
-export default function NoteListItem({ note, selected, onSelect }: NoteListItemProps) {
+export default function NoteListItem({ note, selected, onSelect, depth = 0, dragProps }: NoteListItemProps) {
   const preview = snippet(note.content);
 
   return (
@@ -17,7 +22,10 @@ export default function NoteListItem({ note, selected, onSelect }: NoteListItemP
         type="button"
         aria-current={selected || undefined}
         onClick={() => onSelect(note.id)}
-        className={`block w-full border-l-2 px-4 py-3 text-left transition-colors duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${
+        draggable={dragProps !== undefined}
+        {...dragProps}
+        style={depth > 0 ? { paddingLeft: `${2.25 + (depth - 1) * 0.875}rem` } : undefined}
+        className={`block w-full border-l-2 px-4 ${depth > 0 ? 'py-2' : 'py-3'} text-left transition-colors duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${
           selected ? 'border-accent bg-accent-muted' : 'border-transparent hover:bg-surface-hover'
         }`}
       >

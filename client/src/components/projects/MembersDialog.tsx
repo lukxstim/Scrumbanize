@@ -101,7 +101,9 @@ export default function MembersDialog({ project, onClose }: { project: Project; 
         Mitglieder von „{project.name}“
       </h2>
       <p className="mt-1 text-sm text-fg-subtle">
-        {isOwner ? 'Lege fest, wer dieses Projekt sehen und bearbeiten darf.' : `Du bist hier ${ROLE_LABELS[project.role]}.`}
+        {isOwner
+          ? `Lege fest, wer ${project.kind === 'notebook' ? 'dieses Notizbuch' : 'dieses Projekt'} sehen und bearbeiten darf.`
+          : `Du bist hier ${ROLE_LABELS[project.role]}.`}
       </p>
 
       <ul className="mt-5 divide-y divide-line rounded-lg border border-line" aria-busy={members === null}>
@@ -194,7 +196,7 @@ export default function MembersDialog({ project, onClose }: { project: Project; 
 
       <ConfirmDialog
         open={removing !== null}
-        title={removing?.user.id === me ? 'Projekt verlassen?' : `${removing?.user.name ?? ''} entfernen?`}
+        title={removing?.user.id === me ? `${project.kind === 'notebook' ? 'Notizbuch' : 'Projekt'} verlassen?` : `${removing?.user.name ?? ''} entfernen?`}
         message={
           removing?.user.id === me
             ? `Du siehst „${project.name}“ danach nicht mehr. Ein Owner kann dich wieder hinzufügen.`

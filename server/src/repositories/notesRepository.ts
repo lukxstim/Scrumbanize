@@ -8,6 +8,8 @@ import { createAttachmentQueries, type Attachment } from './attachmentsRepositor
 export interface Note {
   id: number;
   projectId: number;
+  /** The folder (US-22); null at the top level. */
+  folderId: number | null;
   title: string;
   content: string;
   tags: string[];
@@ -43,6 +45,7 @@ interface LinkedTaskRow {
 interface NoteRow {
   id: number;
   project_id: number;
+  folder_id: number | null;
   title: string;
   content: string;
   created_at: string;
@@ -124,6 +127,7 @@ export function createNotesRepository(db: Db) {
     return {
       id: row.id,
       projectId: row.project_id,
+      folderId: row.folder_id ?? null,
       title: row.title,
       content: row.content,
       tags,
@@ -198,9 +202,11 @@ export function createNotesRepository(db: Db) {
       return row && withRelations(row);
     },
 
-    create: db.transaction((projectId: number, input: NoteInput): Note => {
+    /** `folderId` must be a folder of the project (checked by the route). */
+    create: db.transaction((projectId: number, input: NoteInput, folderId: number | null = null): Note => {
       const now = new Date().toISOString();
-      const row = insertNote.get(projectId, input.title, input.content, now, now)!;
+      let row = insertNote.get(projectId, input.title, input.content, now, now)!;
+      if (folderId !== null) row = db.prepare<[number, number], NoteRow>(`UPDATE notes SET folder_id = ? WHERE id = ? RETURNING *`).get(folderId, row.id)!;
       setTags(row.id, input.tags);
       activities.record({
         projectId,

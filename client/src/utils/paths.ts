@@ -18,6 +18,9 @@ export const accountPaths = {
   users: '/benutzer',
 };
 
+/** The overview of all notebooks (US-22); a notebook itself lives under /p/:id/notes like any project. */
+export const KNOWLEDGE_PATH = '/wissen';
+
 /** The top-level pages of a project (the header tabs). */
 export type Section = 'notes' | 'graph' | 'board' | 'calendar' | 'analytics' | 'trash' | 'settings';
 

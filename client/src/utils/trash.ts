@@ -35,12 +35,14 @@ export function restoredMessage(result: RestoreResult): { message: string; link:
       };
     case 'task':
       return { message: `Task „${result.item.title}“ wiederhergestellt.`, link: paths.task(result.item.projectId, result.item.id) };
-    case 'project':
+    case 'project': {
+      const word = result.item.kind === 'notebook' ? 'Notizbuch' : 'Projekt';
       return {
         message: result.renamedFrom
-          ? `Projekt „${result.renamedFrom}“ als „${result.item.name}“ wiederhergestellt – der Name war inzwischen vergeben.`
-          : `Projekt „${result.item.name}“ wiederhergestellt.`,
+          ? `${word} „${result.renamedFrom}“ als „${result.item.name}“ wiederhergestellt – der Name war inzwischen vergeben.`
+          : `${word} „${result.item.name}“ wiederhergestellt.`,
         link: paths.notes(result.item.id),
       };
+    }
   }
 }

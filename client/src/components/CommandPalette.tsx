@@ -9,8 +9,10 @@ import type { Project } from '../types/project';
 import { searchApi, type SearchResults } from '../utils/api';
 import { requestNewProject, requestTourStart, type CreateRequest } from '../utils/appEvents';
 import { matchesQuery } from '../utils/matchQuery';
-import { paths, withActivityDrawer } from '../utils/paths';
-import { colorDot } from '../utils/projects';
+import { KNOWLEDGE_PATH, paths, withActivityDrawer } from '../utils/paths';
+import { colorDot, ofKind } from '../utils/projects';
+import { NotebookGlyph } from './projects/NotebookSymbol';
+import { ProjectMark } from './projects/ProjectSwitcher';
 import { UNTITLED_NOTE } from '../utils/taskFromNote';
 import {
   BoardIcon,
@@ -54,6 +56,8 @@ interface Item {
 }
 
 const SEARCH_DELAY_MS = 150;
+/** Views a notebook does not have (US-22). */
+const BOARD_VIEWS = ['go-board', 'go-calendar', 'go-analytics'];
 const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean';
 
 /** ⌘K / Ctrl+K: jump to projects, notes, tasks and views, and run actions. */
@@ -111,7 +115,11 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
     if (!project || projectId === activeProject?.id) return undefined;
     return (
       <span className="flex items-center gap-1.5 text-xs text-fg-subtle">
-        <span className={`size-2 rounded-full ${colorDot(project.color)}`} aria-hidden="true" />
+        {project.kind === 'notebook' ? (
+          <NotebookGlyph icon={project.icon ?? 'book'} className="size-3" />
+        ) : (
+          <span className={`size-2 rounded-full ${colorDot(project.color)}`} aria-hidden="true" />
+        )}
         {project.name}
       </span>
     );
@@ -125,9 +133,11 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
   if (activeProject) {
     // Viewers cannot create anything in the project (US-21), so they get no "Neue Notiz", "Neuer Task" or templates.
     const mayCreate = can(activeProject.role, 'edit');
+    // Notebooks (US-22) have no board: no tasks, calendar or statistics.
+    const withBoard = activeProject.kind === 'project';
     const create = (state: CreateRequest) => () =>
       navigate(state.create === 'note' ? paths.notes(activeProject.id) : paths.board(activeProject.id), { state });
-    const actions: Item[] = trimmed
+    const actions: Item[] = (trimmed
       ? [
           {
             id: 'create-note-titled',
@@ -147,11 +157,12 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
       : [
           { id: 'create-note', label: 'Neue Notiz', keywords: 'notiz anlegen erstellen', icon: <PlusIcon />, run: create({ create: 'note', title: '' }) },
           { id: 'create-task', label: 'Neuer Task', keywords: 'task anlegen erstellen', icon: <PlusIcon />, run: create({ create: 'task', title: '' }) },
-        ];
+        ]).filter((item) => withBoard || !item.id.startsWith('create-task'));
     if (mayCreate) createGroup = { heading: trimmed ? 'Neu anlegen' : 'Aktionen', items: actions };
 
     // "Notiz aus Vorlage …" and "Task aus Vorlage …", found by the template's name.
     const fromTemplates: Item[] = templates
+      .filter((template) => withBoard || template.kind === 'note')
       .map((template) => ({
         id: `template-${template.id}`,
         label: `${template.kind === 'note' ? 'Notiz' : 'Task'} aus Vorlage „${template.name}“`,
@@ -222,23 +233,46 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
           icon: <TrashIcon />,
           run: () => navigate(paths.trash(activeProject.id)),
         },
-      ].filter((item) => matchesQuery(trimmed, item.label, item.keywords)),
+      ]
+        .filter((item) => withBoard || !BOARD_VIEWS.includes(item.id))
+        .filter((item) => matchesQuery(trimmed, item.label, item.keywords)),
     });
   }
 
+  const switchTo = (p: Project): Item & { label: string } => ({
+    id: `project-${p.id}`,
+    label: `Zu „${p.name}“ wechseln`,
+    keywords: `${p.kind === 'notebook' ? 'notizbuch wissen' : 'projekt'} wechseln ${p.name}`,
+    icon: p.kind === 'notebook' ? <ProjectMark project={p} /> : <span className={`m-1 size-2 rounded-full ${colorDot(p.color)}`} aria-hidden="true" />,
+    run: () => navigate(paths.notes(p.id)),
+  });
+  const others = projects.filter((p) => p.id !== activeProject?.id);
   groups.push({
     heading: 'Projekte',
     items: [
-      ...projects
-        .filter((p) => p.id !== activeProject?.id)
-        .map((p) => ({
-          id: `project-${p.id}`,
-          label: `Zu „${p.name}“ wechseln`,
-          keywords: `projekt wechseln ${p.name}`,
-          icon: <span className={`m-1 size-2 rounded-full ${colorDot(p.color)}`} aria-hidden="true" />,
-          run: () => navigate(paths.notes(p.id)),
-        })),
-      { id: 'new-project', label: 'Neues Projekt …', keywords: 'projekt anlegen erstellen', icon: <FolderIcon />, run: requestNewProject },
+      ...ofKind(others, 'project').map(switchTo),
+      { id: 'new-project', label: 'Neues Projekt …', keywords: 'projekt anlegen erstellen', icon: <FolderIcon />, run: () => requestNewProject('project') },
+    ].filter((item) => matchesQuery(trimmed, item.label, item.keywords)),
+  });
+  // Notebooks (US-22): knowledge outside the projects.
+  groups.push({
+    heading: 'Wissen',
+    items: [
+      {
+        id: 'go-knowledge',
+        label: 'Alle Notizbücher',
+        keywords: 'wissen notizbücher notizbuch übersicht gehe zu',
+        icon: <NotebookGlyph icon="book" />,
+        run: () => navigate(KNOWLEDGE_PATH),
+      },
+      ...ofKind(others, 'notebook').map(switchTo),
+      {
+        id: 'new-notebook',
+        label: 'Neues Notizbuch …',
+        keywords: 'notizbuch wissen anlegen erstellen',
+        icon: <PlusIcon />,
+        run: () => requestNewProject('notebook'),
+      },
     ].filter((item) => matchesQuery(trimmed, item.label, item.keywords)),
   });
 

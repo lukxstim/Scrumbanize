@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import type { ProjectInput } from '../../types/project';
+import { NOTEBOOK_ICONS, type ProjectInput } from '../../types/project';
 import { ApiError } from '../../utils/api';
-import { PROJECT_COLORS } from '../../utils/projects';
+import { KIND_WORDS, PROJECT_COLORS } from '../../utils/projects';
+import NotebookSymbol, { NOTEBOOK_ICON_LABELS } from './NotebookSymbol';
 import Button from '../ui/Button';
 import Dialog from '../ui/Dialog';
 import { fieldClass, labelClass } from '../ui/styles';
@@ -28,6 +29,11 @@ export default function ProjectDialog({
 }: ProjectDialogProps) {
   const [name, setName] = useState(initial.name);
   const [color, setColor] = useState(initial.color);
+  // Notebooks (US-22) also have a symbol.
+  const kind = initial.kind ?? 'project';
+  const notebook = kind === 'notebook';
+  const word = KIND_WORDS[kind];
+  const [icon, setIcon] = useState(initial.icon ?? 'book');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,12 +41,12 @@ export default function ProjectDialog({
     setSaving(true);
     setError(null);
     try {
-      await onSubmit({ name: name.trim(), color });
+      await onSubmit({ name: name.trim(), color, ...(notebook ? { kind, icon } : {}) });
     } catch (err) {
       setError(
         err instanceof ApiError && err.code === 'name_taken'
-          ? 'Es gibt bereits ein Projekt mit diesem Namen.'
-          : 'Das Projekt konnte nicht gespeichert werden.',
+          ? `Es gibt bereits ${notebook ? 'ein Notizbuch' : 'ein Projekt'} mit diesem Namen.`
+          : `${notebook ? 'Das Notizbuch' : 'Das Projekt'} konnte nicht gespeichert werden.`,
       );
       setSaving(false);
     }
@@ -55,7 +61,7 @@ export default function ProjectDialog({
         }}
       >
         <h2 id="project-dialog-title" className="text-base font-semibold text-fg">
-          {mode === 'create' ? 'Neues Projekt' : 'Projekt bearbeiten'}
+          {mode === 'create' ? word.new : `${word.one} bearbeiten`}
         </h2>
 
         <label className={`mt-5 ${labelClass}`}>
@@ -66,7 +72,7 @@ export default function ProjectDialog({
             required
             maxLength={60}
             data-autofocus
-            placeholder="z. B. Studium"
+            placeholder={notebook ? 'z. B. Rezepte' : 'z. B. Studium'}
             className={`mt-1 font-normal ${fieldClass}`}
           />
         </label>
@@ -95,6 +101,25 @@ export default function ProjectDialog({
           </div>
         </fieldset>
 
+        {notebook && (
+          <fieldset className="mt-5">
+            <legend className={labelClass}>Symbol</legend>
+            <div className="mt-2 grid grid-cols-8 gap-1.5">
+              {NOTEBOOK_ICONS.map((value) => (
+                <label
+                  key={value}
+                  title={NOTEBOOK_ICON_LABELS[value]}
+                  className="grid size-9 cursor-pointer place-items-center rounded-md ring-offset-2 ring-offset-surface transition-shadow hover:bg-surface-hover has-checked:ring-2 has-checked:ring-fg has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-accent"
+                >
+                  <input type="radio" name="notebook-icon" value={value} checked={icon === value} onChange={() => setIcon(value)} className="sr-only" />
+                  <NotebookSymbol icon={value} color={color} />
+                  <span className="sr-only">{NOTEBOOK_ICON_LABELS[value]}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
+
         {error && (
           <p role="alert" className="mt-4 text-sm text-danger-text">
             {error}
@@ -106,7 +131,7 @@ export default function ProjectDialog({
             // The wrapper shows the reason as tooltip; disabled buttons do not receive hover.
             <span title={deleteDisabledReason}>
               <Button variant="danger-ghost" onClick={onDelete} disabled={saving || deleteDisabledReason !== undefined}>
-                Projekt löschen …
+                {word.one} löschen …
               </Button>
             </span>
           )}
@@ -115,7 +140,7 @@ export default function ProjectDialog({
             Abbrechen
           </Button>
           <Button type="submit" variant="primary" disabled={saving || !name.trim()}>
-            {mode === 'create' ? 'Projekt anlegen' : 'Speichern'}
+            {mode === 'create' ? `${word.one} anlegen` : 'Speichern'}
           </Button>
         </div>
       </form>

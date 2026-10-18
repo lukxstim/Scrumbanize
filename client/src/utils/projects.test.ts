@@ -3,7 +3,7 @@ import type { Project } from '../types/project';
 import { countLabel, defaultProject, getLastProjectId, setLastProjectId, sortProjects } from './projects';
 
 function project(id: number, name: string): Project {
-  return { id, name, color: 'slate', role: 'owner', noteCount: 0, taskCount: 0, createdAt: '', updatedAt: '' };
+  return { id, name, color: 'slate', kind: 'project', icon: null, role: 'owner', noteCount: 0, taskCount: 0, createdAt: '', updatedAt: '' };
 }
 
 const names = (projects: Project[]) => projects.map((p) => p.name);
@@ -55,6 +55,13 @@ describe('last project', () => {
     expect(defaultProject(projects, 99)?.id).toBe(1); // sample project deleted
     setLastProjectId(1);
     expect(defaultProject(projects, 5)?.id).toBe(1);
+  });
+
+  it('never opens a notebook', () => {
+    const withNotebook = [{ ...project(0, 'Aaa Rezepte'), kind: 'notebook' as const, icon: 'utensils' as const }, ...projects];
+    expect(defaultProject(withNotebook)?.id).toBe(1);
+    setLastProjectId(0);
+    expect(defaultProject(withNotebook)?.id).toBe(1);
   });
 
   it('falls back to the first project if the last one is gone or unknown', () => {

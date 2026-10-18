@@ -4,6 +4,8 @@ import type { LinkedTask } from './task';
 export interface Note {
   id: number;
   projectId: number;
+  /** The folder (US-22); null at the top level. */
+  folderId: number | null;
   title: string;
   /** Markdown source. */
   content: string;
@@ -19,6 +21,16 @@ export interface Note {
 }
 
 export type NoteInput = Pick<Note, 'title' | 'content' | 'tags'>;
+
+/** A folder of notes (US-22), in projects and notebooks; at most five levels deep. */
+export interface Folder {
+  id: number;
+  projectId: number;
+  /** null: at the top level. */
+  parentId: number | null;
+  name: string;
+  position: number;
+}
 
 export interface TagCount {
   name: string;

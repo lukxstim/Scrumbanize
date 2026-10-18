@@ -1,4 +1,4 @@
-import type { Project, ProjectColor } from '../types/project';
+import type { Project, ProjectColor, ProjectKind } from '../types/project';
 
 /** The preset colors in picker order, with German labels and Tailwind classes for the color dot. */
 export const PROJECT_COLORS: { value: ProjectColor; label: string; dot: string }[] = [
@@ -20,6 +20,17 @@ export function colorDot(color: ProjectColor): string {
 export function sortProjects(projects: Project[]): Project[] {
   return [...projects].sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }) || a.id - b.id);
 }
+
+/** Projects or notebooks (US-22) only, in the given order. */
+export function ofKind(projects: Project[], kind: ProjectKind): Project[] {
+  return projects.filter((p) => p.kind === kind);
+}
+
+/** Words for a project or a notebook, e.g. in dialogs and toasts. */
+export const KIND_WORDS: Record<ProjectKind, { one: string; many: string; article: string; new: string }> = {
+  project: { one: 'Projekt', many: 'Projekte', article: 'das Projekt', new: 'Neues Projekt' },
+  notebook: { one: 'Notizbuch', many: 'Notizbücher', article: 'das Notizbuch', new: 'Neues Notizbuch' },
+};
 
 /** "1 Notiz", "3 Notizen" */
 export function countLabel(count: number, singular: string, plural: string): string {
@@ -48,9 +59,10 @@ export function setLastProjectId(id: number): void {
 
 /**
  * The project to open when the URL names none: the last one used in this browser, else the sample project
- * of the first start (if it still exists), else the first.
+ * of the first start (if it still exists), else the first. Never a notebook: they have their own overview (US-22).
  */
-export function defaultProject(projects: Project[], sampleProjectId: number | null = null): Project | undefined {
+export function defaultProject(all: Project[], sampleProjectId: number | null = null): Project | undefined {
+  const projects = ofKind(all, 'project');
   const lastId = getLastProjectId();
   return projects.find((p) => p.id === lastId) ?? projects.find((p) => p.id === sampleProjectId) ?? projects[0];
 }

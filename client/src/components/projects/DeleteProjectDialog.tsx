@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useProjects } from '../../hooks/useProjects';
 import type { Project } from '../../types/project';
-import { countLabel } from '../../utils/projects';
+import { countLabel, KIND_WORDS } from '../../utils/projects';
 import Button from '../ui/Button';
 import Dialog from '../ui/Dialog';
 
@@ -20,6 +20,8 @@ export default function DeleteProjectDialog({ project, onConfirm, onClose }: Del
 
   // Fresh counts, so the message matches what goes to the trash.
   const current = projects.find((p) => p.id === project.id) ?? project;
+  const word = KIND_WORDS[project.kind];
+  const notebook = project.kind === 'notebook';
   useEffect(() => {
     void reload();
   }, [reload]);
@@ -38,19 +40,20 @@ export default function DeleteProjectDialog({ project, onConfirm, onClose }: Del
   return (
     <Dialog onClose={onClose} dismissible={!deleting} labelledBy="delete-project-title" className="max-w-md p-6">
       <h2 id="delete-project-title" className="text-base font-semibold text-fg">
-        Projekt löschen?
+        {word.one} löschen?
       </h2>
       <p className="mt-2 text-sm text-fg-muted">
         „{current.name}“ kommt mit{' '}
         <strong className="font-semibold text-fg">
-          {countLabel(current.noteCount, 'Notiz', 'Notizen')} und {countLabel(current.taskCount, 'Task', 'Tasks')}
+          {countLabel(current.noteCount, 'Notiz', 'Notizen')}
+          {!notebook && <> und {countLabel(current.taskCount, 'Task', 'Tasks')}</>}
         </strong>{' '}
         in den Papierkorb. Von dort lässt es sich vollständig wiederherstellen.
       </p>
 
       {failed && (
         <p role="alert" className="mt-3 text-sm text-danger-text">
-          Das Projekt konnte nicht gelöscht werden. Bitte versuche es erneut.
+          {notebook ? 'Das Notizbuch' : 'Das Projekt'} konnte nicht gelöscht werden. Bitte versuche es erneut.
         </p>
       )}
 

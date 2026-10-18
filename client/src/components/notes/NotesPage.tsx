@@ -1,36 +1,53 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
+import { useFolders } from '../../hooks/useFolders';
 import { useNotes } from '../../hooks/useNotes';
+import { useStoredState } from '../../hooks/useStoredState';
 import { useCan } from '../../hooks/useProjectRole';
 import { useProjects } from '../../hooks/useProjects';
 import { useTemplates } from '../../hooks/useTemplates';
+import type { Folder } from '../../types/note';
 import type { NoteTemplate, TemplateInput } from '../../types/template';
+import { canMoveFolder, buildFolderTree, folderPath, freeFolderName } from '../../utils/folders';
+import ConfirmDialog from '../ConfirmDialog';
 import { noteFromTemplate } from '../../utils/templates';
 import Menu from '../Menu';
 import TemplateDialog from '../templates/TemplateDialog';
 import { buttonClass } from '../ui/Button';
 import { useToast } from '../../hooks/useToast';
-import { trashApi } from '../../utils/api';
+import { ApiError, trashApi } from '../../utils/api';
 import { isCreateRequest } from '../../utils/appEvents';
 import { filterNotes, sortByUpdated } from '../../utils/filterNotes';
 import { paths } from '../../utils/paths';
 import { countTags } from '../../utils/tags';
-import { ChevronDownIcon, NoteIcon, PlusIcon } from '../icons';
+import { ChevronDownIcon, FolderPlusIcon, NoteIcon, PlusIcon } from '../icons';
+import { iconButtonClass } from '../ui/styles';
 import Button from '../ui/Button';
 import Kbd, { modKey } from '../ui/Kbd';
 import Skeleton from '../ui/Skeleton';
+import FolderTree, { type FolderActions } from './FolderTree';
+import MoveToFolderDialog from './MoveToFolderDialog';
 import NoteEditor from './NoteEditor';
 import NoteList from './NoteList';
 import NotesViewSwitch from './NotesViewSwitch';
 import SearchBar from './SearchBar';
 import TagFilter from './TagFilter';
 
+const isIdList = (value: unknown): value is number[] => Array.isArray(value) && value.every((v) => typeof v === 'number');
+
 export default function NotesPage() {
   const { projectId: projectParam, noteId } = useParams();
   const projectId = Number(projectParam);
   // Viewers read notes only (US-21).
   const canEdit = useCan('edit');
-  const { notes, status, reload, updateAttachments, createNote, saveNote, deleteNote, createTaskFromNote, discardTask } = useNotes(projectId);
+  const { notes, status, reload, updateAttachments, createNote, saveNote, moveNote, refreshFolders, deleteNote, createTaskFromNote, discardTask } =
+    useNotes(projectId);
+  // Folders (US-22): which are open is remembered per project in this browser.
+  const { folders, createFolder, updateFolder, deleteFolder } = useFolders(projectId);
+  const [expanded, setExpanded] = useStoredState<number[]>(`scrumbanize.openFolders.${projectId}`, [], isIdList);
+  const [renamingId, setRenamingId] = useState<number | null>(null);
+  const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null);
+  const [folderToMove, setFolderToMove] = useState<Folder | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
@@ -40,7 +57,10 @@ export default function NotesPage() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [newNoteId, setNewNoteId] = useState<number | null>(null);
   const { projects } = useProjects();
-  const projectName = projects.find((p) => p.id === projectId)?.name ?? '';
+  const project = projects.find((p) => p.id === projectId);
+  const projectName = project?.name ?? '';
+  // Notebooks have no board, so no "In Task umwandeln" (yet).
+  const withBoard = project?.kind !== 'notebook';
   const { noteTemplates, reload: reloadTemplates } = useTemplates(projectId);
   const [templateDraft, setTemplateDraft] = useState<TemplateInput | null>(null);
 
@@ -55,11 +75,26 @@ export default function NotesPage() {
     [notes, deferredQuery, activeTags],
   );
   const selectedNote = notes.find((note) => note.id === selectedId);
+  // While searching or filtering by tag, a flat list of the matches; otherwise the folder tree.
+  const filtering = deferredQuery.trim() !== '' || activeTags.length > 0;
+  const tree = useMemo(() => buildFolderTree(folders, visibleNotes), [folders, visibleNotes]);
 
-  async function handleCreate(title = '', template?: NoteTemplate) {
+  const openFolders = (ids: number[]) => {
+    const missing = ids.filter((id) => !expanded.includes(id));
+    if (missing.length > 0) setExpanded([...expanded, ...missing]);
+  };
+  // The selected note's folders open, e.g. when it was picked in the command palette.
+  const selectedFolder = selectedNote?.folderId ?? null;
+  const foldersLoaded = folders.length > 0;
+  useEffect(() => {
+    if (selectedFolder !== null && foldersLoaded) openFolders(folderPath(folders, selectedFolder).map((f) => f.id));
+    // Only when another note (or its folder) is selected; closing a folder afterwards stays possible.
+  }, [selectedFolder, foldersLoaded]);
+
+  async function handleCreate(title = '', template?: NoteTemplate, folderId: number | null = null) {
     try {
       const filled = template ? noteFromTemplate(template, { now: new Date(), projectName }) : undefined;
-      const note = await createNote(title || filled?.title || '', filled?.content, filled?.tags);
+      const note = await createNote(title || filled?.title || '', filled?.content, filled?.tags, folderId);
       setQuery('');
       setSelectedTags([]);
       navigate(paths.notes(projectId, note.id), { replace: true });
@@ -102,6 +137,69 @@ export default function NotesPage() {
     });
   }
 
+  const failed = (error: unknown, fallback: string) =>
+    toast({
+      message:
+        error instanceof ApiError && error.code === 'name_taken'
+          ? 'Hier gibt es schon einen Ordner mit diesem Namen.'
+          : error instanceof ApiError && error.code === 'too_deep'
+            ? 'Ordner gehen höchstens fünf Ebenen tief.'
+            : fallback,
+      tone: 'error',
+    });
+
+  const folderActions: FolderActions = {
+    createNoteIn: (folderId) => {
+      openFolders([folderId]);
+      void handleCreate('', undefined, folderId);
+    },
+    createFolder: async (parentId) => {
+      try {
+        const folder = await createFolder(freeFolderName(folders, parentId), parentId);
+        if (parentId !== null) openFolders([parentId]);
+        setRenamingId(folder.id);
+      } catch (error) {
+        failed(error, 'Der Ordner konnte nicht angelegt werden.');
+      }
+    },
+    renameFolder: async (id, name) => {
+      try {
+        await updateFolder(id, { name });
+      } catch (error) {
+        failed(error, 'Der Ordner konnte nicht umbenannt werden.');
+      }
+    },
+    moveFolderRequest: setFolderToMove,
+    deleteFolder: setFolderToDelete,
+    dropNote: async (noteId, folderId) => {
+      try {
+        await moveNote(noteId, folderId);
+        if (folderId !== null) openFolders([folderId]);
+      } catch {
+        toast({ message: 'Die Notiz konnte nicht verschoben werden.', tone: 'error' });
+      }
+    },
+    dropFolder: async (folderId, parentId) => {
+      try {
+        await updateFolder(folderId, { parentId });
+        if (parentId !== null) openFolders([parentId]);
+      } catch (error) {
+        failed(error, 'Der Ordner konnte nicht verschoben werden.');
+      }
+    },
+  };
+
+  async function confirmDeleteFolder(folder: Folder) {
+    setFolderToDelete(null);
+    try {
+      await deleteFolder(folder.id);
+      await refreshFolders();
+      toast({ message: `Ordner „${folder.name}“ gelöscht – sein Inhalt liegt jetzt eine Ebene höher.` });
+    } catch {
+      toast({ message: 'Der Ordner konnte nicht gelöscht werden.', tone: 'error' });
+    }
+  }
+
   function toggleTag(tag: string) {
     setSelectedTags(activeTags.includes(tag) ? activeTags.filter((t) => t !== tag) : [...activeTags, tag]);
   }
@@ -116,7 +214,18 @@ export default function NotesPage() {
             <NotesViewSwitch projectId={projectId} view="list" compact />
             {/* One split button: "Neue Notiz" and, joined to it, the arrow for templates. Not for viewers (US-21). */}
             {canEdit && (
-              <div className="ml-auto flex shrink-0 items-stretch rounded-md shadow-sm">
+              <button
+                type="button"
+                className={`ml-auto ${iconButtonClass}`}
+                title="Neuer Ordner"
+                aria-label="Neuer Ordner"
+                onClick={() => void folderActions.createFolder(null)}
+              >
+                <FolderPlusIcon />
+              </button>
+            )}
+            {canEdit && (
+              <div className="flex shrink-0 items-stretch rounded-md shadow-sm">
                 <Button variant="primary" size="sm" className="rounded-r-none !shadow-none active:!scale-100" onClick={() => void handleCreate()}>
                   <PlusIcon className="size-3.5" />
                   Neue Notiz
@@ -162,14 +271,28 @@ export default function NotesPage() {
               </Button>
             </div>
           )}
-          {status === 'ready' && (
-            <NoteList
-              notes={visibleNotes}
-              selectedId={selectedId}
-              onSelect={(id) => navigate(paths.notes(projectId, id))}
-              emptyMessage={notes.length === 0 ? 'Noch keine Notizen vorhanden.' : 'Keine Notizen gefunden.'}
-            />
-          )}
+          {status === 'ready' &&
+            (filtering || (notes.length === 0 && folders.length === 0) ? (
+              <NoteList
+                notes={visibleNotes}
+                selectedId={selectedId}
+                onSelect={(id) => navigate(paths.notes(projectId, id))}
+                emptyMessage={notes.length === 0 ? 'Noch keine Notizen vorhanden.' : 'Keine Notizen gefunden.'}
+              />
+            ) : (
+              <FolderTree
+                tree={tree}
+                folders={folders}
+                selectedId={selectedId}
+                onSelect={(id) => navigate(paths.notes(projectId, id))}
+                expanded={expanded}
+                onToggle={(id) => setExpanded(expanded.includes(id) ? expanded.filter((e) => e !== id) : [...expanded, id])}
+                renamingId={renamingId}
+                onRenamingChange={setRenamingId}
+                canEdit={canEdit}
+                actions={folderActions}
+              />
+            ))}
         </div>
       </aside>
 
@@ -186,6 +309,12 @@ export default function NotesPage() {
             onDiscardTask={discardTask}
             onUpdateAttachments={updateAttachments}
             readOnly={!canEdit}
+            folders={folders}
+            onMove={async (folderId) => {
+              await moveNote(selectedNote.id, folderId);
+              if (folderId !== null) openFolders([folderId]);
+            }}
+            withTasks={withBoard}
             onSaveAsTemplate={(input) =>
               setTemplateDraft({ kind: 'note', scope: 'project', name: input.title || 'Neue Vorlage', title: input.title, content: input.content, defaults: { tags: input.tags } })
             }
@@ -216,6 +345,30 @@ export default function NotesPage() {
           </div>
         )}
       </main>
+      {folderToDelete && (
+        <ConfirmDialog
+          open
+          title={`Ordner „${folderToDelete.name}“ löschen?`}
+          message="Keine Notiz geht verloren: Notizen und Unterordner darin wandern eine Ebene nach oben."
+          confirmLabel="Ordner löschen"
+          onConfirm={() => void confirmDeleteFolder(folderToDelete)}
+          onCancel={() => setFolderToDelete(null)}
+        />
+      )}
+      {folderToMove && (
+        <MoveToFolderDialog
+          title={`Ordner „${folderToMove.name}“ verschieben`}
+          folders={folders}
+          current={folderToMove.parentId}
+          isDisabled={(target) => !canMoveFolder(folders, folderToMove.id, target)}
+          onMove={async (parentId) => {
+            await updateFolder(folderToMove.id, { parentId });
+            if (parentId !== null) openFolders([parentId]);
+            setFolderToMove(null);
+          }}
+          onClose={() => setFolderToMove(null)}
+        />
+      )}
       {templateDraft && (
         <TemplateDialog
           projectId={projectId}

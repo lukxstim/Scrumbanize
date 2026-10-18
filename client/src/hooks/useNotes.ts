@@ -26,8 +26,8 @@ export function useNotes(projectId: number) {
     void reload();
   }, [reload]);
 
-  const createNote = useCallback(async (title = '', content = '', tags: string[] = []): Promise<Note> => {
-    const note = await notesApi.create(projectId, { title, content, tags });
+  const createNote = useCallback(async (title = '', content = '', tags: string[] = [], folderId: number | null = null): Promise<Note> => {
+    const note = await notesApi.create(projectId, { title, content, tags }, folderId);
     setNotes((current) => [note, ...current]);
     return note;
   }, [projectId]);
@@ -40,6 +40,23 @@ export function useNotes(projectId: number) {
       current.map((note) => (note.id === id ? { ...saved, tasks: note.tasks, attachments: note.attachments } : note)),
     );
   }, []);
+
+  /** Into a folder (US-22), or (null) to the top level. */
+  const moveNote = useCallback(async (id: number, folderId: number | null): Promise<void> => {
+    await notesApi.moveToFolder(id, folderId);
+    setNotes((current) => current.map((note) => (note.id === id ? { ...note, folderId } : note)));
+  }, []);
+
+  /** After a folder was deleted, its notes moved up a level: take the new places from the server. */
+  const refreshFolders = useCallback(async (): Promise<void> => {
+    try {
+      const fresh = await notesApi.list(projectId);
+      const folderOf = new Map(fresh.map((note) => [note.id, note.folderId]));
+      setNotes((current) => current.map((note) => ({ ...note, folderId: folderOf.get(note.id) ?? null })));
+    } catch {
+      // The old places stay until the next load.
+    }
+  }, [projectId]);
 
   const deleteNote = useCallback(async (id: number): Promise<void> => {
     await notesApi.remove(id);
@@ -71,5 +88,5 @@ export function useNotes(projectId: number) {
     setNotes((current) => current.map((note) => (note.id === noteId ? { ...note, attachments: update(note.attachments) } : note)));
   }, []);
 
-  return { notes, status, reload, updateAttachments, createNote, saveNote, deleteNote, createTaskFromNote, discardTask };
+  return { notes, status, reload, updateAttachments, createNote, saveNote, moveNote, refreshFolders, deleteNote, createTaskFromNote, discardTask };
 }

@@ -55,6 +55,10 @@ export function describeChanges(changes: EditSummary): string {
   return parts.join(', ');
 }
 
+/** Projects and notebooks (US-22) share a table; the log names them as such. */
+type ProjectKind = 'project' | 'notebook';
+const KIND_NAMES: Record<ProjectKind, string> = { project: 'Projekt', notebook: 'Notizbuch' };
+
 /** Project roles as the app names them (US-21). */
 const ROLE_NAMES: Record<string, string> = { owner: 'Owner', member: 'Mitglied', viewer: 'Betrachter' };
 
@@ -128,18 +132,19 @@ export const text = {
   templateUpdated: (kind: TemplateKind, name: string) => `${TEMPLATE_LABELS[kind]} ${quote(name)} bearbeitet`,
   templateDeleted: (kind: TemplateKind, name: string) => `${TEMPLATE_LABELS[kind]} ${quote(name)} gelöscht`,
 
-  projectCreated: (name: string) => `Projekt ${quote(name)} angelegt`,
+  projectCreated: (name: string, kind: ProjectKind = 'project') => `${KIND_NAMES[kind]} ${quote(name)} angelegt`,
   memberAdded: (name: string, role: string) => `${name} als ${ROLE_NAMES[role] ?? role} hinzugefügt`,
   memberRoleChanged: (name: string, role: string) => `Rolle von ${name} auf ${ROLE_NAMES[role] ?? role} geändert`,
   memberRemoved: (name: string) => `${name} aus dem Projekt entfernt`,
   memberLeft: (name: string) => `${name} hat das Projekt verlassen`,
   sampleProjectCreated: () => 'Beispielprojekt angelegt',
   notesImported: (count: number) => `${count === 1 ? '1 Notiz' : `${count} Notizen`} importiert`,
-  projectRenamed: (from: string, to: string) => `Projekt ${quote(from)} in ${quote(to)} umbenannt`,
-  projectRecolored: (name: string) => `Farbe von Projekt ${quote(name)} geändert`,
-  projectTrashed: (name: string) => `Projekt ${quote(name)} in den Papierkorb verschoben`,
-  projectRestored: (name: string, renamedTo?: string) =>
-    `Projekt ${quote(name)} wiederhergestellt${renamedTo ? ` als ${quote(renamedTo)}` : ''}`,
+  projectRenamed: (from: string, to: string, kind: ProjectKind = 'project') => `${KIND_NAMES[kind]} ${quote(from)} in ${quote(to)} umbenannt`,
+  projectRecolored: (name: string, kind: ProjectKind = 'project') => `Farbe von ${KIND_NAMES[kind]} ${quote(name)} geändert`,
+  projectRestyled: (name: string) => `Symbol von Notizbuch ${quote(name)} geändert`,
+  projectTrashed: (name: string, kind: ProjectKind = 'project') => `${KIND_NAMES[kind]} ${quote(name)} in den Papierkorb verschoben`,
+  projectRestored: (name: string, renamedTo?: string, kind: ProjectKind = 'project') =>
+    `${KIND_NAMES[kind]} ${quote(name)} wiederhergestellt${renamedTo ? ` als ${quote(renamedTo)}` : ''}`,
 };
 
 export type BoardKind = 'column' | 'lane' | 'label';

@@ -19,14 +19,29 @@ export function normalizeTag(raw: string): string {
     .trim();
 }
 
+/** The fixed symbols of notebooks (US-22); keep in sync with client/src/components/notebookIcons.tsx. */
+export const NOTEBOOK_ICONS = [
+  'book', 'briefcase', 'graduation', 'house', 'heart', 'star', 'lightbulb', 'code',
+  'music', 'plane', 'utensils', 'leaf', 'dumbbell', 'camera', 'wallet', 'users',
+] as const;
+export type NotebookIcon = (typeof NOTEBOOK_ICONS)[number];
+
 export const projectInputSchema = z.object({
   name: z.string().trim().min(1).max(60),
   color: z.enum(PROJECT_COLORS),
+  /** A notebook (US-22): notes only, no board. Fixed once created. */
+  kind: z.enum(['project', 'notebook']).default('project'),
+  /** Notebooks only. */
+  icon: z.enum(NOTEBOOK_ICONS).nullable().optional(),
 });
 
 export type ProjectInput = z.infer<typeof projectInputSchema>;
 
-export const projectPatchSchema = projectInputSchema.partial();
+export const projectPatchSchema = z.object({
+  name: projectInputSchema.shape.name.optional(),
+  color: projectInputSchema.shape.color.optional(),
+  icon: projectInputSchema.shape.icon,
+});
 
 export type ProjectPatch = z.infer<typeof projectPatchSchema>;
 
@@ -40,6 +55,18 @@ export const noteInputSchema = z.object({
 });
 
 export type NoteInput = z.infer<typeof noteInputSchema>;
+
+/** Folders of notes (US-22). */
+const folderIdSchema = z.number().int().positive().nullable();
+export const noteFolderSchema = z.object({ folderId: folderIdSchema });
+export const newNoteFolderSchema = z.object({ folderId: folderIdSchema.optional() });
+export const folderInputSchema = z.object({ name: z.string().trim().min(1).max(80), parentId: folderIdSchema.default(null) });
+export const folderPatchSchema = z.object({
+  name: z.string().trim().min(1).max(80).optional(),
+  parentId: folderIdSchema.optional(),
+  /** Position among the (new) parent's other folders. */
+  index: z.number().int().min(0).optional(),
+});
 
 export const TASK_PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const;
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
