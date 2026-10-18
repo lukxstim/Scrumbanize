@@ -33,14 +33,19 @@ export const TOUR_STEPS: TourStep[] = [
     text: 'Alle Fälligkeiten im Monat oder in der Woche. Termine verschiebst du per Drag-and-Drop.',
   },
   {
+    target: 'tab-analytics',
+    title: 'Statistiken',
+    text: 'Wie viele Tasks pro Woche fertig werden, wie lange sie brauchen und wann eine Spalte über ihrem WIP-Limit lag – gerechnet aus dem Verlauf des Projekts.',
+  },
+  {
     target: 'search',
     title: 'Suchen und Befehle',
-    text: 'Mit Strg+K findest du Notizen und Tasks aller Projekte und erreichst jede Funktion – auch diese Einführung.',
+    text: 'Mit Strg+K (Mac: ⌘K) findest du Notizen und Tasks aller Projekte und erreichst jede Funktion – auch diese Einführung.',
   },
   {
     target: 'header-tools',
-    title: 'Papierkorb und Aktivität',
-    text: 'Gelöschtes landet im Papierkorb und lässt sich wiederherstellen. Die Uhr zeigt, was im Projekt zuletzt passiert ist.',
+    title: 'Papierkorb, Einstellungen und Aktivität',
+    text: 'Gelöschtes landet im Papierkorb und lässt sich wiederherstellen. Im Zahnrad liegen Backup, Import, Export und Vorlagen – in der Desktop-App auch Erinnerungen und Tastenkombination. Die Uhr zeigt, was zuletzt passiert ist.',
   },
 ];
 
