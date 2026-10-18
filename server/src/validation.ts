@@ -114,8 +114,23 @@ export const moveTaskSchema = z.object({
 const boardNameSchema = z.string().trim().min(1).max(40);
 const wipLimitSchema = z.number().int().min(1).max(999).nullable();
 
+/** Limits of a column width in pixels; keep in sync with client/src/utils/columnWidths.ts and migration 13. */
+export const MIN_COLUMN_WIDTH = 200;
+export const MAX_COLUMN_WIDTH = 600;
+/** null: the client's default width. */
+const columnWidthSchema = z.number().int().min(MIN_COLUMN_WIDTH).max(MAX_COLUMN_WIDTH).nullable();
+
 export const columnInputSchema = z.object({ name: boardNameSchema, wipLimit: wipLimitSchema.optional() });
-export const columnPatchSchema = z.object({ name: boardNameSchema.optional(), wipLimit: wipLimitSchema.optional() });
+export const columnPatchSchema = z.object({
+  name: boardNameSchema.optional(),
+  wipLimit: wipLimitSchema.optional(),
+  width: columnWidthSchema.optional(),
+});
+
+/** Several column widths at once ("An Fenster anpassen", "Spaltenbreiten zurücksetzen"). */
+export const columnWidthsSchema = z.object({
+  widths: z.array(z.object({ id: z.number().int().positive(), width: columnWidthSchema })).max(100),
+});
 export const laneInputSchema = z.object({ name: boardNameSchema });
 
 /** Reordering a column or lane: its new index among the others. */

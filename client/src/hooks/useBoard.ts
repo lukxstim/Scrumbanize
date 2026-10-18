@@ -84,6 +84,25 @@ export function useBoard(projectId: number) {
     [failed, reload],
   );
 
+  /**
+   * Column widths are shown immediately and then saved, like moves: one column via PATCH, several in one request.
+   * Without a reload, so resizing never makes the board flicker.
+   */
+  const setColumnWidths = useCallback(
+    async (widths: { id: number; width: number | null }[]) => {
+      if (widths.length === 0) return;
+      const byId = new Map(widths.map((w) => [w.id, w.width]));
+      setColumns((current) => current.map((c) => (byId.has(c.id) ? { ...c, width: byId.get(c.id)! } : c)));
+      try {
+        if (widths.length === 1) await columnsApi.update(widths[0]!.id, { width: widths[0]!.width });
+        else await columnsApi.setWidths(projectId, widths);
+      } catch {
+        failed('Die Spaltenbreite konnte nicht gespeichert werden. Das Board wurde neu geladen.');
+      }
+    },
+    [failed, projectId],
+  );
+
   /** `index` counts the other tasks in the target cell. */
   // The last moved task is briefly highlighted, as feedback that the move was saved.
   const [flashId, setFlashId] = useState<number | null>(null);
@@ -232,6 +251,7 @@ export function useBoard(projectId: number) {
     addColumn: (name: string) => change('column', () => columnsApi.create(projectId, { name })),
     updateColumn: (id: number, patch: { name?: string; wipLimit?: number | null }) =>
       change('column', () => columnsApi.update(id, patch)),
+    setColumnWidths,
     deleteColumn: (id: number, moveTasksTo?: number) => change('column', () => columnsApi.remove(id, moveTasksTo)),
     addLane: (name: string) => change('lane', () => lanesApi.create(projectId, name)),
     renameLane: (id: number, name: string) => change('lane', () => lanesApi.rename(id, name)),

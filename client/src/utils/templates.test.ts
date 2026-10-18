@@ -17,8 +17,8 @@ const labels: Label[] = [
 const board = {
   labels,
   columns: [
-    { id: 1, name: 'Backlog', position: 1, wipLimit: null },
-    { id: 2, name: 'To Do', position: 2, wipLimit: null },
+    { id: 1, name: 'Backlog', position: 1, wipLimit: null, width: null },
+    { id: 2, name: 'To Do', position: 2, wipLimit: null, width: null },
   ],
   lanes: [
     { id: 5, name: 'Standard', position: 1 },

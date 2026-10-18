@@ -22,6 +22,8 @@ export interface BoardColumn {
   position: number;
   /** Maximum number of tasks (across all lanes) before the column shows as over its limit; null means none. */
   wipLimit: number | null;
+  /** Width in pixels (200–600) on every device; null means the client's default. */
+  width: number | null;
 }
 
 export interface Lane {
@@ -40,6 +42,7 @@ interface ItemRow {
   name: string;
   position: number;
   wip_limit?: number | null;
+  width?: number | null;
 }
 
 const sameName = (a: string, b: string) => a.toLocaleLowerCase('de') === b.toLocaleLowerCase('de');
@@ -143,7 +146,13 @@ export function createBoardRepository(db: Db) {
     table: 'board_columns',
     taskField: 'column_id',
     max: MAX_COLUMNS,
-    toItem: (row): BoardColumn => ({ id: row.id, name: row.name, position: row.position, wipLimit: row.wip_limit ?? null }),
+    toItem: (row): BoardColumn => ({
+      id: row.id,
+      name: row.name,
+      position: row.position,
+      wipLimit: row.wip_limit ?? null,
+      width: row.width ?? null,
+    }),
   });
   const lanes = orderedList(db, {
     table: 'lanes',
@@ -152,6 +161,7 @@ export function createBoardRepository(db: Db) {
     toItem: (row): Lane => ({ id: row.id, name: row.name, position: row.position }),
   });
   const updateWipLimit = db.prepare<[number | null, number]>(`UPDATE board_columns SET wip_limit = ? WHERE id = ?`);
+  const updateWidth = db.prepare<[number | null, number]>(`UPDATE board_columns SET width = ? WHERE id = ?`);
   const insertColumn = db.prepare<[number, string, number, number | null]>(
     `INSERT INTO board_columns (project_id, name, position, wip_limit) VALUES (?, ?, ?, ?)`,
   );
@@ -227,7 +237,8 @@ export function createBoardRepository(db: Db) {
       return then(result, () => (result.ok ? columnById(result.value) : undefined));
     }),
 
-    updateColumn: db.transaction((id: number, patch: { name?: string; wipLimit?: number | null }) => {
+    // Widths are layout, not content, so they are not logged.
+    updateColumn: db.transaction((id: number, patch: { name?: string; wipLimit?: number | null; width?: number | null }) => {
       const before = columnById(id);
       if (!before) return { ok: false, reason: 'not_found' } as const;
       if (patch.name !== undefined) {
@@ -250,7 +261,16 @@ export function createBoardRepository(db: Db) {
           });
         }
       }
+      if (patch.width !== undefined) updateWidth.run(patch.width, id);
       return { ok: true, value: columnById(id)! } as const;
+    }),
+
+    /** Sets the widths of several columns of a project at once; none changes if one is not in the project. */
+    setColumnWidths: db.transaction((projectId: number, widths: { id: number; width: number | null }[]): BoardResult<BoardColumn[]> => {
+      const own = new Set(columns.list(projectId).map((c) => c.id));
+      if (widths.some((w) => !own.has(w.id))) return { ok: false, reason: 'invalid_target' };
+      for (const { id, width } of widths) updateWidth.run(width, id);
+      return { ok: true, value: columns.list(projectId) };
     }),
 
     moveColumn: db.transaction((id: number, index: number) => {

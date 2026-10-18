@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { columnDropIndex, dropPosition, type CellGeometry } from './dropPosition';
+import { columnDropIndex, columnStep, dropPosition, type CellGeometry } from './dropPosition';
 
 // Two columns (10 at x 0-280, 20 at x 300-580) and two lanes (1 at y 100-400, 2 at y 450-700).
 // Cards are 80px tall, so their middles are 40px below their tops.
@@ -39,5 +39,28 @@ describe('columnDropIndex', () => {
     expect(columnDropIndex(50, [140, 440, 740])).toBe(0);
     expect(columnDropIndex(500, [140, 440, 740])).toBe(2);
     expect(columnDropIndex(900, [140, 440, 740])).toBe(3);
+  });
+});
+
+describe('columnStep', () => {
+  // Columns of 288, 420 and 200 px with 12 px gaps.
+  const lefts = [16, 316, 748];
+
+  it('moves to the neighbouring column whatever the widths', () => {
+    expect(columnStep(lefts, 24, 1)).toBe(300);
+    expect(columnStep(lefts, 324, 1)).toBe(432);
+    expect(columnStep(lefts, 756, -1)).toBe(-432);
+    expect(columnStep(lefts, 324, -1)).toBe(-300);
+  });
+
+  it('stays at either end', () => {
+    expect(columnStep(lefts, 24, -1)).toBe(0);
+    expect(columnStep(lefts, 756, 1)).toBe(0);
+    expect(columnStep([], 0, 1)).toBe(0);
+  });
+
+  it('counts a column header itself (its left edge) as being in that column', () => {
+    expect(columnStep(lefts, 316, 1)).toBe(432);
+    expect(columnStep(lefts, 315.5, 1)).toBe(432);
   });
 });

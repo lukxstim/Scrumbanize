@@ -42,8 +42,16 @@ function ActivityRedirect() {
   return <Navigate to={withActivityDrawer(paths.notes(Number(useParams().projectId)))} replace />;
 }
 
+/**
+ * A tab's name: visible from xl (1280 px) on; narrower, only for screen readers, and the tab shows its icon and a
+ * tooltip. With names, the header needs about 1160 px.
+ */
+function TabLabel({ children }: { children: string }) {
+  return <span className="sr-only xl:not-sr-only">{children}</span>;
+}
+
 const tabClass = (active: boolean) =>
-  `flex h-7 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium transition-[color,background-color,box-shadow] duration-150 focus-visible:outline-2 focus-visible:outline-accent ${
+  `flex h-7 items-center gap-1.5 rounded-md px-2 text-sm font-medium xl:px-2.5 transition-[color,background-color,box-shadow] duration-150 focus-visible:outline-2 focus-visible:outline-accent ${
     active ? 'bg-surface text-fg shadow-card' : 'text-fg-subtle hover:text-fg'
   }`;
 
@@ -139,12 +147,17 @@ export default function App() {
   }, []);
 
   return (
-    <div className="flex h-screen flex-col bg-canvas text-fg">
-      <header className="relative z-20 flex h-13 shrink-0 items-center gap-3 border-b border-line bg-surface/80 px-4 backdrop-blur-md">
+    // dvh: on tablets the browser's address bar must not push the bottom of the page out of view.
+    <div className="flex h-dvh flex-col bg-canvas text-fg">
+      {/*
+        The header gets compact in steps, so it never overflows: below xl (1280 px) the tabs show only icons, below lg
+        (1024 px, the desktop app's minimum width) the search is an icon and the wordmark goes.
+      */}
+      <header className="relative z-20 flex h-13 shrink-0 items-center gap-2 border-b border-line bg-surface/80 px-3 backdrop-blur-md lg:gap-3 lg:px-4">
         <span className="flex shrink-0 items-center gap-2">
           {/* The logo tile (public/scrumbanize-logo.png, from docs/branding); the wordmark is plain text, so it stays sharp. */}
           <img src="/scrumbanize-logo.png" alt="" width={28} height={28} className="size-7 rounded-md shadow-sm" />
-          <span className="text-sm font-semibold tracking-tight">Scrumbanize</span>
+          <span className="sr-only text-sm font-semibold tracking-tight lg:not-sr-only">Scrumbanize</span>
         </span>
         {activeProject && (
           <>
@@ -153,24 +166,24 @@ export default function App() {
             </span>
             <ProjectSwitcher active={activeProject} section={section} />
             <nav
-              className="ml-2 inline-flex shrink-0 rounded-lg bg-surface-muted p-0.5 ring-1 ring-line ring-inset"
+              className="inline-flex shrink-0 rounded-lg bg-surface-muted p-0.5 ring-1 ring-line ring-inset lg:ml-2"
               aria-label="Hauptnavigation"
             >
-              <NavLink to={paths.notes(activeProject.id)} className={({ isActive }) => tabClass(isActive || onGraph)} data-tour="tab-notes">
+              <NavLink to={paths.notes(activeProject.id)} className={({ isActive }) => tabClass(isActive || onGraph)} data-tour="tab-notes" title="Notizen">
                 <NoteIcon className="size-3.5" />
-                Notizen
+                <TabLabel>Notizen</TabLabel>
               </NavLink>
-              <NavLink to={paths.board(activeProject.id)} className={() => tabClass(onBoard)} data-tour="tab-board">
+              <NavLink to={paths.board(activeProject.id)} className={() => tabClass(onBoard)} data-tour="tab-board" title="Board">
                 <BoardIcon className="size-3.5" />
-                Board
+                <TabLabel>Board</TabLabel>
               </NavLink>
-              <NavLink to={paths.calendar(activeProject.id)} className={({ isActive }) => tabClass(isActive)} data-tour="tab-calendar">
+              <NavLink to={paths.calendar(activeProject.id)} className={({ isActive }) => tabClass(isActive)} data-tour="tab-calendar" title="Kalender">
                 <CalendarIcon className="size-3.5" />
-                Kalender
+                <TabLabel>Kalender</TabLabel>
               </NavLink>
-              <NavLink to={paths.analytics(activeProject.id)} className={({ isActive }) => tabClass(isActive)} data-tour="tab-analytics">
+              <NavLink to={paths.analytics(activeProject.id)} className={({ isActive }) => tabClass(isActive)} data-tour="tab-analytics" title="Statistiken">
                 <ChartIcon className="size-3.5" />
-                Statistiken
+                <TabLabel>Statistiken</TabLabel>
               </NavLink>
             </nav>
           </>
@@ -180,11 +193,12 @@ export default function App() {
           type="button"
           onClick={() => setPaletteOpen(true)}
           data-tour="search"
-          className="flex h-8 w-44 shrink-0 items-center gap-2 xl:w-60 rounded-md border border-line bg-surface-muted px-2.5 text-sm text-fg-subtle transition-colors hover:border-line-strong hover:text-fg-muted focus-visible:outline-2 focus-visible:outline-accent"
+          title={`Suchen (${modKey}+K)`}
+          className="flex h-8 w-8 shrink-0 items-center justify-center gap-2 rounded-md border border-line bg-surface-muted text-sm text-fg-subtle transition-colors hover:border-line-strong hover:text-fg-muted focus-visible:outline-2 focus-visible:outline-accent lg:w-44 lg:justify-start lg:px-2.5 2xl:w-60"
         >
-          <SearchIcon className="size-4" />
-          <span className="truncate">Suchen …</span>
-          <span className="ml-auto flex gap-0.5">
+          <SearchIcon className="size-4 shrink-0" />
+          <span className="sr-only truncate lg:not-sr-only">Suchen …</span>
+          <span className="ml-auto hidden gap-0.5 lg:flex">
             <Kbd>{modKey}</Kbd>
             <Kbd>K</Kbd>
           </span>

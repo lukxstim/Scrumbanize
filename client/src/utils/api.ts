@@ -104,8 +104,11 @@ const deleteQuery = (moveTasksTo?: number) => (moveTasksTo === undefined ? '' : 
 export const columnsApi = {
   create: (projectId: number, input: { name: string; wipLimit?: number | null }) =>
     request<BoardColumn>(`/projects/${projectId}/columns`, { method: 'POST', body: JSON.stringify(input) }),
-  update: (id: number, patch: { name?: string; wipLimit?: number | null }) =>
+  update: (id: number, patch: { name?: string; wipLimit?: number | null; width?: number | null }) =>
     request<BoardColumn>(`/columns/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  /** Several widths at once, all or none; returns the project's columns. */
+  setWidths: (projectId: number, widths: { id: number; width: number | null }[]) =>
+    request<BoardColumn[]>(`/projects/${projectId}/column-widths`, { method: 'PUT', body: JSON.stringify({ widths }) }),
   /** `index` counts the other columns. */
   move: (id: number, index: number) =>
     request<BoardColumn>(`/columns/${id}/move`, { method: 'POST', body: JSON.stringify({ index }) }),

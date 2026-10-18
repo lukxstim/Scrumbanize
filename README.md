@@ -54,6 +54,9 @@ Schreibe Notizen mit Überschriften, Listen, **Checklisten** und farbigen Markie
 ### Aufgaben-Board
 Deine Aufgaben als Karten in Spalten wie „To Do“, „In Progress“ und „Done“. Ziehe Karten mit der Maus weiter, wenn du vorankommst. Prioritäten, Fälligkeiten und Checklisten siehst du direkt auf der Karte.
 
+- **Spaltenbreite anpassen:** am rechten Rand einer Spaltenüberschrift ziehen (Doppelklick setzt zurück). Die Breiten werden gespeichert und gelten auf allen Geräten. Über **„⋯“ rechts über dem Board** gibt es außerdem „An Fenster anpassen“, „Spaltenbreiten zurücksetzen“ und den CSV-Export.
+- Beim Herunterscrollen bleiben Spaltenüberschriften und Swimlane-Namen oben sichtbar.
+
 ![Aufgaben-Board mit Karten in Spalten](docs/screenshots/board.png)
 
 ### Kalender
@@ -274,10 +277,11 @@ Listen und Neuanlagen gehören zu einem Projekt (`/api/projects/:projectId/…`)
 | POST    | `/api/projects/:id/notes` | Notiz anlegen: `{ "title": "", "content": "", "tags": [] }` |
 | GET     | `/api/projects/:id/tags` | Tags der Notizen des Projekts mit Anzahl |
 | POST    | `/api/projects/:id/tasks` | Task am Ende der ersten Spalte anlegen: `{ "title", "description", "sourceNoteId"?, "laneId"?, "priority"?, "startDate"?, "dueDate"? }` – Notiz und Swimlane müssen zum Projekt gehören; ohne `laneId` die erste Swimlane |
-| GET     | `/api/projects/:id/board` | Board des Projekts: `{ "columns": [{ id, name, position, wipLimit }], "lanes": [{ id, name, position }], "tasks" }` |
+| GET     | `/api/projects/:id/board` | Board des Projekts: `{ "columns": [{ id, name, position, wipLimit, width }], "lanes": [{ id, name, position }], "tasks" }` – `width` in Pixeln (200–600) oder `null` für die Standardbreite |
+| PUT     | `/api/projects/:id/column-widths` | Mehrere Spaltenbreiten auf einmal: `{ "widths": [{ id, width: 200–600 \| null }] }` – alle oder keine (400, wenn eine Spalte nicht zum Projekt gehört); liefert die Spalten des Projekts. Breiten erscheinen nicht im Aktivitätsprotokoll |
 | POST    | `/api/projects/:id/columns` | Spalte anhängen: `{ "name", "wipLimit"? }` – Namen pro Projekt eindeutig (ohne Groß-/Kleinschreibung), max. 40 Zeichen; höchstens 20 Spalten (sonst 409) |
 | POST    | `/api/projects/:id/lanes` | Swimlane anhängen: `{ "name" }` – gleiche Regeln wie bei Spalten |
-| PATCH   | `/api/columns/:id` | Name und/oder WIP-Limit ändern: `{ "name"?, "wipLimit"?: number \| null }` |
+| PATCH   | `/api/columns/:id` | Name, WIP-Limit und/oder Breite ändern: `{ "name"?, "wipLimit"?: number \| null, "width"?: 200–600 \| null }` |
 | POST    | `/api/columns/:id/move` | Spalte umsortieren: `{ "index" }` – Position unter den übrigen Spalten |
 | DELETE  | `/api/columns/:id?moveTasksTo=:columnId` | Spalte löschen; hat sie Tasks, ist `moveTasksTo` Pflicht (sonst 409). Die letzte Spalte bleibt erhalten (409) |
 | PATCH, POST, DELETE | `/api/lanes/:id`, `/api/lanes/:id/move` | Swimlane umbenennen (`{ "name" }`), umsortieren und löschen – wie bei Spalten |

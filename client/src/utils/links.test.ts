@@ -28,9 +28,9 @@ const link = (id: number, kind: TaskLink['kind'], other: number, done = false): 
   task: { id: other, title: `T${other}`, columnId: done ? 3 : 1, columnName: done ? 'Done' : 'Backlog', done },
 });
 const columns: BoardColumn[] = [
-  { id: 1, name: 'Backlog', position: 1, wipLimit: null },
-  { id: 2, name: 'Review', position: 2, wipLimit: null },
-  { id: 3, name: 'Done', position: 3, wipLimit: null },
+  { id: 1, name: 'Backlog', position: 1, wipLimit: null, width: null },
+  { id: 2, name: 'Review', position: 2, wipLimit: null, width: null },
+  { id: 3, name: 'Done', position: 3, wipLimit: null, width: null },
 ];
 
 describe('task links', () => {

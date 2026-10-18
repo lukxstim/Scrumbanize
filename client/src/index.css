@@ -140,6 +140,12 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  /* Thin scrollbars in the theme's colors (US-19). scrollbar-width does not inherit, hence every element. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+
   ::selection {
     background-color: var(--color-accent-muted);
   }

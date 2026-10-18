@@ -13,6 +13,7 @@ import {
   activityQuerySchema,
   analyticsQuerySchema,
   columnInputSchema,
+  columnWidthsSchema,
   idParamSchema,
   labelInputSchema,
   laneInputSchema,
@@ -112,6 +113,13 @@ export function projectScopedRouter({ activities, analytics, graph, labels, temp
 
   router.post('/columns', (req, res) => {
     res.status(201).json(unwrapBoard(board.createColumn(projectIdOf(res), columnInputSchema.parse(req.body)), 'Column'));
+  });
+
+  router.put('/column-widths', (req, res) => {
+    const { widths } = columnWidthsSchema.parse(req.body);
+    const result = board.setColumnWidths(projectIdOf(res), widths);
+    if (!result.ok) throw new HttpError(400, 'invalid_target', 'Every column must belong to this project');
+    res.json(result.value);
   });
 
   router.post('/lanes', (req, res) => {

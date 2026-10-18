@@ -2,7 +2,9 @@ import { useDraggable } from '@dnd-kit/core';
 import { useState } from 'react';
 import type { BoardColumn } from '../../types/task';
 import { wipState } from '../../utils/board';
+import { columnWidthVar } from '../../utils/columnWidths';
 import Menu from '../Menu';
+import ColumnResizeHandle from './ColumnResizeHandle';
 import InlineName from './InlineName';
 import { isolate } from './isolate';
 import WipLimitControl from './WipLimitControl';
@@ -13,13 +15,16 @@ interface ColumnHeaderProps {
   column: BoardColumn;
   /** Tasks in the column across all lanes. */
   count: number;
-  widthClass: string;
+  /** The width shown now, saved or default. */
+  width: number;
   isFirst: boolean;
   isLast: boolean;
   /** Why the column cannot be deleted (the last one), if so. */
   deleteDisabledReason?: string;
   onRename: (name: string) => void;
   onWipLimitChange: (limit: number | null) => void;
+  /** A new width, or null for the default. */
+  onResize: (width: number | null) => void;
   /** -1 moves left, 1 moves right. */
   onMove: (direction: -1 | 1) => void;
   onDelete: () => void;
@@ -29,12 +34,13 @@ interface ColumnHeaderProps {
 export default function ColumnHeader({
   column,
   count,
-  widthClass,
+  width,
   isFirst,
   isLast,
   deleteDisabledReason,
   onRename,
   onWipLimitChange,
+  onResize,
   onMove,
   onDelete,
 }: ColumnHeaderProps) {
@@ -54,7 +60,9 @@ export default function ColumnHeader({
       {...listeners}
       aria-roledescription="verschiebbare Spalte"
       aria-label={`Spalte „${column.name}“`}
-      className={`flex shrink-0 cursor-grab touch-manipulation select-none items-center gap-2 rounded-lg px-3 py-2 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${widthClass} ${
+      // The board sets the variable from the saved widths; a resize handle changes it while dragging.
+      style={{ width: `var(${columnWidthVar(column.id)}, ${width}px)` }}
+      className={`relative flex shrink-0 cursor-grab touch-manipulation select-none items-center gap-2 rounded-lg px-3 py-2 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
         isDragging
           ? 'border border-dashed border-accent-line bg-accent-muted [&>*]:invisible'
           : overLimit
@@ -87,21 +95,28 @@ export default function ColumnHeader({
           items={[
             { label: 'Umbenennen', onSelect: () => setRenaming(true) },
             { label: 'WIP-Limit ändern', onSelect: () => setEditingWip(true) },
+            {
+              label: 'Breite zurücksetzen',
+              onSelect: () => onResize(null),
+              disabledReason: column.width === null ? 'Die Spalte hat schon die Standardbreite' : undefined,
+            },
             { label: 'Nach links', onSelect: () => onMove(-1), disabledReason: isFirst ? 'Schon ganz links' : undefined },
             { label: 'Nach rechts', onSelect: () => onMove(1), disabledReason: isLast ? 'Schon ganz rechts' : undefined },
             { label: 'Spalte löschen …', onSelect: onDelete, danger: true, disabledReason: deleteDisabledReason },
           ]}
         />
       </div>
+      <ColumnResizeHandle columnId={column.id} columnName={column.name} width={width} onResize={onResize} />
     </div>
   );
 }
 
 /** The header that follows the pointer while a column is dragged. */
-export function ColumnHeaderGhost({ column, widthClass }: { column: BoardColumn; widthClass: string }) {
+export function ColumnHeaderGhost({ column, width }: { column: BoardColumn; width: number }) {
   return (
     <div
-      className={`flex cursor-grabbing items-center rounded-lg bg-surface px-3 py-2 text-sm font-semibold text-fg shadow-popover ring-1 ring-accent-line ${widthClass}`}
+      style={{ width }}
+      className="flex cursor-grabbing items-center rounded-lg bg-surface px-3 py-2 text-sm font-semibold text-fg shadow-popover ring-1 ring-accent-line"
     >
       {column.name}
     </div>

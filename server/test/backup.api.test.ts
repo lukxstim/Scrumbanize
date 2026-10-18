@@ -110,6 +110,18 @@ describe('restore', () => {
     expect(fs.readdirSync(path.join(dataDir, '.restore'))).toEqual([]);
   });
 
+  it('keeps the column widths', async () => {
+    const columns = (await api.get('/api/projects/1/board')).body.columns as { id: number }[];
+    await api.patch(`/api/columns/${columns[1]!.id}`).send({ width: 420 });
+    const backup = await downloadBackup();
+    await api.patch(`/api/columns/${columns[1]!.id}`).send({ width: null });
+
+    const prepared = await prepare(backup);
+    expect((await api.post(`/api/backup/restore/${prepared.body.token}`)).status).toBe(200);
+    const restored = (await api.get('/api/projects/1/board')).body.columns as { width: number | null }[];
+    expect(restored.map((c) => c.width)).toEqual([null, 420, null, null, null]);
+  });
+
   it('migrates a backup from an older version', async () => {
     const oldFile = path.join(dataDir, 'old.db');
     const old = new Database(oldFile);

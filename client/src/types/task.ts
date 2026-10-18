@@ -70,6 +70,8 @@ export interface BoardColumn {
   position: number;
   /** Counts the column's tasks across all lanes; null means unlimited. */
   wipLimit: number | null;
+  /** Width in pixels (200–600), the same on every device; null means the default width (see columnWidths.ts). */
+  width: number | null;
 }
 
 export interface Lane {

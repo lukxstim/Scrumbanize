@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { BoardColumn, Task } from '../../types/task';
+import { columnWidthVar } from '../../utils/columnWidths';
 import { DraggableTaskCard } from './TaskCard';
 
 interface BoardCellProps {
@@ -13,7 +14,8 @@ interface BoardCellProps {
   done: boolean;
   /** The task to highlight briefly after a move. */
   flashId: number | null;
-  widthClass: string;
+  /** The column's width shown now, saved or default. */
+  width: number;
   minHeightClass: string;
   /** A dragged card would currently land here. */
   isDropTarget: boolean;
@@ -33,7 +35,7 @@ export default function BoardCell({
   compact,
   done,
   flashId,
-  widthClass,
+  width,
   minHeightClass,
   isDropTarget,
   overLimit,
@@ -45,7 +47,8 @@ export default function BoardCell({
     <div
       data-cell-column={column.id}
       data-cell-lane={laneId}
-      className={`flex shrink-0 flex-col gap-2 rounded-xl border p-2 transition-colors duration-150 ${widthClass} ${minHeightClass} ${
+      style={{ width: `var(${columnWidthVar(column.id)}, ${width}px)` }}
+      className={`flex shrink-0 flex-col gap-2 rounded-xl border p-2 transition-colors duration-150 ${minHeightClass} ${
         isDropTarget ? 'border-accent-line bg-accent-muted' : 'bg-surface-muted'
       } ${overLimit ? 'border-danger-line' : isDropTarget ? '' : 'border-transparent'}`}
     >

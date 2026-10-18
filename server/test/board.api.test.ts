@@ -296,3 +296,72 @@ describe('migration to custom columns', () => {
     }
   });
 });
+
+describe('column widths', () => {
+  const widths = async (projectId = 1) => (await board(projectId)).columns.map((c) => (c as { width: number | null }).width);
+
+  it('start at the default (null) and are set, kept and cleared via PATCH', async () => {
+    expect(await widths()).toEqual([null, null, null, null, null]);
+    const id = await columnId('To Do');
+    const res = await api.patch(`/api/columns/${id}`).send({ width: 320 });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ id, name: 'To Do', width: 320 });
+    // Other changes keep the width.
+    expect((await api.patch(`/api/columns/${id}`).send({ name: 'Geplant' })).body.width).toBe(320);
+    expect(await widths()).toEqual([null, 320, null, null, null]);
+    expect((await api.patch(`/api/columns/${id}`).send({ width: null })).body.width).toBeNull();
+  });
+
+  it('accept 200 to 600 whole pixels only', async () => {
+    const id = await columnId('Backlog');
+    for (const width of [200, 600]) expect((await api.patch(`/api/columns/${id}`).send({ width })).status, String(width)).toBe(200);
+    for (const width of [199, 601, 250.5, '300', -1]) {
+      expect((await api.patch(`/api/columns/${id}`).send({ width })).status, String(width)).toBe(400);
+    }
+  });
+
+  it('are not logged as activity', async () => {
+    const before = (await api.get('/api/projects/1/activities')).body.items.length;
+    await api.patch(`/api/columns/${await columnId('Review')}`).send({ width: 400 });
+    expect((await api.get('/api/projects/1/activities')).body.items.length).toBe(before);
+  });
+
+  it('are set for several columns at once, all or none', async () => {
+    const b = await board();
+    const [first, second] = b.columns;
+    const res = await api.put('/api/projects/1/column-widths').send({ widths: [{ id: first!.id, width: 250 }, { id: second!.id, width: 300 }] });
+    expect(res.status).toBe(200);
+    expect(res.body.map((c: { width: number | null }) => c.width)).toEqual([250, 300, null, null, null]);
+
+    // A column of another project refuses the whole request.
+    const other = (await api.post('/api/projects').send({ name: 'Privat', color: 'sky' })).body.id as number;
+    const foreign = (await board(other)).columns[0]!.id;
+    const refused = await api.put('/api/projects/1/column-widths').send({ widths: [{ id: first!.id, width: null }, { id: foreign, width: 300 }] });
+    expect(refused.status).toBe(400);
+    expect(await widths()).toEqual([250, 300, null, null, null]);
+    expect(await widths(other)).toEqual([null, null, null, null, null]);
+
+    // Resetting all: every width null.
+    await api.put('/api/projects/1/column-widths').send({ widths: b.columns.map((c) => ({ id: c.id, width: null })) });
+    expect(await widths()).toEqual([null, null, null, null, null]);
+    expect((await api.put('/api/projects/1/column-widths').send({ widths: [{ id: first!.id, width: 900 }] })).status).toBe(400);
+  });
+
+  it('come as null for columns of a database from before migration 13', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'scrumbanize-widths-'));
+    let migrated: Db | undefined;
+    try {
+      const file = path.join(dir, 'old.db');
+      const old = new Database(file);
+      for (const sql of migrations.slice(0, 12)) old.exec(sql);
+      old.pragma('user_version = 12');
+      old.exec(`INSERT INTO board_columns (project_id, name, position, wip_limit) VALUES (1, 'Alt', 1, 2)`);
+      old.close();
+      migrated = openDatabase(file);
+      expect(migrated.prepare(`SELECT name, wip_limit, width FROM board_columns`).all()).toEqual([{ name: 'Alt', wip_limit: 2, width: null }]);
+    } finally {
+      migrated?.close();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

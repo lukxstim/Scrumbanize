@@ -343,6 +343,10 @@ export const migrations: string[] = [
      '{"priority":"high","labels":["Bug"],"column":null,"lane":null,"dueInDays":null}',
      strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
   `,
+  // Board column widths in pixels (US-19), the same on every device; NULL is the default width of the client.
+  `
+  ALTER TABLE board_columns ADD COLUMN width INTEGER CHECK (width IS NULL OR width BETWEEN 200 AND 600);
+  `,
 ];
 
 export interface OpenOptions {

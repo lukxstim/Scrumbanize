@@ -11,7 +11,7 @@ import {
   type DragStartEvent,
   type KeyboardCoordinateGetter,
 } from '@dnd-kit/core';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useLocation, useMatch, useNavigate, useParams } from 'react-router';
 import { useBoard } from '../../hooks/useBoard';
 import { useProjects } from '../../hooks/useProjects';
@@ -36,10 +36,11 @@ import {
   type Cells,
 } from '../../utils/board';
 import { isCreateRequest } from '../../utils/appEvents';
-import { columnDropIndex, dropPosition, type CellGeometry } from '../../utils/dropPosition';
+import { columnWidth, columnWidthVar, COMPACT_COLUMN_WIDTH, DEFAULT_COLUMN_WIDTH, fitWidth } from '../../utils/columnWidths';
+import { columnDropIndex, columnStep, dropPosition, type CellGeometry } from '../../utils/dropPosition';
 import { todayIso } from '../../utils/dates';
-import { exportUrls, trashApi } from '../../utils/api';
-import { DownloadIcon } from '../icons';
+import { exportUrls, startDownload, trashApi } from '../../utils/api';
+import Menu from '../Menu';
 import { paths } from '../../utils/paths';
 import { applyView, DEFAULT_VIEW, dropIndexInCell, isTaskView } from '../../utils/taskView';
 import AddItemButton from './AddItemButton';
@@ -115,6 +116,7 @@ export default function BoardPage() {
   const dragColumnsRef = useRef<BoardColumn[] | null>(null);
   const [liveMessage, setLiveMessage] = useState('');
   const boardRef = useRef<HTMLDivElement>(null);
+  const headerRowRef = useRef<HTMLDivElement>(null);
 
   // `cells` holds every task (WIP limits and counts use it); `shown` is what the view lets through, in its order.
   const cells = dragCells ?? board.cells;
@@ -124,7 +126,29 @@ export default function BoardPage() {
   const shown = applyView(cells, view, today, doneColumnId);
   const { lanes } = board;
   const showLanes = lanes.length > 1;
-  const widthClass = compact ? 'w-56' : 'w-72';
+  const widthOf = (column: BoardColumn) => columnWidth(column, compact);
+  // One CSS variable per column width on the board; headers and cells read it, a resize handle changes it while dragging.
+  const widthVars = Object.fromEntries(columns.map((c) => [columnWidthVar(c.id), `${widthOf(c)}px`])) as CSSProperties;
+  const hasCustomWidths = board.columns.some((c) => c.width !== null);
+
+  /** "An Fenster anpassen": all columns as wide as fits the visible board, saved for every device. */
+  function fitToWindow() {
+    const visible = boardRef.current?.clientWidth;
+    if (!visible) return;
+    const width = fitWidth(board.columns.length, visible);
+    void board.setColumnWidths(board.columns.map((c) => ({ id: c.id, width })));
+  }
+
+  // Lane headers stick below the column headers, whose height changes when names or the WIP limit wrap.
+  const ready = board.status === 'ready';
+  useEffect(() => {
+    const row = headerRowRef.current;
+    const container = boardRef.current;
+    if (!row || !container) return;
+    const observer = new ResizeObserver(() => container.style.setProperty('--board-header-height', `${row.offsetHeight}px`));
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [ready]);
 
   const showDragCells = (next: Cells | null) => {
     dragCellsRef.current = next;
@@ -172,10 +196,8 @@ export default function BoardPage() {
   // Keyboard dragging: up/down moves by one card (into the next lane at the edge), left/right by one column.
   const keyboardCoordinates: KeyboardCoordinateGetter = (event, { currentCoordinates, context }) => {
     const step = (context.collisionRect?.height ?? 80) + CARD_GAP;
-    const headers = boardRef.current?.querySelectorAll('[data-column-header]');
-    const first = headers?.[0]?.getBoundingClientRect();
-    const second = headers?.[1]?.getBoundingClientRect();
-    const pitch = first && second ? second.left - first.left : 300;
+    // Columns can differ in width, so left/right go to the neighbouring header's edge.
+    const headerLefts = [...(boardRef.current?.querySelectorAll('[data-column-header]') ?? [])].map((h) => h.getBoundingClientRect().left);
 
     switch (event.code) {
       case 'ArrowDown':
@@ -183,9 +205,9 @@ export default function BoardPage() {
       case 'ArrowUp':
         return { ...currentCoordinates, y: currentCoordinates.y - step };
       case 'ArrowRight':
-        return { ...currentCoordinates, x: currentCoordinates.x + pitch };
+        return { ...currentCoordinates, x: currentCoordinates.x + columnStep(headerLefts, currentCoordinates.x, 1) };
       case 'ArrowLeft':
-        return { ...currentCoordinates, x: currentCoordinates.x - pitch };
+        return { ...currentCoordinates, x: currentCoordinates.x + columnStep(headerLefts, currentCoordinates.x, -1) };
     }
     return undefined;
   };
@@ -384,7 +406,7 @@ export default function BoardPage() {
     return (
       <div className="flex gap-3 p-4 pt-12" aria-label="Lade Board …">
         {[0, 1, 2, 3, 4].map((i) => (
-          <div key={i} className={`flex shrink-0 flex-col gap-2 ${widthClass}`}>
+          <div key={i} className="flex shrink-0 flex-col gap-2" style={{ width: compact ? COMPACT_COLUMN_WIDTH : DEFAULT_COLUMN_WIDTH }}>
             <Skeleton className="h-10 rounded-lg" />
             <div className="flex flex-col gap-2 rounded-xl bg-surface-muted p-2">
               {Array.from({ length: 3 - (i % 3) }, (_, j) => (
@@ -442,15 +464,20 @@ export default function BoardPage() {
           </span>
           Kompakt
         </button>
-        <a
-          href={exportUrls.boardCsv(projectId)}
-          download
-          title="Alle Tasks des Boards als CSV-Datei für Excel"
-          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-fg-muted hover:bg-surface-strong"
-        >
-          <DownloadIcon className="size-3.5" />
-          CSV
-        </a>
+        <Menu
+          label="Board: weitere Aktionen"
+          trigger={<span aria-hidden="true">⋯</span>}
+          triggerClassName="grid size-7 place-items-center rounded-md text-base leading-none text-fg-muted hover:bg-surface-strong hover:text-fg"
+          items={[
+            { label: 'An Fenster anpassen', onSelect: fitToWindow },
+            {
+              label: 'Spaltenbreiten zurücksetzen',
+              onSelect: () => void board.setColumnWidths(board.columns.filter((c) => c.width !== null).map((c) => ({ id: c.id, width: null }))),
+              disabledReason: hasCustomWidths ? undefined : 'Alle Spalten haben die Standardbreite',
+            },
+            { label: 'Board als CSV exportieren (Excel)', onSelect: () => startDownload(exportUrls.boardCsv(projectId)) },
+          ]}
+        />
       </div>
 
       <DndContext
@@ -467,21 +494,28 @@ export default function BoardPage() {
         onDragEnd={handleDragEnd}
         onDragCancel={endDrag}
       >
-        <div ref={boardRef} className="min-h-0 flex-1 overflow-auto">
-          <div className="inline-flex min-w-full flex-col gap-3 px-4 pb-4">
+        {/* The board fills the height below the toolbar and scrolls on its own, in both directions. */}
+        <div
+          ref={boardRef}
+          data-board
+          style={{ '--board-header-height': '0px', ...widthVars } as CSSProperties}
+          className="flex min-h-0 flex-1 flex-col overflow-auto [scrollbar-gutter:stable]"
+        >
+          <div className="flex min-w-full shrink-0 grow flex-col gap-3 self-start px-4 pb-4">
             {/* Column headers stay visible while scrolling down. */}
-            <div className="sticky top-0 z-10 -mx-4 flex items-start gap-3 bg-canvas px-4 pb-1 pt-2">
+            <div ref={headerRowRef} className="sticky top-0 z-10 -mx-4 flex items-start gap-3 bg-canvas px-4 pb-1 pt-2">
               {columns.map((column, i) => (
                 <ColumnHeader
                   key={column.id}
                   column={column}
                   count={columnCount(cells, column.id)}
-                  widthClass={widthClass}
+                  width={widthOf(column)}
                   isFirst={i === 0}
                   isLast={i === columns.length - 1}
                   deleteDisabledReason={columns.length <= 1 ? 'Die letzte Spalte kann nicht gelöscht werden.' : undefined}
                   onRename={(name) => void board.updateColumn(column.id, { name })}
                   onWipLimitChange={(wipLimit) => void board.updateColumn(column.id, { wipLimit })}
+                  onResize={(width) => void board.setColumnWidths([{ id: column.id, width }])}
                   onMove={(direction) => step(board.columns, column.id, direction, board.moveColumn)}
                   onDelete={() => setDeleting({ kind: 'column', id: column.id })}
                 />
@@ -497,7 +531,12 @@ export default function BoardPage() {
             {lanes.map((lane, laneIndex) => {
               const collapsed = showLanes && collapsedLanes.includes(lane.id);
               return (
-                <section key={lane.id} aria-label={showLanes ? `Swimlane „${lane.name}“` : undefined} className="flex flex-col gap-2">
+                // A single lane grows to the bottom of the board, so its cells are drop targets down there too.
+                <section
+                  key={lane.id}
+                  aria-label={showLanes ? `Swimlane „${lane.name}“` : undefined}
+                  className={`flex flex-col gap-2 ${showLanes ? '' : 'grow'}`}
+                >
                   {showLanes && (
                     <LaneHeader
                       lane={lane}
@@ -512,7 +551,7 @@ export default function BoardPage() {
                     />
                   )}
                   {!collapsed && (
-                    <div className="flex gap-3">
+                    <div className={`flex gap-3 ${showLanes ? '' : 'grow'}`}>
                       {columns.map((column, columnIndex) => {
                         const { previous, next } = neighbours(columns, column.id);
                         return (
@@ -526,8 +565,8 @@ export default function BoardPage() {
                             compact={compact}
                             done={column.id === doneColumnId}
                             flashId={board.flashId}
-                            widthClass={widthClass}
-                            minHeightClass={showLanes ? 'min-h-28' : 'min-h-[calc(100vh-11rem)]'}
+                            width={widthOf(column)}
+                            minHeightClass={showLanes ? 'min-h-28' : 'min-h-40'}
                             isDropTarget={dropCell === `${column.id}:${lane.id}`}
                             overLimit={wipState(columnCount(cells, column.id), column.wipLimit) === 'over-limit'}
                             onOpenTask={(id) => navigate(paths.task(projectId, id))}
@@ -565,7 +604,7 @@ export default function BoardPage() {
 
         <DragOverlay>
           {activeTask && <TaskCardBody task={activeTask} compact={compact} done={activeTask.columnId === doneColumnId} lifted />}
-          {activeColumn && <ColumnHeaderGhost column={activeColumn} widthClass={widthClass} />}
+          {activeColumn && <ColumnHeaderGhost column={activeColumn} width={widthOf(activeColumn)} />}
         </DragOverlay>
       </DndContext>
 

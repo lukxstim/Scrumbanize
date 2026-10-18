@@ -100,7 +100,7 @@ describe('counts', () => {
 });
 
 describe('reorder and neighbours', () => {
-  const columns: BoardColumn[] = [10, 20, 30].map((id, i) => ({ id, name: `C${id}`, position: i + 1, wipLimit: null }));
+  const columns: BoardColumn[] = [10, 20, 30].map((id, i) => ({ id, name: `C${id}`, position: i + 1, wipLimit: null, width: null }));
 
   it('moves an item to an index among the others', () => {
     expect(reorder(columns, 30, 0).map((c) => c.id)).toEqual([30, 10, 20]);

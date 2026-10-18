@@ -33,3 +33,18 @@ export function dropPosition(
 export function columnDropIndex(x: number, otherColumnCentres: number[]): number {
   return otherColumnCentres.filter((centre) => centre < x).length;
 }
+
+/**
+ * How far a keyboard drag moves sideways to reach the neighbouring column, given the left edges of all column
+ * headers in order and the dragged item's left edge `x`. Columns can have different widths, so the step is the
+ * distance between the current column's edge and the neighbour's; 0 at either end of the board.
+ */
+export function columnStep(headerLefts: number[], x: number, direction: -1 | 1): number {
+  // The column the item is in: the last one starting at or left of it (cards sit a little inside their column).
+  let current = 0;
+  headerLefts.forEach((left, i) => {
+    if (left <= x + 1) current = i;
+  });
+  const target = headerLefts[current + direction];
+  return target === undefined ? 0 : target - headerLefts[current]!;
+}
