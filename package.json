@@ -13,7 +13,8 @@
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "desktop": "npm run build -w client && npm run start -w desktop",
-    "desktop:dist": "npm run build -w client && npm run dist -w desktop"
+    "desktop:dist": "npm run build -w client && npm run dist -w desktop",
+    "desktop:dist:mac": "npm run build -w client && npm run dist:mac -w desktop"
   },
   "devDependencies": {
     "concurrently": "^10.0.6"

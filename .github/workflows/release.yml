@@ -1,0 +1,138 @@
+# Builds the desktop app for Windows and macOS and collects both in a draft release (US-20).
+#
+# - Tag `v1.1.0` (must match the version in desktop/package.json): tests, both builds, then a draft release with the
+#   .exe, .dmg and .zip files and notes from the commits. Check it on GitHub and publish it there.
+# - Tag with a suffix, e.g. `v1.1.0-rc.1`, or "Run workflow" in the Actions tab: the same builds without a release,
+#   for a trial; the files are attached to the workflow run (Artifacts).
+#
+# The Mac runner counts ten times against the Actions minutes of a private repository, so this only runs on tags or
+# by hand, never on ordinary pushes.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm test
+
+  build:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            script: desktop:dist
+            app: desktop/release/win-unpacked/Scrumbanize.exe
+            files: |
+              desktop/release/*.exe
+          - os: macos-latest
+            script: desktop:dist:mac
+            app: desktop/release/mac-universal/Scrumbanize.app/Contents/MacOS/Scrumbanize
+            files: |
+              desktop/release/*.dmg
+              desktop/release/*.zip
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag matches the app version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          version=$(node -p "require('./desktop/package.json').version")
+          case "$GITHUB_REF_NAME" in
+            "v$version" | "v$version-"*) echo "Version $version" ;;
+            *) echo "::error::Tag $GITHUB_REF_NAME does not match version $version in desktop/package.json"; exit 1 ;;
+          esac
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # electron-builder downloads Electron (about 100 MB) for packaging; keep it between runs.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/electron
+            ~/AppData/Local/electron/Cache
+          key: electron-${{ runner.os }}-${{ hashFiles('desktop/electron-builder.yml') }}
+
+      - run: npm ci --ignore-scripts
+      - run: npm run ${{ matrix.script }}
+
+      - name: Universal app with an ad-hoc signature
+        if: runner.os == 'macOS'
+        run: |
+          app=desktop/release/mac-universal/Scrumbanize.app
+          lipo -archs "$app/Contents/MacOS/Scrumbanize"
+          lipo -archs "$app/Contents/MacOS/Scrumbanize" | grep -q x86_64
+          lipo -archs "$app/Contents/MacOS/Scrumbanize" | grep -q arm64
+          codesign --verify --deep --strict "$app"
+          codesign -dv "$app" 2>&1 | grep -E "Signature|Identifier"
+
+      # The packaged app must start and answer, e.g. it would not if better-sqlite3's binary were missing.
+      - name: Packaged app starts
+        run: |
+          data="$RUNNER_TEMP/scrumbanize-data"
+          SCRUMBANIZE_USER_DATA="$data" "${{ matrix.app }}" &
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:41723/api/health; then echo; echo "Started after ${i}s"; break; fi
+            sleep 1
+          done
+          status=0
+          curl -sf http://127.0.0.1:41723/api/projects > /dev/null || status=1
+          cat "$data/logs/main.log" || true
+          if [ "$RUNNER_OS" = "Windows" ]; then taskkill //F //IM Scrumbanize.exe > /dev/null || true; else pkill -f Scrumbanize.app || true; fi
+          exit $status
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scrumbanize-${{ runner.os }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    needs: build
+    # Only for a version tag without a suffix; trial runs keep their files as artifacts.
+    if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: files
+          merge-multiple: true
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -l files
+          gh release create "$GITHUB_REF_NAME" files/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft \
+            --title "Scrumbanize ${GITHUB_REF_NAME#v}" \
+            --generate-notes

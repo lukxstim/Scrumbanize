@@ -1,6 +1,7 @@
 /**
  * The desktop app's global shortcut (US-18) as an Electron accelerator, e.g. "CommandOrControl+Shift+Space".
- * The rules match isValidAccelerator in desktop/src/hotkey.ts: Ctrl or Alt, optionally Shift, and one key.
+ * CommandOrControl is Ctrl on Windows and ⌘ on a Mac (US-20), where Control is the separate ⌃ key. The rules
+ * match isValidAccelerator in desktop/src/hotkey.ts: one modifier besides Shift, optionally Shift, and one key.
  */
 
 export const DEFAULT_HOTKEY = 'CommandOrControl+Shift+Space';
@@ -32,19 +33,42 @@ function acceleratorKey(code: string): string | undefined {
   return NAMED_CODES[code];
 }
 
+type KeyPress = Pick<KeyboardEvent, 'code' | 'ctrlKey' | 'altKey' | 'shiftKey' | 'metaKey'>;
+
 /**
  * The accelerator of a key press while recording a shortcut; null while only modifiers are held, for keys that
- * are not supported, with the Windows key, and without Ctrl or Alt (that would take a key away from typing).
+ * are not supported, and with only Shift (that would take a key away from typing). On Windows the Windows key is
+ * not supported; on a Mac (`apple`) ⌘ becomes CommandOrControl and ⌃ Control.
  */
-export function acceleratorFromKeyEvent(event: Pick<KeyboardEvent, 'code' | 'ctrlKey' | 'altKey' | 'shiftKey' | 'metaKey'>): string | null {
+export function acceleratorFromKeyEvent(event: KeyPress, apple = false): string | null {
   const key = acceleratorKey(event.code);
-  if (!key || event.metaKey || (!event.ctrlKey && !event.altKey)) return null;
-  return [event.ctrlKey && 'CommandOrControl', event.altKey && 'Alt', event.shiftKey && 'Shift', key].filter(Boolean).join('+');
+  if (!key) return null;
+  const command = apple ? event.metaKey : event.ctrlKey;
+  const control = apple && event.ctrlKey;
+  if (!apple && event.metaKey) return null;
+  if (!command && !control && !event.altKey) return null;
+  return [command && 'CommandOrControl', control && 'Control', event.altKey && 'Alt', event.shiftKey && 'Shift', key]
+    .filter(Boolean)
+    .join('+');
 }
 
-const LABELS: Record<string, string> = { CommandOrControl: 'Ctrl', Space: 'Leertaste', Up: '↑', Down: '↓', Left: '←', Right: '→', Delete: 'Entf', Insert: 'Einfg', Backspace: '⌫' };
+const LABELS: Record<string, string> = {
+  CommandOrControl: 'Ctrl',
+  Control: 'Ctrl',
+  Space: 'Leertaste',
+  Up: '↑',
+  Down: '↓',
+  Left: '←',
+  Right: '→',
+  Delete: 'Entf',
+  Insert: 'Einfg',
+  Backspace: '⌫',
+};
+/** As a Mac keyboard shows the modifiers. */
+const APPLE_LABELS: Record<string, string> = { ...LABELS, CommandOrControl: '⌘', Control: '⌃', Alt: '⌥', Shift: '⇧' };
 
-/** The keys of an accelerator for display, e.g. ["Ctrl", "Shift", "Leertaste"]. */
-export function acceleratorKeys(accelerator: string): string[] {
-  return accelerator.split('+').map((part) => LABELS[part] ?? part);
+/** The keys of an accelerator for display, e.g. ["Ctrl", "Shift", "Leertaste"], or ["⌘", "⇧", "Leertaste"] on a Mac. */
+export function acceleratorKeys(accelerator: string, apple = false): string[] {
+  const labels = apple ? APPLE_LABELS : LABELS;
+  return accelerator.split('+').map((part) => labels[part] ?? part);
 }

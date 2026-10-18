@@ -1,4 +1,4 @@
-# US-19: macOS-Unterstützung & Cross-Platform Multi-Architektur-Builds
+# US-20: macOS-Unterstützung & Cross-Platform Multi-Architektur-Builds
 
 ## User Story
 Als **Entwickler und Nutzer auf macOS (Apple Silicon / Intel)**

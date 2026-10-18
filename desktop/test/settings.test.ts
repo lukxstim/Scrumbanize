@@ -45,7 +45,17 @@ describe('desktop settings', () => {
 
 describe('isValidAccelerator', () => {
   it('accepts shortcuts with Ctrl or Alt and one key', () => {
-    for (const accelerator of [DEFAULT_HOTKEY, 'CommandOrControl+K', 'Alt+F4', 'CommandOrControl+Alt+Shift+9', 'Alt+Shift+Up', 'CommandOrControl+F24']) {
+    for (const accelerator of [
+      DEFAULT_HOTKEY,
+      'CommandOrControl+K',
+      'Alt+F4',
+      'CommandOrControl+Alt+Shift+9',
+      'Alt+Shift+Up',
+      'CommandOrControl+F24',
+      // On a Mac, ⌃ (Control) is a key of its own besides ⌘ (CommandOrControl).
+      'Control+Space',
+      'CommandOrControl+Control+Shift+S',
+    ]) {
       expect(isValidAccelerator(accelerator), accelerator).toBe(true);
     }
   });
@@ -58,6 +68,8 @@ describe('isValidAccelerator', () => {
       'CommandOrControl',
       'CommandOrControl+Shift',
       'Shift+CommandOrControl+A',
+      'Control+CommandOrControl+A',
+      'Shift+Control',
       'CommandOrControl+CommandOrControl+A',
       'Ctrl+A',
       'Super+A',

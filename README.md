@@ -10,10 +10,13 @@
   <a href="https://github.com/lukxstim/Scrumbanize/releases/latest">
     <img src="https://img.shields.io/badge/Jetzt%20herunterladen-Windows%2010%20%2F%2011-1a7090?style=for-the-badge&logo=windows&logoColor=white" alt="Scrumbanize für Windows herunterladen" />
   </a>
+  <a href="https://github.com/lukxstim/Scrumbanize/releases/latest">
+    <img src="https://img.shields.io/badge/Jetzt%20herunterladen-macOS%2012%2B-1a7090?style=for-the-badge&logo=apple&logoColor=white" alt="Scrumbanize für macOS herunterladen" />
+  </a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/lukxstim/Scrumbanize/releases/latest"><b>Direkt-Download: neueste Version für Windows</b></a>
+  <a href="https://github.com/lukxstim/Scrumbanize/releases/latest"><b>Direkt-Download: neueste Version für Windows und Mac</b></a>
 </p>
 
 ---
@@ -23,6 +26,10 @@
 Du brauchst keine Vorkenntnisse – die Installation dauert etwa eine Minute.
 
 > **Vorab:** Scrumbanize wird nur an eingeladene Personen verteilt. Du brauchst ein kostenloses GitHub-Konto und eine Einladung (kommt per E-Mail – einmal auf „Accept invitation“ klicken). Zum Herunterladen musst du bei GitHub **angemeldet** sein, sonst zeigt die Seite „404“.
+
+Weiter geht es mit der Anleitung für [Windows](#windows) oder für den [Mac](#mac).
+
+### Windows
 
 **1. Herunterladen**
 Klicke oben auf **„Jetzt herunterladen“**. Auf der Seite, die sich öffnet, siehst du unten den Bereich **„Assets“**. Klicke dort auf die Datei **`Scrumbanize-Setup-….exe`** – der Download startet.
@@ -43,6 +50,34 @@ Scrumbanize öffnet sich nach der Installation automatisch. Später startest du 
 Beim ersten Start wartet ein **Beispielprojekt** mit einer kurzen Anleitung auf dich, und eine kleine Einführung zeigt dir die wichtigsten Knöpfe. Probier einfach alles aus – im Beispielprojekt kannst du nichts kaputt machen.
 
 > **Ohne Installation?** Unter „Assets“ gibt es auch **`Scrumbanize-…-portable.exe`**. Die startet direkt, ohne Installation (z. B. vom USB-Stick), muss aber für neue Versionen von Hand ersetzt werden.
+
+### Mac
+
+Scrumbanize läuft auf jedem Mac mit **macOS 12 (Monterey) oder neuer** – egal ob mit Apple-Chip (M1, M2 …) oder Intel-Prozessor. Es gibt nur eine Datei für alle.
+
+**1. Herunterladen**
+Klicke oben auf **„Jetzt herunterladen“** und unter **„Assets“** auf **`Scrumbanize-…-universal.dmg`**.
+
+**2. Installieren**
+Öffne die heruntergeladene Datei (im Ordner „Downloads“). Es erscheint ein Fenster mit Scrumbanize links und dem Ordner „Programme“ rechts: **Ziehe Scrumbanize auf den Ordner „Programme“.** Danach kannst du das Fenster schließen und im Finder links neben „Scrumbanize“ auf das Auswerfen-Symbol ⏏ klicken.
+
+**3. Beim ersten Start einmal erlauben**
+Scrumbanize ist kostenlos und deshalb nicht bei Apple registriert. Der Mac fragt darum beim ersten Start nach – das ist normal und nur einmal nötig.
+
+*macOS 15 (Sequoia) und neuer:*
+
+1. Scrumbanize im Ordner „Programme“ doppelklicken. Es erscheint **„Scrumbanize“ kann nicht geöffnet werden** – auf **„Fertig“** klicken.
+2. Das Apple-Menü  → **Systemeinstellungen** → **Datenschutz & Sicherheit** öffnen und ganz nach unten scrollen.
+3. Bei „Scrumbanize wurde blockiert …“ auf **„Dennoch öffnen“** klicken, mit deinem Mac-Passwort bestätigen und noch einmal **„Dennoch öffnen“** wählen.
+
+*macOS 14 (Sonoma) und älter:* Scrumbanize im Ordner „Programme“ mit **gedrückter `ctrl`-Taste anklicken** (oder Rechtsklick), **„Öffnen“** wählen und im Hinweis noch einmal **„Öffnen“** klicken.
+
+Danach startet Scrumbanize ganz normal, z. B. über das Launchpad oder Spotlight (`⌘` + `Leertaste`, „Scrumbanize“ tippen).
+
+**4. Gut zu wissen auf dem Mac**
+- Schließt du das Fenster, läuft Scrumbanize weiter (Symbol im Dock und oben in der Menüleiste) und kann dich an fällige Aufgaben erinnern. **Ganz beenden** mit `⌘` + `Q`.
+- Bei der ersten Erinnerung fragt der Mac, ob Scrumbanize **Mitteilungen** senden darf – auf **„Erlauben“** klicken. Ändern lässt sich das später unter Systemeinstellungen → Mitteilungen → Scrumbanize.
+- Tastenkürzel heißen auf dem Mac `⌘` statt `Strg`, z. B. `⌘` + `K` für die Suche.
 
 ## Was kann Scrumbanize?
 
@@ -97,18 +132,18 @@ Aus Versehen gelöscht? Kein Problem: Gelöschtes landet zuerst im Papierkorb un
 ## Deine Daten
 
 - Alles bleibt **auf deinem Computer** – es gibt kein Konto, keine Cloud und keine Werbung. Internet brauchst du nur zum Herunterladen.
-- Gespeichert wird im Ordner `%APPDATA%\Scrumbanize` (in die Adresszeile des Explorers eintippen). **Zum Sichern** in den Einstellungen (Zahnrad oben rechts) auf „Backup herunterladen“ klicken und die Datei z. B. auf einen USB-Stick kopieren.
-- Jede Person am Computer hat mit ihrem eigenen Windows-Konto auch ihre eigenen Notizen.
+- Gespeichert wird unter Windows im Ordner `%APPDATA%\Scrumbanize` (in die Adresszeile des Explorers eintippen), auf dem Mac in `~/Library/Application Support/Scrumbanize` (im Finder `⇧` + `⌘` + `G` drücken und den Pfad eintippen). **Zum Sichern** in den Einstellungen (Zahnrad oben rechts) auf „Backup herunterladen“ klicken und die Datei z. B. auf einen USB-Stick kopieren.
+- Jede Person am Computer hat mit ihrem eigenen Benutzerkonto auch ihre eigenen Notizen.
 
 ## Neue Version installieren
 
 Alle **4 Wochen erinnert dich Scrumbanize** mit einem kleinen Hinweis unten rechts daran, nach einer neuen Version zu schauen. Ein Klick auf **„Nachsehen“** zeigt die neueste Version im Browser.
 
-Gibt es dort eine neuere Version als deine (die Nummer steht im Hinweis), lade sie wie oben beschrieben herunter und führe die neue `Scrumbanize-Setup-….exe` aus. Sie ersetzt die alte Version – **deine Notizen und Aufgaben bleiben erhalten.**
+Gibt es dort eine neuere Version als deine (die Nummer steht im Hinweis), lade sie wie oben beschrieben herunter. Unter Windows führst du die neue `Scrumbanize-Setup-….exe` aus; auf dem Mac beendest du Scrumbanize (`⌘` + `Q`) und ziehst die neue Version aus der `.dmg`-Datei in den Ordner „Programme“ („Ersetzen“ wählen). Die neue Version ersetzt die alte – **deine Notizen und Aufgaben bleiben erhalten.**
 
 ## Hilfe
 
-- **Die Einführung noch einmal sehen:** `Strg` + `K` drücken und „Einführung erneut starten“ wählen.
+- **Die Einführung noch einmal sehen:** `Strg` + `K` (Mac: `⌘` + `K`) drücken und „Einführung erneut starten“ wählen.
 - **Etwas funktioniert nicht?** Melde dich bei der Person, die dir Scrumbanize empfohlen hat, oder lege auf GitHub unter [Issues](https://github.com/lukxstim/Scrumbanize/issues) eine Meldung an.
 
 ---
@@ -143,24 +178,27 @@ Selbstgehostete Web-App, die Notizen und ein Scrumban-Board verbindet. Hintergru
 
 Die App ist für einen einzelnen Nutzer ohne Login gedacht – betreibe sie nur in einem vertrauenswürdigen Netz oder hinter einem Reverse-Proxy mit Authentifizierung.
 
-Außerdem gibt es Scrumbanize als **Windows-Desktop-App** (US-08), die ohne installiertes Node.js läuft – siehe [Desktop-App](#desktop-app-windows).
+Außerdem gibt es Scrumbanize als **Desktop-App für Windows und macOS** (US-08, US-20), die ohne installiertes Node.js läuft – siehe [Desktop-App](#desktop-app-windows-und-macos).
 
-## Desktop-App (Windows)
+## Desktop-App (Windows und macOS)
 
 Die Desktop-App bündelt Frontend, Server und SQLite in einem Electron-Programm. Jede Person hat ihre eigenen, lokalen Daten; es gibt keine Synchronisation.
 
 ### Installieren und starten
 
-Die Schritt-für-Schritt-Anleitung für Nutzerinnen und Nutzer steht oben unter [Anleitung für die Installation](#anleitung-für-die-installation). Zwei Varianten (Windows 10/11, 64 Bit):
+Die Schritt-für-Schritt-Anleitung für Nutzerinnen und Nutzer steht oben unter [Anleitung für die Installation](#anleitung-für-die-installation). Jedes Release enthält:
 
-- **`Scrumbanize-Setup-1.0.0.exe`** – Installer. Installiert ohne Administratorrechte für den aktuellen Benutzer (nach `%LOCALAPPDATA%\Programs\scrumbanize`) und legt Verknüpfungen auf dem Desktop und im Startmenü an. Deinstallation über „Apps & Features“.
-- **`Scrumbanize-1.0.0-portable.exe`** – ohne Installation, z. B. vom USB-Stick. Startet etwas langsamer, weil sie sich bei jedem Start entpackt.
+- **`Scrumbanize-Setup-<Version>.exe`** – Windows-Installer (Windows 10/11, 64 Bit). Installiert ohne Administratorrechte für den aktuellen Benutzer (nach `%LOCALAPPDATA%\Programs\scrumbanize`) und legt Verknüpfungen auf dem Desktop und im Startmenü an. Deinstallation über „Apps & Features“.
+- **`Scrumbanize-<Version>-portable.exe`** – Windows ohne Installation, z. B. vom USB-Stick. Startet etwas langsamer, weil sie sich bei jedem Start entpackt.
+- **`Scrumbanize-<Version>-universal.dmg`** – macOS 12 oder neuer, eine **Universal-App** für Apple Silicon und Intel. Dazu dieselbe App als `.zip`, falls ein `.dmg` einmal nicht öffnet.
 
 **Windows-SmartScreen:** Die Programme sind nicht signiert. Beim ersten Start zeigt Windows deshalb „Der Computer wurde durch Windows geschützt“. Auf **„Weitere Informationen“** klicken und dann **„Trotzdem ausführen“**.
 
+**macOS-Gatekeeper:** Die Mac-App hat nur eine **Ad-hoc-Signatur** (kostenlos, ohne Apple-Entwicklerkonto) und ist nicht notarisiert. Ganz ohne Signatur würden Macs mit Apple-Chip sie als „beschädigt“ ablehnen; so fragt Gatekeeper nur einmal nach. Ab macOS 15 bestätigt man das unter Systemeinstellungen → Datenschutz & Sicherheit → „Dennoch öffnen“, bis macOS 14 per `ctrl`-Klick → „Öffnen“ (siehe Anleitung oben). Für Erfahrene geht auch `xattr -dr com.apple.quarantine /Applications/Scrumbanize.app`.
+
 ### Daten
 
-Notizen, Tasks und Einstellungen liegen in **`%APPDATA%\Scrumbanize\`** (z. B. `C:\Users\<Name>\AppData\Roaming\Scrumbanize\`):
+Notizen, Tasks und Einstellungen liegen unter Windows in **`%APPDATA%\Scrumbanize\`** (z. B. `C:\Users\<Name>\AppData\Roaming\Scrumbanize\`), auf dem Mac in **`~/Library/Application Support/Scrumbanize/`**:
 
 | Datei | Inhalt |
 |---|---|
@@ -175,7 +213,7 @@ Notizen, Tasks und Einstellungen liegen in **`%APPDATA%\Scrumbanize\`** (z. B. `
 - **Backup:** in den Einstellungen „Backup herunterladen“ (geht auch während der Arbeit). Von Hand: Scrumbanize beenden und `scrumbanize.db` **und den Ordner `uploads`** kopieren.
 - **Wiederherstellen:** in den Einstellungen ein Backup auswählen; Scrumbanize zeigt vorher, was es enthält, und sichert den jetzigen Stand.
 - **Daten übernehmen** (z. B. von Docker oder aus der Entwicklung): Scrumbanize beenden und die vorhandene `scrumbanize.db` samt `uploads`-Ordner in diesen Ordner kopieren (bestehende Datei vorher sichern). Die Datenbank wird beim nächsten Start automatisch auf den aktuellen Stand gebracht.
-- **Update:** neue Version einfach installieren bzw. die neue portable Datei verwenden – die Daten bleiben erhalten, auch beim Deinstallieren.
+- **Update:** neue Version einfach installieren bzw. die neue portable Datei verwenden, auf dem Mac die App im Ordner „Programme“ ersetzen – die Daten bleiben erhalten, auch beim Deinstallieren.
 
 ### Technik
 
@@ -183,27 +221,40 @@ Notizen, Tasks und Einstellungen liegen in **`%APPDATA%\Scrumbanize\`** (z. B. `
 - Beim Beenden werden Server und Datenbank sauber geschlossen; es bleiben keine Prozesse im Hintergrund.
 - Eine Instanz pro Benutzer: Ein zweiter Start holt das vorhandene Fenster nach vorn, auch wenn es im Infobereich versteckt ist. Links zu anderen Seiten öffnen sich im Standardbrowser.
 - **Infobereich und Erinnerungen (US-18):** Das Tray-Symbol ist da, solange die App läuft. Der Hauptprozess fragt alle 15 Minuten, nach dem Start und nach dem Aufwachen `GET /api/reminders/due` mit dem lokalen Datum ab und zeigt neue Tasks als Windows-Benachrichtigung (`desktop/src/reminders.ts`, Regeln in `reminderPlan.ts`). Die Seite erreicht Einstellungen und „Jetzt prüfen“ über ein Preload-Skript (`window.scrumbanizeDesktop`, `desktop/src/preload.ts`); der Hauptprozess nimmt nur Aufrufe der eigenen Seite an. Im Browser (Docker, Entwicklung) gibt es weder Bridge noch Einstellungsbereich.
-- **Autostart:** Windows startet die App mit `--hidden` (ohne Fenster). Die portable Version trägt die gestartete `.exe` ein (`PORTABLE_EXECUTABLE_FILE`), nicht die entpackte Kopie; ungepackte Starts (`npm run desktop`) können nicht mit Windows starten. Benachrichtigungen erscheinen unter der AppUserModelID `de.scrumbanize.app`, die die Verknüpfungen des Installers tragen – bei der portablen Version fehlt diese Verknüpfung, deshalb sind Benachrichtigungen dort nicht garantiert.
+- **macOS (US-20):** Ein kleines App-Menü (`desktop/src/macMenu.ts`) sorgt dafür, dass `⌘C`/`⌘V` & Co. in Textfeldern funktionieren und `⌘Q` beendet. Schließen versteckt das Fenster immer (Dock und Menüleiste bleiben, ein Klick aufs Dock-Symbol holt es zurück); die Windows-Schalter dafür blendet die Einstellungsseite aus. Das Menüleisten-Symbol ist ein schwarzes „Template“-Bild, das macOS hell oder dunkel einfärbt (`desktop/build/trayTemplate*.png`, erzeugt von `node build/make-tray-template.mjs`). Die Tastenkombination ist dort `⌘⇧Leertaste` (`CommandOrControl` = `⌘`, `Control` = `⌃`).
+- **Autostart:** Windows startet die App mit `--hidden` (ohne Fenster). Auf dem Mac trägt sich die App als Anmeldeobjekt ein; ob sie bei der Anmeldung gestartet wurde, meldet macOS 13 und neuer nicht immer zuverlässig, dann erscheint das Fenster und lässt sich einfach schließen. Die portable Version trägt die gestartete `.exe` ein (`PORTABLE_EXECUTABLE_FILE`), nicht die entpackte Kopie; ungepackte Starts (`npm run desktop`) können nicht mit Windows starten. Benachrichtigungen erscheinen unter der AppUserModelID `de.scrumbanize.app`, die die Verknüpfungen des Installers tragen – bei der portablen Version fehlt diese Verknüpfung, deshalb sind Benachrichtigungen dort nicht garantiert.
 
 ### Selbst bauen
 
-Voraussetzungen: Windows, Node.js 24, Internetzugang beim ersten Build (`electron-builder` lädt Electron und NSIS herunter). Kein Python und keine Visual-Studio-Build-Tools nötig – `better-sqlite3` ist ein Node-API-Modul, dessen fertige Binärdatei auch in Electron läuft.
+Voraussetzungen: Node.js 24, Internetzugang beim ersten Build (`electron-builder` lädt Electron und NSIS herunter). Kein Python, keine Visual-Studio-Build-Tools und kein Xcode nötig – `better-sqlite3` ist ein Node-API-Modul, dessen fertige Binärdateien (für Windows und beide Mac-Architekturen) auch in Electron laufen.
 
 ```sh
 npm install
-npm run desktop        # baut Client und Desktop-App und startet sie (Daten in "%APPDATA%\Scrumbanize (Dev)")
-npm run desktop:dist   # erzeugt die .exe-Dateien in desktop/release/
+npm run desktop            # baut Client und Desktop-App und startet sie (Daten in "%APPDATA%\Scrumbanize (Dev)")
+npm run desktop:dist       # Windows: erzeugt die .exe-Dateien in desktop/release/
+npm run desktop:dist:mac   # nur auf einem Mac: Universal-.dmg und -.zip in desktop/release/
 ```
+
+Die Mac-App lässt sich nur auf einem Mac bauen; für Releases übernimmt das GitHub Actions (siehe unten).
 
 ### Release veröffentlichen
 
 Die Download-Links oben und die Erinnerung in der Desktop-App (`RELEASES_URL` in `desktop/src/main.ts`) zeigen auf `https://github.com/lukxstim/Scrumbanize/releases/latest`. Das Repository ist privat: Wer die App bekommen soll, wird unter **Settings → Collaborators** eingeladen und lädt angemeldet herunter. Die App prüft selbst nicht auf Updates (ohne Zugangsdaten sieht sie die privaten Releases nicht); sie erinnert alle 4 Wochen an einen Blick auf die Release-Seite – die Versionsnummer im Hinweis kommt aus `desktop/package.json`.
 
-1. Version in `desktop/package.json` erhöhen (z. B. `1.0.0` → `1.1.0`); sie steht im Namen der `.exe`-Dateien.
-2. `npm run desktop:dist` – erzeugt in `desktop/release/` die Dateien `Scrumbanize-Setup-<Version>.exe` und `Scrumbanize-<Version>-portable.exe`.
-3. Änderungen committen und pushen.
-4. Auf GitHub: **Releases → „Draft a new release“** → Tag `v<Version>` anlegen (auf `main`), Titel z. B. „Scrumbanize 1.1.0“, kurze Beschreibung der Neuerungen auf Deutsch.
-5. Beide `.exe`-Dateien in das Feld „Attach binaries“ ziehen und **„Publish release“** klicken. Der Link „neueste Version“ zeigt danach automatisch auf dieses Release.
+Releases baut GitHub Actions (`.github/workflows/release.yml`, US-20): Tests, dann Windows auf `windows-latest` und die Universal-Mac-App auf `macos-latest`. Beide gepackten Apps werden einmal gestartet (`/api/health` muss antworten), bevor ihre Dateien in einen **Release-Entwurf** kommen.
+
+1. Version in `desktop/package.json` erhöhen (z. B. `1.1.0` → `1.2.0`); sie steht in den Dateinamen und im Update-Hinweis.
+2. Änderungen committen und auf `main` pushen.
+3. Tag anlegen und pushen – er muss zur Version passen, sonst bricht der Workflow ab:
+   ```sh
+   git tag v1.2.0
+   git push origin v1.2.0
+   ```
+4. Nach etwa 15 Minuten liegt unter **Releases** ein Entwurf „Scrumbanize 1.2.0“ mit den beiden `.exe`-Dateien, der `.dmg`- und der `.zip`-Datei und automatisch erzeugten Notizen. Notizen auf Deutsch kurz zusammenfassen und **„Publish release“** klicken. Der Link „neueste Version“ zeigt danach auf dieses Release.
+
+**Probelauf ohne Release:** ein Tag mit Zusatz wie `v1.2.0-rc.1` pushen oder in **Actions → Release → „Run workflow“** starten. Die Dateien hängen dann nur am Workflow-Lauf („Artifacts“, 14 Tage). Der Mac-Runner zählt bei privaten Repositories zehnfach gegen die Actions-Minuten (ein Release ≈ 150 von 2.000 Freiminuten im Monat), deshalb läuft der Workflow nur auf Tags oder von Hand.
+
+**Laufende Prüfung:** `.github/workflows/ci.yml` führt bei jedem Push und Pull-Request auf `main` Typprüfung und Tests unter Linux aus.
 
 Im Desktop-Fenster öffnet `F12` die Entwicklertools, nur beim ungepackten Start (`npm run desktop`). Die Umgebungsvariable `SCRUMBANIZE_USER_DATA` legt für Tests einen anderen Datenordner fest.
 
@@ -258,7 +309,8 @@ Lokal liegen die Datenbank unter `data/scrumbanize.db` und die Anhänge unter `d
 npm-Workspaces mit drei Paketen:
 
 - `server/` – Express-REST-API mit SQLite (`better-sqlite3`). Start `src/start.ts` (`startServer()`, genutzt von `src/index.ts` und der Desktop-App), App-Aufbau `src/app.ts`, Schema und Migrationen `src/database.ts`.
-- `desktop/` – Electron-Hauptprozess (`src/main.ts`) und Preload-Skript (`src/preload.ts`), mit esbuild zu `dist/main.cjs` und `dist/preload.cjs` gebündelt; Paketierung mit `electron-builder.yml`. Tests (Erinnerungsregeln, Einstellungen) unter `test/`.
+- `desktop/` – Electron-Hauptprozess (`src/main.ts`) und Preload-Skript (`src/preload.ts`), mit esbuild zu `dist/main.cjs` und `dist/preload.cjs` gebündelt; Paketierung mit `electron-builder.yml` (Windows und macOS). Tests (Erinnerungsregeln, Einstellungen, Mac-Menü) unter `test/`.
+- `.github/workflows/` – `ci.yml` (Tests bei jedem Push auf `main`) und `release.yml` (Desktop-Builds und Release-Entwurf bei einem Versions-Tag).
 - `client/` – React-SPA mit TypeScript, Vite und Tailwind CSS. Farben kommen aus semantischen Design-Tokens (`bg-surface`, `text-fg-muted`, `border-line`, `bg-accent` …), definiert in `src/index.css` für hell und dunkel; wiederverwendbare Bausteine liegen in `src/components/ui/`.
 
 ## REST-API

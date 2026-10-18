@@ -1,0 +1,32 @@
+# Tests and type checks for every push to main and every pull request (US-20). Linux only: it is the cheapest
+# runner, and the code under test does not depend on the platform. The desktop builds run in release.yml.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      # No install scripts: better-sqlite3 ships prebuilt binaries for every platform and prefers them, so nothing
+      # needs to be compiled (the same as a local install with npm's default script policy).
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm test

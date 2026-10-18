@@ -7,11 +7,16 @@ import Button from '../ui/Button';
 import Kbd from '../ui/Kbd';
 import Switch from '../ui/Switch';
 
-/** Settings of the desktop app only (US-18): notification area, starting with Windows, reminders, shortcut. */
+/**
+ * Settings of the desktop app only (US-18): notification area, starting at login, reminders, shortcut. On a Mac
+ * (US-20) closing always keeps the app in the Dock and the menu bar, so the switches for that are left out, and the
+ * texts use the Mac's words.
+ */
 export default function DesktopSection() {
   const toast = useToast();
   const { settings, update } = useDesktopSettings();
   if (!settings) return null;
+  const mac = settings.platform === 'darwin';
 
   async function change(patch: DesktopSettingsPatch): Promise<boolean> {
     try {
@@ -38,24 +43,32 @@ export default function DesktopSection() {
   return (
     <section aria-label="Desktop-App" className="rounded-xl border border-line bg-surface p-5 shadow-card">
       <h2 className="text-sm font-semibold text-fg">Desktop-App</h2>
-      <p className="mt-0.5 mb-4 text-sm text-fg-subtle">Infobereich neben der Uhr, Start mit Windows, Erinnerungen an fällige Tasks und eine Tastenkombination.</p>
+      <p className="mt-0.5 mb-4 text-sm text-fg-subtle">
+        {mac
+          ? 'Start bei der Anmeldung, Mitteilungen zu fälligen Tasks und eine Tastenkombination. Geschlossen läuft Scrumbanize im Dock und in der Menüleiste weiter; beenden mit ⌘Q.'
+          : 'Infobereich neben der Uhr, Start mit Windows, Erinnerungen an fällige Tasks und eine Tastenkombination.'}
+      </p>
 
       <div className="space-y-4">
+        {!mac && (
+          <>
+            <Switch
+              label="Beim Schließen in den Infobereich minimieren"
+              description="Scrumbanize läuft dann weiter und erinnert an fällige Tasks. Beenden über das Symbol neben der Uhr."
+              checked={settings.closeToTray}
+              onChange={(closeToTray) => void change({ closeToTray })}
+            />
+            <Switch
+              label="Beim Minimieren in den Infobereich"
+              description="Das minimierte Fenster verschwindet aus der Taskleiste."
+              checked={settings.minimizeToTray}
+              onChange={(minimizeToTray) => void change({ minimizeToTray })}
+            />
+          </>
+        )}
         <Switch
-          label="Beim Schließen in den Infobereich minimieren"
-          description="Scrumbanize läuft dann weiter und erinnert an fällige Tasks. Beenden über das Symbol neben der Uhr."
-          checked={settings.closeToTray}
-          onChange={(closeToTray) => void change({ closeToTray })}
-        />
-        <Switch
-          label="Beim Minimieren in den Infobereich"
-          description="Das minimierte Fenster verschwindet aus der Taskleiste."
-          checked={settings.minimizeToTray}
-          onChange={(minimizeToTray) => void change({ minimizeToTray })}
-        />
-        <Switch
-          label="Mit Windows starten (im Infobereich)"
-          description={openAtLoginHint(settings)}
+          label={mac ? 'Beim Anmelden starten' : 'Mit Windows starten (im Infobereich)'}
+          description={openAtLoginHint(settings, mac)}
           checked={settings.openAtLogin}
           disabled={!settings.openAtLoginAvailable}
           onChange={(openAtLogin) => void change({ openAtLogin })}
@@ -63,7 +76,7 @@ export default function DesktopSection() {
         <div>
           <Switch
             label="Erinnerungen an fällige Tasks"
-            description="Eine Windows-Benachrichtigung für Tasks, die heute fällig oder überfällig sind – einmal am Tag, bis sie in der letzten Spalte liegen."
+            description={`${mac ? 'Eine Mitteilung' : 'Eine Windows-Benachrichtigung'} für Tasks, die heute fällig oder überfällig sind – einmal am Tag, bis sie in der letzten Spalte liegen.`}
             checked={settings.notifications}
             onChange={(notifications) => void change({ notifications })}
           />
@@ -71,14 +84,15 @@ export default function DesktopSection() {
             Jetzt prüfen
           </Button>
         </div>
-        <HotkeyField settings={settings} onChange={(hotkey) => change({ hotkey })} />
+        <HotkeyField settings={settings} mac={mac} onChange={(hotkey) => change({ hotkey })} />
       </div>
     </section>
   );
 }
 
-function openAtLoginHint(settings: DesktopSettings): string {
+function openAtLoginHint(settings: DesktopSettings, mac: boolean): string {
   if (!settings.openAtLoginAvailable) return 'Nur in der installierten App verfügbar.';
+  if (mac) return 'Damit Mitteilungen auch kommen, wenn du Scrumbanize nicht geöffnet hast. Ein Fenster, das dabei erscheint, kannst du einfach schließen.';
   if (settings.openAtLogin && !settings.closeToTray) {
     return 'Ohne „Beim Schließen in den Infobereich minimieren“ beendet das Schließen des Fensters Scrumbanize, und bis zur nächsten Anmeldung kommen keine Erinnerungen.';
   }
@@ -86,8 +100,9 @@ function openAtLoginHint(settings: DesktopSettings): string {
 }
 
 /** Shows the shortcut and records a new one: click "Ändern", press the keys, Esc cancels. */
-function HotkeyField({ settings, onChange }: { settings: DesktopSettings; onChange: (hotkey: string) => Promise<boolean> }) {
+function HotkeyField({ settings, mac, onChange }: { settings: DesktopSettings; mac: boolean; onChange: (hotkey: string) => Promise<boolean> }) {
   const [recording, setRecording] = useState(false);
+  const keys = acceleratorKeys(settings.hotkey, mac);
 
   function onKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
     // Nothing else may react while recording, e.g. Ctrl+K opening the command palette.
@@ -97,7 +112,7 @@ function HotkeyField({ settings, onChange }: { settings: DesktopSettings; onChan
       setRecording(false);
       return;
     }
-    const accelerator = acceleratorFromKeyEvent(event.nativeEvent);
+    const accelerator = acceleratorFromKeyEvent(event.nativeEvent, mac);
     if (!accelerator) return;
     setRecording(false);
     if (accelerator !== settings.hotkey) void onChange(accelerator);
@@ -126,8 +141,8 @@ function HotkeyField({ settings, onChange }: { settings: DesktopSettings; onChan
           </button>
         ) : (
           <>
-            <span className={`flex items-center gap-0.5 ${settings.hotkeyActive ? '' : 'line-through opacity-60'}`} aria-label={`Tastenkombination ${acceleratorKeys(settings.hotkey).join(' + ')}`}>
-              {acceleratorKeys(settings.hotkey).map((key) => (
+            <span className={`flex items-center gap-0.5 ${settings.hotkeyActive ? '' : 'line-through opacity-60'}`} aria-label={`Tastenkombination ${keys.join(' + ')}`}>
+              {keys.map((key) => (
                 <Kbd key={key}>{key}</Kbd>
               ))}
             </span>

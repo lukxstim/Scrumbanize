@@ -22,8 +22,10 @@ export interface DesktopSettingsView {
   hotkeyActive: boolean;
   /** Starts hidden in the notification area when signing in to Windows. */
   openAtLogin: boolean;
-  /** Only the installed or portable app can start with Windows, not an unpacked run. */
+  /** Only the installed or portable app can start at login, not an unpacked run. */
   openAtLoginAvailable: boolean;
+  /** The settings page words things for Windows or macOS and hides what a Mac does differently. */
+  platform: NodeJS.Platform;
 }
 
 export type DesktopSettingsPatch = Partial<Pick<DesktopSettingsView, 'closeToTray' | 'minimizeToTray' | 'notifications' | 'hotkey' | 'openAtLogin'>>;

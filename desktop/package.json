@@ -1,15 +1,16 @@
 {
   "name": "@scrumbanize/desktop",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "productName": "Scrumbanize",
-  "description": "Scrumbanize – Notizen und Scrumban-Board als Windows-Desktop-App",
+  "description": "Scrumbanize – Notizen und Scrumban-Board als Desktop-App für Windows und macOS",
   "author": "Scrumbanize",
   "main": "dist/main.cjs",
   "scripts": {
     "build": "node build.mjs",
     "start": "npm run build && electron .",
-    "dist": "npm run build && electron-builder --win --x64",
+    "dist": "npm run build && electron-builder --win --x64 --publish never",
+    "dist:mac": "npm run build && electron-builder --mac --universal --publish never",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

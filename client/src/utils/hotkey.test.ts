@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { acceleratorFromKeyEvent, acceleratorKeys, DEFAULT_HOTKEY } from './hotkey';
 
-const press = (code: string, modifiers: { ctrl?: boolean; alt?: boolean; shift?: boolean; meta?: boolean } = {}) =>
-  acceleratorFromKeyEvent({ code, ctrlKey: !!modifiers.ctrl, altKey: !!modifiers.alt, shiftKey: !!modifiers.shift, metaKey: !!modifiers.meta });
+type Modifiers = { ctrl?: boolean; alt?: boolean; shift?: boolean; meta?: boolean };
+const press = (code: string, modifiers: Modifiers = {}, apple = false) =>
+  acceleratorFromKeyEvent(
+    { code, ctrlKey: !!modifiers.ctrl, altKey: !!modifiers.alt, shiftKey: !!modifiers.shift, metaKey: !!modifiers.meta },
+    apple,
+  );
 
-describe('acceleratorFromKeyEvent', () => {
+describe('acceleratorFromKeyEvent on Windows', () => {
   it('turns key presses with Ctrl or Alt into accelerators, modifiers in a fixed order', () => {
     expect(press('Space', { ctrl: true, shift: true })).toBe(DEFAULT_HOTKEY);
     expect(press('KeyS', { alt: true, shift: true })).toBe('Alt+Shift+S');
@@ -28,9 +32,29 @@ describe('acceleratorFromKeyEvent', () => {
   });
 });
 
+describe('acceleratorFromKeyEvent on a Mac', () => {
+  it('takes ⌘ as CommandOrControl and ⌃ as Control', () => {
+    expect(press('Space', { meta: true, shift: true }, true)).toBe(DEFAULT_HOTKEY);
+    expect(press('Space', { ctrl: true }, true)).toBe('Control+Space');
+    expect(press('KeyS', { meta: true, ctrl: true, alt: true }, true)).toBe('CommandOrControl+Control+Alt+S');
+    expect(press('KeyS', { alt: true }, true)).toBe('Alt+S');
+  });
+
+  it('rejects a key with only ⇧ or nothing', () => {
+    expect(press('KeyA', { shift: true }, true)).toBeNull();
+    expect(press('KeyA', {}, true)).toBeNull();
+    expect(press('MetaLeft', { meta: true }, true)).toBeNull();
+  });
+});
+
 describe('acceleratorKeys', () => {
   it('names the keys as the keyboard shows them', () => {
     expect(acceleratorKeys(DEFAULT_HOTKEY)).toEqual(['Ctrl', 'Shift', 'Leertaste']);
     expect(acceleratorKeys('Alt+Left')).toEqual(['Alt', '←']);
+  });
+
+  it('uses the Mac symbols on a Mac', () => {
+    expect(acceleratorKeys(DEFAULT_HOTKEY, true)).toEqual(['⌘', '⇧', 'Leertaste']);
+    expect(acceleratorKeys('Control+Alt+K', true)).toEqual(['⌃', '⌥', 'K']);
   });
 });

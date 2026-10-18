@@ -7,11 +7,15 @@ export interface TrayActions {
 }
 
 /**
- * The icon in the notification area next to the clock (US-18): a click shows the window, the menu also checks
- * the reminders or quits. It is there while the app runs, so a window hidden at login can always be opened.
+ * The icon in the notification area next to the clock (US-18), or in the macOS menu bar (US-20): a click shows the
+ * window, the menu also checks the reminders or quits. It is there while the app runs, so a window hidden at login
+ * can always be opened. On a Mac a click opens the menu, as usual there, and `template` marks the black glyph that
+ * macOS tints for light and dark menu bars (it finds the @2x file next to it by itself).
  */
-export function createTray(iconFile: string, actions: TrayActions): Tray {
-  const tray = new Tray(trayImage(iconFile));
+export function createTray(iconFile: string, actions: TrayActions, { template = false } = {}): Tray {
+  const image = template ? nativeImage.createFromPath(iconFile) : trayImage(iconFile);
+  if (template) image.setTemplateImage(true);
+  const tray = new Tray(image);
   tray.setToolTip('Scrumbanize');
   tray.setContextMenu(
     Menu.buildFromTemplate([
@@ -21,7 +25,7 @@ export function createTray(iconFile: string, actions: TrayActions): Tray {
       { label: 'Beenden', click: actions.quit },
     ]),
   );
-  tray.on('click', actions.open);
+  if (!template) tray.on('click', actions.open);
   return tray;
 }
 

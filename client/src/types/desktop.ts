@@ -12,8 +12,10 @@ export interface DesktopSettings {
   /** False when another program has taken the shortcut. */
   hotkeyActive: boolean;
   openAtLogin: boolean;
-  /** Only the installed or portable app can start with Windows, not an unpacked run. */
+  /** Only the installed or portable app can start at login, not an unpacked run. */
   openAtLoginAvailable: boolean;
+  /** Node's process.platform: "win32", "darwin" (macOS) … The page words things for it and hides what a Mac does differently. */
+  platform: string;
 }
 
 export type DesktopSettingsPatch = Partial<Pick<DesktopSettings, 'closeToTray' | 'minimizeToTray' | 'notifications' | 'hotkey' | 'openAtLogin'>>;

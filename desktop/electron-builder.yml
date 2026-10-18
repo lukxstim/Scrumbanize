@@ -1,4 +1,5 @@
-# Packages the desktop app: `npm run desktop:dist` (from the repository root) writes the .exe files to desktop/release.
+# Packages the desktop app (from the repository root): `npm run desktop:dist` writes the Windows .exe files,
+# `npm run desktop:dist:mac` (on a Mac only) the universal .dmg and .zip, both to desktop/release.
 appId: de.scrumbanize.app
 productName: Scrumbanize
 copyright: Scrumbanize
@@ -12,25 +13,23 @@ directories:
   output: release
   buildResources: build
 
-# better-sqlite3 is a Node-API module; its prebuilt binary works in Electron as-is, so no native rebuild
-# (and no Python / Visual Studio build tools) is needed.
+# better-sqlite3 is a Node-API module; its prebuilt binaries work in Electron as-is, so no native rebuild
+# (and no Python / Visual Studio / Xcode build tools) is needed.
 npmRebuild: false
 
+# Each platform adds which of better-sqlite3's prebuilt binaries it keeps (win.files, mac.files).
 files:
   - dist/**
   - package.json
-  # Only the Windows binary and the JavaScript of better-sqlite3, not its sources or other platforms.
+  # Only the JavaScript of better-sqlite3, not its sources.
   - "!**/node_modules/better-sqlite3/{src,deps,docs,benchmark}/**"
-  - "!**/node_modules/better-sqlite3/prebuilds/!(win32-x64.node)"
 asarUnpack:
   - "**/*.node"
 
-# The built React app, served by the bundled server, and the icon for the notification area (tray).
+# The built React app, served by the bundled server.
 extraResources:
   - from: ../client/dist
     to: client
-  - from: build/icon.png
-    to: tray.png
 
 win:
   target:
@@ -39,6 +38,12 @@ win:
     - target: portable
       arch: x64
   icon: build/icon.png
+  files:
+    - "!**/node_modules/better-sqlite3/prebuilds/!(win32-x64.node)"
+  # The icon for the notification area (tray).
+  extraResources:
+    - from: build/icon.png
+      to: tray.png
 
 # Installer: per user, without admin rights, with desktop and start menu shortcuts.
 # Uninstalling keeps the data in %APPDATA%\Scrumbanize.
@@ -53,3 +58,42 @@ nsis:
 
 portable:
   artifactName: ${productName}-${version}-portable.${ext}
+
+# One universal app for Apple Silicon and Intel Macs, so nobody can pick the wrong download (US-20).
+mac:
+  target:
+    - target: dmg
+      arch: universal
+    - target: zip
+      arch: universal
+  icon: build/icon.png
+  category: public.app-category.productivity
+  artifactName: ${productName}-${version}-universal.${ext}
+  # Ad-hoc signature: free, no Apple developer account. Apple Silicon does not start unsigned code at all; Gatekeeper
+  # still asks once, since the app is not notarized (see README).
+  identity: "-"
+  hardenedRuntime: false
+  # Both Mac binaries of better-sqlite3 are in both halves of the universal app (it loads the matching one), so they
+  # are the same in the x64 and the arm64 build and must not be merged.
+  files:
+    - "!**/node_modules/better-sqlite3/prebuilds/!(darwin-*.node)"
+  x64ArchFiles: "**/node_modules/better-sqlite3/prebuilds/darwin-*.node"
+  # The menu bar icon: black on transparent, macOS tints it ("Template" in the name).
+  extraResources:
+    - from: build/trayTemplate.png
+      to: trayTemplate.png
+    - from: build/trayTemplate@2x.png
+      to: trayTemplate@2x.png
+
+# The usual window: the app on the left, the Applications folder on the right to drag it onto.
+dmg:
+  contents:
+    - x: 140
+      y: 190
+    - x: 400
+      y: 190
+      type: link
+      path: /Applications
+  window:
+    width: 540
+    height: 380
