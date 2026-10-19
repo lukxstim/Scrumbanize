@@ -27,6 +27,16 @@ export function linkSummary(task: Task): string {
     .join('\n');
 }
 
+/** The tooltip of a card's note counter (US-22): each linked note, with its notebook or project if elsewhere. */
+export function noteLinkSummary(task: Pick<Task, 'projectId' | 'linkedNotes'>, untitled: string): string {
+  return task.linkedNotes
+    .map((n) => {
+      const place = n.projectId === task.projectId ? '' : ` (${n.projectKind === 'notebook' ? 'Notizbuch' : 'Projekt'} „${n.projectName}“)`;
+      return `${n.title || untitled}${place}`;
+    })
+    .join('\n');
+}
+
 /**
  * After a task changed (title, column) the other tasks still show its old state in their links; this updates
  * them. `columns` decides the column name and whether it is the last ("done") one.

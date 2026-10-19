@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BoardColumn, Task, TaskLink } from '../types/task';
 import { groupByCell } from './board';
-import { dropLinksTo, groupLinks, linkCandidates, linkSummary, openBlockers, refreshLinkedTask } from './links';
+import { dropLinksTo, groupLinks, linkCandidates, linkSummary, noteLinkSummary, openBlockers, refreshLinkedTask } from './links';
 
 const task = (id: number, fields: Partial<Task> = {}): Task => ({
   id,
@@ -12,6 +12,7 @@ const task = (id: number, fields: Partial<Task> = {}): Task => ({
   description: '',
   position: id,
   sourceNote: null,
+  linkedNotes: [],
   priority: null,
   links: [],
   attachments: [],
@@ -71,5 +72,18 @@ describe('task links', () => {
   it('offers the other tasks that are not linked yet, newest first', () => {
     const a = task(1, { links: [link(1, 'relates', 2)] });
     expect(linkCandidates(a, [a, task(2), task(3), task(4)]).map((t) => t.id)).toEqual([4, 3]);
+  });
+});
+
+describe('noteLinkSummary', () => {
+  it('lists the linked notes, naming the notebook or project of those from elsewhere', () => {
+    const t = task(1, {
+      linkedNotes: [
+        { id: 4, title: 'Carbonara', projectId: 3, projectName: 'Rezepte', projectKind: 'notebook' },
+        { id: 5, title: '', projectId: 1, projectName: 'Allgemein', projectKind: 'project' },
+        { id: 6, title: 'Plan', projectId: 2, projectName: 'Privat', projectKind: 'project' },
+      ],
+    });
+    expect(noteLinkSummary(t, 'Unbenannt').split('\n')).toEqual(['Carbonara (Notizbuch „Rezepte“)', 'Unbenannt', 'Plan (Projekt „Privat“)']);
   });
 });

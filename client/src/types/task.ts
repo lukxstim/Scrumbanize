@@ -1,5 +1,5 @@
 import type { Attachment } from './attachment';
-import type { ProjectColor } from './project';
+import type { ProjectColor, ProjectKind } from './project';
 
 export const TASK_PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const;
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
@@ -21,6 +21,15 @@ export interface Label {
   color: ProjectColor;
 }
 
+/** A note linked with a task in Markdown (US-22), either way; it may live in a notebook. */
+export interface LinkedNote {
+  id: number;
+  title: string;
+  projectId: number;
+  projectName: string;
+  projectKind: ProjectKind;
+}
+
 export interface Task {
   id: number;
   projectId: number;
@@ -34,6 +43,8 @@ export interface Task {
   /** The note the task was created from, with its tags; null if it was created elsewhere or the note was deleted. */
   /** May live in another project or notebook (US-22); `restricted`: the user may not see it (no title, no tags). */
   sourceNote: { id: number; projectId: number; title: string; tags: string[]; restricted: boolean } | null;
+  /** Notes named in the description or naming this task, also from notebooks; not the source note. By title. */
+  linkedNotes: LinkedNote[];
   priority: TaskPriority | null;
   /** Links to other tasks of the project, oldest first. */
   links: TaskLink[];

@@ -13,6 +13,7 @@ const task = (fields: Partial<Task>): Task => ({
   description: '',
   position: 1,
   sourceNote: null,
+  linkedNotes: [],
   priority: null,
   links: [],
   attachments: [],

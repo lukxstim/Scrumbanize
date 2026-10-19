@@ -8,6 +8,7 @@ import { createAttachmentQueries, type Attachment } from './attachmentsRepositor
 import { createContentLinksRepository } from './contentLinksRepository.js';
 import { isDoneSql } from './doneColumn.js';
 import type { Label } from './labelsRepository.js';
+import type { ProjectKind } from './projectsRepository.js';
 
 export interface Task {
   id: number;
@@ -23,6 +24,11 @@ export interface Task {
    * It may live in another project or notebook (US-22); `restricted`: the viewer may not see it (no title, no tags).
    */
   sourceNote: { id: number; projectId: number; title: string; tags: string[]; restricted: boolean } | null;
+  /**
+   * Notes linked with this task in Markdown (US-22), either way: named in its description or naming it. Also from
+   * notebooks; only those the viewer may see, and not the source note. By title.
+   */
+  linkedNotes: LinkedNote[];
   priority: TaskPriority | null;
   /** Links to other tasks of the project, oldest first; tasks in the trash are left out. */
   links: TaskLink[];
@@ -43,6 +49,14 @@ export interface TaskLink {
   kind: LinkKind;
   /** `done`: the other task is in the project's last column. */
   task: { id: number; title: string; columnId: number; columnName: string; done: boolean };
+}
+
+export interface LinkedNote {
+  id: number;
+  title: string;
+  projectId: number;
+  projectName: string;
+  projectKind: ProjectKind;
 }
 
 interface LinkRow {
@@ -151,6 +165,15 @@ export function createTasksRepository(db: Db) {
      WHERE t.id = ? AND t.deleted_at IS NOT NULL`,
   );
   const setDeletedAt = db.prepare<[string | null, number]>(`UPDATE tasks SET deleted_at = ? WHERE id = ?`);
+  const selectLinkedNotes = db.prepare<[{ id: number }], { id: number; title: string; project_id: number; project_name: string; project_kind: ProjectKind }>(
+    `SELECT DISTINCT n.id, n.title, p.id AS project_id, p.name AS project_name, p.kind AS project_kind
+     FROM content_links l
+     JOIN live_notes n ON n.id = CASE WHEN l.source_type = 'task' THEN l.target_id ELSE l.source_id END
+     JOIN projects p ON p.id = n.project_id
+     WHERE (l.source_type = 'task' AND l.source_id = @id AND l.target_type = 'note')
+        OR (l.source_type = 'note' AND l.target_type = 'task' AND l.target_id = @id)
+     ORDER BY n.title COLLATE NOCASE, n.id`,
+  );
   const selectNoteTags = db.prepare<[number], { name: string }>(
     `SELECT t.name FROM note_tags nt JOIN tags t ON t.id = nt.tag_id WHERE nt.note_id = ? ORDER BY t.name`,
   );
@@ -218,6 +241,14 @@ export function createTasksRepository(db: Db) {
     return { id: row.source_note_id, projectId, title: row.source_note_title ?? '', tags, restricted: false };
   }
 
+  function linkedNotesOf(row: TaskRow): LinkedNote[] {
+    const visible = visibleProjects(db);
+    return selectLinkedNotes
+      .all({ id: row.id })
+      .filter((n) => n.id !== row.source_note_id && (n.project_id === row.project_id || canSee(visible, n.project_id)))
+      .map((n) => ({ id: n.id, title: n.title, projectId: n.project_id, projectName: n.project_name, projectKind: n.project_kind }));
+  }
+
   function toTask(row: TaskRow): Task {
     return {
       id: row.id,
@@ -228,6 +259,7 @@ export function createTasksRepository(db: Db) {
       description: row.description,
       position: row.position,
       sourceNote: sourceNoteOf(row),
+      linkedNotes: linkedNotesOf(row),
       priority: row.priority,
       links: linksOf(row.id),
       attachments: attachmentQueries.forTask(row.id),

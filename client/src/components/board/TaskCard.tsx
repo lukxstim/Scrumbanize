@@ -2,15 +2,17 @@ import { LabelChips, LabelDots } from '../tasks/LabelChip';
 import { useDraggable } from '@dnd-kit/core';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { Link } from 'react-router';
+import { useProjects } from '../../hooks/useProjects';
 import type { BoardColumn, Task } from '../../types/task';
 import { todayIso } from '../../utils/dates';
 import { paths } from '../../utils/paths';
 import { checklistProgress } from '../../utils/checklist';
-import { linkSummary, openBlockers } from '../../utils/links';
+import { linkSummary, noteLinkSummary, openBlockers } from '../../utils/links';
 import { PRIORITY_LABELS, PRIORITY_STYLES } from '../../utils/priority';
 import { UNTITLED_NOTE } from '../../utils/taskFromNote';
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, LinkIcon, NoteIcon, PaperclipIcon } from '../icons';
 import { DueBadge, PriorityBadge } from '../tasks/TaskBadges';
+import { NotebookGlyph } from '../projects/NotebookSymbol';
 import { isolate } from './isolate';
 
 interface TaskCardProps {
@@ -119,12 +121,17 @@ export function TaskCardBody({
       ? 'border-dashed border-accent-line bg-accent-muted [&>*]:invisible'
       : 'cursor-grab border-line shadow-card hover:-translate-y-px hover:border-line-strong hover:shadow-card-hover';
   const tags = task.sourceNote?.tags ?? [];
+  // A source note in a notebook (US-22) shows the notebook, so it is clear the note lives in Wissen.
+  const { projects } = useProjects();
+  const sourcePlace = task.sourceNote && projects.find((p) => p.id === task.sourceNote?.projectId);
+  const sourceNotebook = sourcePlace?.kind === 'notebook' ? sourcePlace : undefined;
   const blockers = openBlockers(task);
   const checklist = checklistProgress(task.description);
   const hasBadges =
     task.dueDate ||
     (task.priority && !compact) ||
     task.links.length > 0 ||
+    task.linkedNotes.length > 0 ||
     task.attachments.length > 0 ||
     checklist.total > 0 ||
     task.labels.length > 0;
@@ -186,6 +193,13 @@ export function TaskCardBody({
               <span className="sr-only">{task.links.length === 1 ? ' Verknüpfung' : ' Verknüpfungen'}</span>
             </span>
           )}
+          {task.linkedNotes.length > 0 && (
+            <span className={metaBadge} title={`Verlinkte Notizen:\n${noteLinkSummary(task, UNTITLED_NOTE)}`}>
+              <NoteIcon className="size-3" />
+              {task.linkedNotes.length}
+              <span className="sr-only">{task.linkedNotes.length === 1 ? ' verlinkte Notiz' : ' verlinkte Notizen'}</span>
+            </span>
+          )}
           {checklist.total > 0 && (
             <span
               className={`${metaBadge} ${checklist.done === checklist.total ? 'text-success-text' : ''}`}
@@ -221,11 +235,19 @@ export function TaskCardBody({
         <Link
           to={paths.notes(task.sourceNote.projectId, task.sourceNote.id)}
           {...isolate}
-          title="Zur Notiz"
+          title={sourceNotebook ? `Zur Notiz im Notizbuch „${sourceNotebook.name}“` : 'Zur Notiz'}
           className="mt-1.5 flex w-fit max-w-full items-center gap-1 text-xs text-fg-subtle hover:text-accent-text"
         >
-          <NoteIcon className="size-3.5 shrink-0" />
-          <span className="truncate hover:underline">{task.sourceNote.title || UNTITLED_NOTE}</span>
+          {sourceNotebook ? (
+            <NotebookGlyph icon={sourceNotebook.icon ?? 'book'} className="size-3.5 shrink-0" />
+          ) : (
+            <NoteIcon className="size-3.5 shrink-0" />
+          )}
+          {/* Beside a notebook's name the title keeps up to three quarters, so it stays readable. */}
+          <span className={`min-w-0 truncate hover:underline ${sourceNotebook ? 'max-w-[75%] shrink-0' : ''}`}>
+            {task.sourceNote.title || UNTITLED_NOTE}
+          </span>
+          {sourceNotebook && <span className="min-w-0 truncate">· {sourceNotebook.name}</span>}
         </Link>
       )}
     </article>

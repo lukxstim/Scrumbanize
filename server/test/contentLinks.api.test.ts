@@ -67,6 +67,26 @@ describe('content links (single user)', () => {
     expect(db.prepare(`SELECT COUNT(*) AS n FROM content_links`).get()).toEqual({ n: 0 });
   });
 
+  it('gives tasks their linked notes, either way and from notebooks, without the source note', async () => {
+    const book = await notebook('Rezepte');
+    const recipe = await note(book.id, 'Carbonara');
+    const plan = await note(1, 'Plan');
+    const source = await note(1, 'Ursprung');
+    const t = (await api.post('/api/projects/1/tasks').send({ title: 'Kochen', description: `[Carbonara](note:${recipe.id}) [Ursprung](note:${source.id})`, sourceNoteId: source.id })).body as { id: number };
+    await api.put(`/api/notes/${plan.id}`).send({ title: 'Plan', content: `Morgen: [Kochen](task:${t.id})`, tags: [] });
+    const linked = async () => ((await api.get(`/api/tasks/${t.id}`)).body.linkedNotes as { title: string; projectKind: string; projectName: string }[]);
+
+    expect(await linked()).toEqual([
+      { id: recipe.id, title: 'Carbonara', projectId: book.id, projectName: 'Rezepte', projectKind: 'notebook' },
+      { id: plan.id, title: 'Plan', projectId: 1, projectName: 'Allgemein', projectKind: 'project' },
+    ]);
+    // On the board, too; a note in the trash drops out.
+    const board = (await api.get('/api/projects/1/board')).body as { tasks: { id: number; linkedNotes: unknown[] }[] };
+    expect(board.tasks.find((x) => x.id === t.id)!.linkedNotes).toHaveLength(2);
+    await api.delete(`/api/notes/${recipe.id}`);
+    expect((await linked()).map((n) => n.title)).toEqual(['Plan']);
+  });
+
   it('resolves link targets with their place', async () => {
     const book = await notebook('Rezepte');
     const recipe = await note(book.id, 'Carbonara');
@@ -193,6 +213,10 @@ describe('content links across users (US-22)', () => {
     expect((await alice.get(`/api/tasks/${t.id}/backlinks`)).body).toHaveLength(1);
     expect((await as('bob').get(`/api/tasks/${t.id}/backlinks`)).body).toEqual([]);
     expect((await as('bob').get('/api/links/candidates?q=geheim')).body).toEqual([]);
+    // The task's linked notes, too.
+    const linked = async (who: string) => ((await as(who).get(`/api/tasks/${t.id}`)).body.linkedNotes as { title: string }[]).map((n) => n.title);
+    expect(await linked('alice')).toEqual(['Privater Verweis']);
+    expect(await linked('bob')).toEqual([]);
     // The graph of project 1 shows the notebook's note to alice only.
     const nodes = async (who: string) => ((await as(who).get('/api/projects/1/graph')).body.nodes as { id: string }[]).map((n) => n.id);
     expect(await nodes('alice')).toContain(`note:${secret.id}`);
