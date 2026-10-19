@@ -14,7 +14,7 @@ import KnowledgePage from './components/knowledge/KnowledgePage';
 import NewProjectHost from './components/projects/NewProjectHost';
 import { NotebookGlyph } from './components/projects/NotebookSymbol';
 import ProjectLayout from './components/projects/ProjectLayout';
-import ProjectSwitcher from './components/projects/ProjectSwitcher';
+import ProjectSwitcher, { ProjectMark } from './components/projects/ProjectSwitcher';
 import RedirectToProject from './components/projects/RedirectToProject';
 import Tour from './components/onboarding/Tour';
 import ThemeSwitcher from './components/ThemeSwitcher';
@@ -29,6 +29,7 @@ import { onTourStartRequest } from './utils/appEvents';
 import { closedTourState, INITIAL_TOUR_STATE, isTourState, TOUR_STORAGE_KEY } from './utils/tour';
 import { isReminderState, REMINDER_STORAGE_KEY, reminderStep, type ReminderState } from './utils/updateReminder';
 import { ACTIVITY_PARAM, KNOWLEDGE_PATH, paths, withActivityDrawer } from './utils/paths';
+import { defaultProject } from './utils/projects';
 
 // Loaded on first visit, so the charting library stays out of the main bundle.
 const AnalyticsPage = lazy(() => import('./components/analytics/AnalyticsPage'));
@@ -63,7 +64,7 @@ const tabClass = (active: boolean) =>
   }`;
 
 export default function App() {
-  const { projects, desktop } = useProjects();
+  const { projects, desktop, sampleProjectId } = useProjects();
   const toast = useToast();
   const projectMatch = useMatch('/p/:projectId/*');
   const activeProject = projects.find((p) => p.id === Number(projectMatch?.params.projectId));
@@ -71,6 +72,8 @@ export default function App() {
   const inNotebook = activeProject?.kind === 'notebook';
   // The overview and "Alle Notizen" below it.
   const onKnowledge = useMatch(`${KNOWLEDGE_PATH}/*`) !== null || inNotebook;
+  // Outside a project (Wissen, a notebook, the account pages): the way back to the last project used.
+  const homeProject = activeProject?.kind === 'project' ? undefined : defaultProject(projects, sampleProjectId);
   // A task's details are shown on the board, so the Board tab stays active there.
   const boardMatch = useMatch('/p/:projectId/board');
   const taskMatch = useMatch('/p/:projectId/tasks/:taskId');
@@ -217,6 +220,16 @@ export default function App() {
               </NavLink>
             </nav>}
           </>
+        )}
+        {homeProject && (
+          <Link
+            to={paths.notes(homeProject.id)}
+            title={`Zurück zum Projekt „${homeProject.name}“`}
+            className="flex h-8 min-w-0 shrink items-center gap-1.5 rounded-md px-2 text-sm font-medium text-fg-subtle transition-colors duration-150 hover:bg-surface-hover hover:text-fg focus-visible:outline-2 focus-visible:outline-accent lg:ml-2"
+          >
+            <ProjectMark project={homeProject} />
+            <span className="sr-only truncate lg:not-sr-only">{homeProject.name}</span>
+          </Link>
         )}
         <div className="flex-1" />
         <button
