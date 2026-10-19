@@ -1,0 +1,5 @@
+# Files used on Linux servers and in containers keep LF line endings, also in a Windows checkout (US-23):
+# a shell script or a .env with CR LF breaks there.
+*.sh          text eol=lf
+Caddyfile     text eol=lf
+.env.example  text eol=lf

@@ -30,3 +30,30 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run typecheck
       - run: npm test
+
+  # The Docker setup (US-23): Caddyfile and Compose files are valid, and the image works end to end, in the local
+  # setup and hardened as in docker-compose.yml (see .github/scripts/docker-smoke.sh).
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Caddyfile is valid
+        run: >-
+          docker run --rm -e DOMAIN=scrumbanize.example.org -e ACME_EMAIL=ci@example.org
+          -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine
+          caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+      - name: Compose files are valid
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
+          docker compose -f docker-compose.local.yml config --quiet
+      - name: Local setup works end to end
+        run: bash .github/scripts/docker-smoke.sh local
+      - name: Hardened app container of docker-compose.yml works
+        run: bash .github/scripts/docker-smoke.sh production
+      - name: Logs
+        if: failure()
+        run: |
+          docker compose -f docker-compose.local.yml logs || true
+          docker compose logs || true

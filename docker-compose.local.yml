@@ -1,0 +1,30 @@
+# Scrumbanize im Docker-Container auf dem eigenen Rechner, ohne Domain und ohne Caddy (US-23):
+#
+#   docker compose -f docker-compose.local.yml up -d --build
+#
+# Dann http://localhost:3000 öffnen; den Einrichtungscode zeigt:
+#   docker compose -f docker-compose.local.yml logs scrumbanize
+# Ein anderer Port: SCRUMBANIZE_PORT=8080 docker compose -f docker-compose.local.yml up -d
+# Für einen Server mit HTTPS: docker-compose.yml und docs/DEPLOYMENT.md.
+
+# Eigener Projektname, damit Daten und Container getrennt von docker-compose.yml bleiben.
+name: scrumbanize-local
+
+services:
+  scrumbanize:
+    build: .
+    image: scrumbanize:latest
+    restart: unless-stopped
+    init: true
+    environment:
+      BASE_URL: http://localhost:${SCRUMBANIZE_PORT:-3000}
+      TZ: ${TZ:-Europe/Berlin}
+      BACKUP_TIME: ${BACKUP_TIME:-03:00}
+    ports:
+      - "${SCRUMBANIZE_PORT:-3000}:3000"
+    volumes:
+      # Datenbank, Anhänge und Backups (/data/backups).
+      - scrumbanize-data:/data
+
+volumes:
+  scrumbanize-data:

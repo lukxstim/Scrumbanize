@@ -7,6 +7,9 @@ docs
 *.md
 *.log
 .env
+.env.*
+backups
+deploy
 **/*.tsbuildinfo
 desktop/release
 desktop/build

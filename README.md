@@ -297,11 +297,22 @@ Im Desktop-Fenster öffnet `F12` die Entwicklertools, nur beim ungepackten Start
 
 ## Betrieb mit Docker
 
+**Auf einem Server mit eigener Domain und HTTPS** (US-23): [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) führt Schritt für Schritt durch einen frischen Ubuntu- oder Debian-Server. Kurz:
+
 ```sh
+cp .env.example .env   # DOMAIN und ACME_EMAIL eintragen
 docker compose up -d --build
 ```
 
-Die App läuft danach auf <http://localhost:3000>. Ein anderer Port lässt sich mit `SCRUMBANIZE_PORT=8080 docker compose up -d` setzen.
+`docker-compose.yml` startet die App und davor [Caddy](https://caddyserver.com), das das Let's-Encrypt-Zertifikat selbst holt und erneuert (HTTP/1.1, HTTP/2, HTTP/3; Einstellungen in `deploy/Caddyfile`). Die App ist nur im internen Netz erreichbar und läuft gehärtet: schreibgeschütztes Dateisystem, keine Linux-Capabilities, als Benutzer `node`. Datenbank und Anhänge liegen im Volume `scrumbanize_scrumbanize-data`, die Backups in `./backups` neben der Compose-Datei.
+
+**Zum Ausprobieren auf dem eigenen Rechner**, ohne Domain und Caddy:
+
+```sh
+docker compose -f docker-compose.local.yml up -d --build
+```
+
+Die App läuft danach auf <http://localhost:3000>; ein anderer Port: `SCRUMBANIZE_PORT=8080 docker compose -f docker-compose.local.yml up -d`.
 
 ### Anmeldung und Ersteinrichtung (US-21)
 
@@ -309,7 +320,7 @@ Der Server verlangt eine **Anmeldung mit E-Mail und Passwort** (die Desktop-App 
 
 ```sh
 docker compose logs scrumbanize
-# Ersteinrichtung: http://localhost:3000/setup
+# Ersteinrichtung: https://scrumbanize.example.org/setup
 # Einrichtungscode: K7PM-3XQD
 ```
 
@@ -318,7 +329,7 @@ Unter `/setup` legt man mit diesem Code das erste Konto an. Es wird Administrato
 - **Sitzungen:** ein HttpOnly-Cookie (`SameSite=Lax`, über HTTPS `Secure`), 30 Tage gültig ab der letzten Nutzung. In der Datenbank liegt nur ein Hash des Tokens; Backups enthalten keine Sitzungen, nach einer Wiederherstellung melden sich alle neu an.
 - **Passwörter:** mindestens 10 Zeichen, gespeichert als Argon2id-Hash (Node.js-Bordmittel, Ausweichlösung scrypt).
 - **Schutz:** höchstens 10 Fehlversuche pro 15 Minuten je IP-Adresse und je E-Mail-Adresse; Änderungen (POST, PUT, PATCH, DELETE) nur von der eigenen Seite (`Origin`/`Sec-Fetch-Site`), damit fremde Webseiten nichts im Namen angemeldeter Personen auslösen.
-- **Hinter einem Reverse Proxy** (z. B. Caddy mit HTTPS): `TRUST_PROXY=1` setzen, damit der Server HTTPS und die echte IP-Adresse erkennt, und `BASE_URL` auf die öffentliche Adresse.
+- **Hinter einem Reverse Proxy**: `TRUST_PROXY=1`, damit der Server HTTPS und die echte IP-Adresse erkennt, und `DOMAIN` bzw. `BASE_URL` auf die öffentliche Adresse – in `docker-compose.yml` mit Caddy ist das schon so eingestellt.
 - **Ohne Anmeldung** (nur in einem vertrauenswürdigen Netz!): `AUTH=off`.
 
 ### Konten, Einladungen und Passwörter
@@ -351,21 +362,39 @@ Jede Person sieht nur die Projekte, in denen sie Mitglied ist – auch Administr
 - Der Verlauf nennt, wer etwas getan hat (Einträge von vor US-21 haben keinen Namen).
 - In der Desktop-App und mit `AUTH=off` ist der lokale Benutzer Owner von allem.
 
-Die SQLite-Datenbank und die Anhänge liegen im Volume `scrumbanize-data` (im Container unter `/data/scrumbanize.db` und `/data/uploads/`) und bleibt bei Neustarts und Updates erhalten. Backup und Wiederherstellung gehen in der App über **Einstellungen** (Zahnrad oben rechts); Sicherungen vor einer Wiederherstellung landen unter `/data/backups/`. Ohne Browser, z. B. für ein nächtliches Backup:
+Die SQLite-Datenbank und die Anhänge liegen im Volume `scrumbanize-data` (im Container unter `/data/scrumbanize.db` und `/data/uploads/`) und bleiben bei Neustarts und Updates erhalten. Backup und Wiederherstellung gehen in der App über **Einstellungen** (Zahnrad oben rechts).
+
+### Backups (US-23)
+
+Alle Backups liegen in `/data/backups/` (`DATA_DIR/backups`):
+
+| Was | Wo | Wann | Aufgehoben |
+|---|---|---|---|
+| Tägliches Backup (dasselbe ZIP wie „Backup herunterladen“) | `taeglich/scrumbanize-backup-JJJJ-MM-TT.zip` | täglich um `BACKUP_TIME` (Standard `03:00`, Zeitzone `TZ`) | die neuesten `BACKUP_KEEP` (Standard 14) |
+| Kopie der Datenbank vor einem Update, das ihr Schema ändert | `vor-update-v<Schema>-<Zeit>.db` | beim ersten Start einer neuen Version | die neuesten 5 |
+| Sicherung vor einer Wiederherstellung | `vor-wiederherstellung-<Zeit>.zip` | vor jeder Wiederherstellung | die neuesten 5 |
+| Manuelles Backup über die Kommandozeile | `manuell/scrumbanize-backup-<Zeit>.zip` | auf Aufruf | alle |
+
+- Der Server prüft jede Minute, ob das heutige Backup fällig ist. War er um `BACKUP_TIME` nicht in Betrieb, holt er es beim nächsten Start nach. `BACKUP_TIME=off` schaltet die täglichen Backups ab.
+- Archive entstehen erst als `.part`-Datei und bekommen ihren Namen, wenn sie vollständig sind – ein Absturz oder eine volle Platte hinterlässt kein halbes Backup unter dem richtigen Namen.
+- Ob es geklappt hat, zeigt **Einstellungen → Backup** (für Administratoren: Zeitplan, letztes Backup, letzter Fehler) und `/api/health` (`backups`: `ok`, `not_writable` oder `failing`).
+- Zurück auf den Stand vor einem Update: Server stoppen, die `vor-update-…db` an die Stelle von `scrumbanize.db` kopieren (`-wal`/`-shm` daneben löschen) und die alte Version starten. Die Anhänge ändert ein Update nie.
+
+Ein Backup sofort, während der Server läuft (öffnet die Datenbank nur lesend):
+
+```sh
+docker compose exec scrumbanize node server/dist/backupCli.js              # nach /data/backups/manuell/
+docker compose exec -T scrumbanize node server/dist/backupCli.js --out - > scrumbanize-backup.zip   # direkt auf den Rechner
+npm run backup -w server                                                     # ohne Docker (DATA_DIR wie beim Server)
+```
+
+Oder über die API, z. B. von einem anderen Rechner:
 
 ```sh
 # Anmelden (Cookie in cookies.txt), dann herunterladen
 curl -c cookies.txt -H 'Content-Type: application/json' \
   -d '{"email":"admin@example.com","password":"…"}' http://localhost:3000/api/auth/login
 curl -b cookies.txt -o scrumbanize-backup.zip http://localhost:3000/api/backup
-```
-
-Oder direkt im Container, während er läuft:
-
-```sh
-docker compose exec scrumbanize node -e "require('better-sqlite3')('/data/scrumbanize.db').backup('/data/backup.db')"
-docker compose cp scrumbanize:/data/backup.db ./backup.db
-docker compose cp scrumbanize:/data/uploads ./uploads   # die Dateien der Anhänge
 ```
 
 ## Entwicklung
@@ -396,7 +425,9 @@ Lokal liegen die Datenbank unter `data/scrumbanize.db` und die Anhänge unter `d
 | `ACME_EMAIL`  | –                        | E-Mail-Adresse für Let's Encrypt (liest Caddy; der Server prüft nur das Format) |
 | `BASE_URL`    | `https://DOMAIN`         | Öffentliche Adresse ohne Pfad, z. B. `https://scrumbanize.example.org`; Seiten von dort dürfen Änderungen schicken, und die Einrichtungsadresse wird damit angezeigt. Muss zum `DOMAIN` passen |
 | `ALLOWED_ORIGINS` | –                    | Weitere Adressen (kommagetrennt), deren Seiten Änderungen schicken dürfen |
-| `TZ`          | Zeitzone des Systems     | Zeitzone, z. B. `Europe/Berlin` |
+| `BACKUP_TIME` | `03:00`                  | Uhrzeit des täglichen Backups (24 Stunden) oder `off` – siehe [Backups](#backups-us-23) |
+| `BACKUP_KEEP` | `14`                     | Wie viele tägliche Backups aufgehoben werden (1–365) |
+| `TZ`          | Zeitzone des Systems     | Zeitzone, z. B. `Europe/Berlin`; gilt für `BACKUP_TIME` |
 | `APP_VERSION` | aus `desktop/package.json` | Version, die `/api/health` meldet |
 | `TRUST_PROXY` | –                        | Hinter einem Reverse Proxy: `1` (ein Proxy), `true` oder Adressen wie in Express' „trust proxy“ – für `Secure`-Cookies und die echte IP-Adresse bei der Begrenzung von Fehlversuchen |
 
@@ -408,7 +439,8 @@ npm-Workspaces mit drei Paketen:
 
 - `server/` – Express-REST-API mit SQLite (`better-sqlite3`). Start `src/start.ts` (`startServer()`, genutzt von `src/index.ts` und der Desktop-App), App-Aufbau `src/app.ts`, Schema und Migrationen `src/database.ts`.
 - `desktop/` – Electron-Hauptprozess (`src/main.ts`) und Preload-Skript (`src/preload.ts`), mit esbuild zu `dist/main.cjs` und `dist/preload.cjs` gebündelt; Paketierung mit `electron-builder.yml` (Windows und macOS). Tests (Erinnerungsregeln, Einstellungen, Mac-Menü) unter `test/`.
-- `.github/workflows/` – `ci.yml` (Tests bei jedem Push auf `main`) und `release.yml` (Desktop-Builds und Release-Entwurf bei einem Versions-Tag).
+- `.github/workflows/` – `ci.yml` (Tests und der Docker-Rauchtest `.github/scripts/docker-smoke.sh` bei jedem Push auf `main`) und `release.yml` (Desktop-Builds und Release-Entwurf bei einem Versions-Tag).
+- Betrieb (US-23): `Dockerfile`, `docker-compose.yml` (Server mit Caddy), `docker-compose.local.yml` (zum Ausprobieren), `deploy/Caddyfile`, `.env.example` und die Anleitung `docs/DEPLOYMENT.md`. Einstellungen prüft `server/src/config.ts`, Backups: `server/src/dailyBackup.ts` und `server/src/backupCli.ts`.
 - `client/` – React-SPA mit TypeScript, Vite und Tailwind CSS. Farben kommen aus semantischen Design-Tokens (`bg-surface`, `text-fg-muted`, `border-line`, `bg-accent` …), definiert in `src/index.css` für hell und dunkel; wiederverwendbare Bausteine liegen in `src/components/ui/`.
 
 ## REST-API
@@ -473,6 +505,7 @@ Alle Endpunkte außer `/api/health` und `/api/auth/*` verlangen eine Anmeldung (
 | DELETE  | `/api/attachments/:id` | Anhang samt Datei endgültig löschen |
 | DELETE  | `/api/tasks/:id`  | Task in den Papierkorb verschieben |
 | GET     | `/api/backup` | Backup als ZIP: `manifest.json` (`{ app, format, schemaVersion, createdAt, counts }`), `scrumbanize.db` (konsistenter Schnappschuss per `VACUUM INTO`) und `uploads/` |
+| GET     | `/api/backup/status` | Tägliche Backups (US-23, nur Administratoren): `{ schedule: { time, keep, timeZone } \| null, folder: 'ok' \| 'not_writable', last: { at, file, size } \| null, error: { at, message } \| null }` |
 | POST    | `/api/backup/restore` | Schritt 1 der Wiederherstellung: `multipart/form-data` mit dem Feld `file` (max. 2 GB). Entpackt und prüft (nur erwartete Dateien, Integrität, Schema-Version), ersetzt noch nichts. Antwort: `{ token, manifest, counts, missingFiles }`. 400 `invalid_backup` bzw. `backup_too_new` |
 | POST    | `/api/backup/restore/:token` | Schritt 2: sichert den jetzigen Stand nach `backups/` (die letzten 5 bleiben) und ersetzt dann alle Daten in einer Transaktion. Antwort: `{ counts, safetyCopy }`. Andere Fenster erkennen das an `restoredAt` in `/api/meta` |
 | DELETE  | `/api/backup/restore/:token` | Geprüftes Backup verwerfen |

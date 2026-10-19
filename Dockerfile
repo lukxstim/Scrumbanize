@@ -1,7 +1,10 @@
 # syntax=docker/dockerfile:1
 
+# Node.js line of all stages; the desktop app and CI use the same (24).
+ARG NODE_IMAGE=node:24-bookworm-slim
+
 # ---- build: compile client and server ----
-FROM node:24-bookworm-slim AS build
+FROM ${NODE_IMAGE} AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY client/package.json client/
@@ -14,7 +17,7 @@ COPY server server
 RUN npm run build
 
 # ---- deps: production dependencies of the server only ----
-FROM node:24-bookworm-slim AS deps
+FROM ${NODE_IMAGE} AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY client/package.json client/
@@ -23,22 +26,27 @@ COPY desktop/package.json desktop/
 RUN npm ci --omit=dev --workspace server && npm cache clean --force
 
 # ---- runtime ----
-FROM node:24-bookworm-slim
+FROM ${NODE_IMAGE}
+LABEL org.opencontainers.image.title="Scrumbanize" \
+      org.opencontainers.image.description="Notizen und Scrumban-Board, selbst gehostet"
+# TMPDIR in the data volume: in docker-compose.yml the image's own file system is read-only, and a backup's database
+# snapshot needs as much room as the database (US-23).
 ENV NODE_ENV=production \
     PORT=3000 \
-    DATA_DIR=/data
+    DATA_DIR=/data \
+    TMPDIR=/data/tmp
 WORKDIR /app
 
 COPY --from=deps /app ./
 COPY --from=build /app/server/dist server/dist
 COPY --from=build /app/client/dist client/dist
 
-# A new named volume inherits this directory's owner, so the unprivileged user can write the database.
-RUN mkdir -p /data && chown node:node /data
+# A new named volume inherits these folders and their owner, so the unprivileged user can write the database.
+RUN mkdir -p /data/tmp /data/backups && chown -R node:node /data
 USER node
 
 EXPOSE 3000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD ["node", "-e", "fetch(`http://localhost:${process.env.PORT}/api/health`).then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
 
 CMD ["node", "server/dist/index.js"]

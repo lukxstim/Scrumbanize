@@ -1,0 +1,28 @@
+# Caddy vor Scrumbanize (US-23): HTTPS mit automatischem Let's-Encrypt-Zertifikat für DOMAIN, HTTP/1.1, HTTP/2 und
+# HTTP/3, Weiterleitung von http:// auf https://. Die Werte kommen aus .env (siehe docker-compose.yml).
+
+{
+	# Kontakt für Let's Encrypt (Hinweise zu ablaufenden Zertifikaten).
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		# Browser sprechen die Domain ein Jahr lang nur noch über HTTPS an.
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# Andere Seiten dürfen Scrumbanize nicht einbetten; die eigene Vorschau von PDF-Anhängen schon.
+		X-Frame-Options "SAMEORIGIN"
+		-Server
+	}
+
+	# Setzt X-Forwarded-For und X-Forwarded-Proto, die der Server mit TRUST_PROXY=1 liest. WebSockets laufen ohne
+	# weitere Einstellung durch; flush_interval -1 gibt Server-Sent Events sofort weiter (für Live-Updates, US-24).
+	# Keine Größenbegrenzung: Wiederherstellungen laden Backups bis 2 GB hoch.
+	reverse_proxy scrumbanize:3000 {
+		flush_interval -1
+	}
+}

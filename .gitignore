@@ -7,6 +7,9 @@ coverage/
 # Local SQLite database (DATA_DIR default)
 data/
 
+# Backups next to docker-compose.yml on a server (US-23)
+/backups/
+
 .env
 .DS_Store
 Thumbs.db

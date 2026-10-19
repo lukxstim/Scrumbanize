@@ -1,13 +1,93 @@
+# Scrumbanize auf einem Server, mit HTTPS über Caddy und Let's Encrypt (US-23).
+#
+#   cp .env.example .env    # DOMAIN und ACME_EMAIL eintragen
+#   docker compose up -d --build
+#
+# Anleitung für einen frischen Server: docs/DEPLOYMENT.md. Zum Ausprobieren auf dem eigenen Rechner, ohne Domain:
+# docker-compose.local.yml.
+
+# Der Projektname bestimmt die Volume-Namen (scrumbanize_scrumbanize-data); so finden Updates die Daten wieder.
+name: scrumbanize
+
+# Für beide Dienste: ein schreibgeschütztes Dateisystem, keine Rechte über das Nötige hinaus, begrenzte Logs.
+x-hardening: &hardening
+  read_only: true
+  tmpfs:
+    - /tmp
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+
 services:
   scrumbanize:
     build: .
     image: scrumbanize:latest
     restart: unless-stopped
     init: true
-    ports:
-      - "${SCRUMBANIZE_PORT:-3000}:3000"
+    # DOMAIN, ACME_EMAIL, AUTH, BACKUP_TIME, BACKUP_KEEP, TZ … (siehe .env.example)
+    env_file: .env
+    # Fest für diesen Aufbau; Werte aus .env gelten hier nicht.
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DATA_DIR: /data
+      TMPDIR: /data/tmp
+      # Caddy davor beendet HTTPS: so erkennt der Server HTTPS (Secure-Cookies) und die echte IP-Adresse.
+      TRUST_PROXY: "1"
+    # Nur im internen Netz erreichbar; nach außen spricht ausschließlich Caddy.
+    expose:
+      - "3000"
     volumes:
+      # Datenbank und Anhänge.
       - scrumbanize-data:/data
+      # Backups auf dem Server neben dieser Datei, zum Sichern auf einen anderen Rechner.
+      - ./backups:/data/backups
+    depends_on:
+      backup-folder:
+        condition: service_completed_successfully
+    stop_grace_period: 30s
+    <<: *hardening
+
+  # Gibt ./backups dem Benutzer der App (node, UID 1000) – Docker legt den Ordner sonst für root an. Läuft bei jedem
+  # Start kurz und beendet sich.
+  backup-folder:
+    image: busybox:1.36
+    user: "0"
+    command: ["chown", "1000:1000", "/backups"]
+    volumes:
+      - ./backups:/backups
+    restart: "no"
+    network_mode: none
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    # DOMAIN und ACME_EMAIL für das Caddyfile.
+    env_file: .env
+    ports:
+      - "80:80"
+      - "443:443"
+      # HTTP/3
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Zertifikate: bleiben bei Neustarts erhalten, sonst fragt Caddy Let's Encrypt jedes Mal neu.
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      scrumbanize:
+        condition: service_healthy
+    <<: *hardening
+    cap_add:
+      - NET_BIND_SERVICE
 
 volumes:
   scrumbanize-data:
+  caddy-data:
+  caddy-config:
