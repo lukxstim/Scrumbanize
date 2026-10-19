@@ -138,6 +138,7 @@ export const text = {
   memberRemoved: (name: string) => `${name} aus dem Projekt entfernt`,
   memberLeft: (name: string) => `${name} hat das Projekt verlassen`,
   sampleProjectCreated: () => 'Beispielprojekt angelegt',
+  sampleNotebookCreated: () => 'Beispiel-Notizbuch angelegt',
   notesImported: (count: number) => `${count === 1 ? '1 Notiz' : `${count} Notizen`} importiert`,
   projectRenamed: (from: string, to: string, kind: ProjectKind = 'project') => `${KIND_NAMES[kind]} ${quote(from)} in ${quote(to)} umbenannt`,
   projectRecolored: (name: string, kind: ProjectKind = 'project') => `Farbe von ${KIND_NAMES[kind]} ${quote(name)} geändert`,

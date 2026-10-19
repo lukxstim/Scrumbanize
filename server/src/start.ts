@@ -3,6 +3,7 @@ import path from 'node:path';
 import { createApp, type DesktopInfo } from './app.js';
 import type { AuthMode } from './auth/middleware.js';
 import { DB_FILE_NAME, openDatabase, UPLOADS_DIR_NAME } from './database.js';
+import { seedSampleNotebookOnce } from './sampleNotebook.js';
 import { seedSampleProject } from './sampleProject.js';
 import { loopbackHosts } from './hostGuard.js';
 
@@ -59,6 +60,8 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   const uploadsDir = path.join(path.resolve(options.dataDir), UPLOADS_DIR_NAME);
   // A brand-new database starts with the sample project (US-13); updates of existing ones never get it.
   const db = openDatabase(dbFile, { onCreate: (created) => seedSampleProject(created) });
+  // Wissen (US-22) starts with a sample notebook, also on existing installations – once, never again after deleting.
+  seedSampleNotebookOnce(db);
 
   // The guard needs the actual port, which is only known after listening.
   let actualPort = options.port;

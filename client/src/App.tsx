@@ -28,7 +28,7 @@ import { useTrashCount } from './hooks/useTrash';
 import { onTourStartRequest } from './utils/appEvents';
 import { closedTourState, INITIAL_TOUR_STATE, isTourState, TOUR_STORAGE_KEY } from './utils/tour';
 import { isReminderState, REMINDER_STORAGE_KEY, reminderStep, type ReminderState } from './utils/updateReminder';
-import { lastAreaPath, rememberAreaPath } from './utils/areas';
+import { areaTarget, lastAreaPath, rememberAreaPath } from './utils/areas';
 import { ACTIVITY_PARAM, KNOWLEDGE_PATH, paths, withActivityDrawer } from './utils/paths';
 
 // Loaded on first visit, so the charting library stays out of the main bundle.
@@ -109,8 +109,8 @@ export default function App() {
     }
   }, [inProjects, onKnowledge, location.pathname, location.search]);
   // Inside an area, its entry leads to the area's start: the current project stays, Wissen shows "Alle Notizen".
-  const projectsTarget = inProjects ? location.pathname : (lastAreaPath('projects') ?? '/');
-  const knowledgeTarget = onKnowledge ? KNOWLEDGE_PATH : (lastAreaPath('knowledge') ?? KNOWLEDGE_PATH);
+  const projectsTarget = inProjects ? location.pathname : areaTarget('projects', lastAreaPath('projects'), projects);
+  const knowledgeTarget = onKnowledge ? KNOWLEDGE_PATH : areaTarget('knowledge', lastAreaPath('knowledge'), projects);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   // The onboarding tour starts by itself once the first project is shown, unless it was dismissed for good

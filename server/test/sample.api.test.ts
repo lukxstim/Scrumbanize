@@ -6,7 +6,10 @@ import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
 import { migrations, openDatabase, type Db } from '../src/database.js';
+import { SAMPLE_NOTEBOOK_NAME, seedSampleNotebookOnce } from '../src/sampleNotebook.js';
 import { SAMPLE_PROJECT_NAME, seedSampleProject } from '../src/sampleProject.js';
+import { createProjectsRepository } from '../src/repositories/projectsRepository.js';
+import { createUsersRepository } from '../src/repositories/usersRepository.js';
 import { startServer, type RunningServer } from '../src/start.js';
 
 describe('sample project', () => {
@@ -122,12 +125,14 @@ describe('first start', () => {
 
   const projectNames = async () => ((await (await fetch(`${server!.url}/api/projects`)).json()) as { name: string }[]).map((p) => p.name);
 
-  it('creates the sample once, also after it was deleted', async () => {
+  it('creates the samples once, also after they were deleted', async () => {
     server = await startServer({ port: 0, host: '127.0.0.1', auth: 'local', dataDir: dir });
-    expect(await projectNames()).toEqual(['Allgemein', SAMPLE_PROJECT_NAME]);
-    const { sampleProjectId } = (await (await fetch(`${server.url}/api/meta`)).json()) as { sampleProjectId: number };
-    await fetch(`${server.url}/api/projects/${sampleProjectId}`, { method: 'DELETE' });
-    await fetch(`${server.url}/api/trash/project/${sampleProjectId}`, { method: 'DELETE' });
+    expect(await projectNames()).toEqual(['Allgemein', SAMPLE_PROJECT_NAME, SAMPLE_NOTEBOOK_NAME]);
+    const all = (await (await fetch(`${server.url}/api/projects`)).json()) as { id: number }[];
+    for (const { id } of all.slice(1)) {
+      await fetch(`${server.url}/api/projects/${id}`, { method: 'DELETE' });
+      await fetch(`${server.url}/api/trash/project/${id}`, { method: 'DELETE' });
+    }
     await server.close();
 
     server = await startServer({ port: 0, host: '127.0.0.1', auth: 'local', dataDir: dir });
@@ -140,14 +145,62 @@ describe('first start', () => {
     expect(await (await fetch(`${server.url}/api/meta`)).json()).toMatchObject({ desktop });
   });
 
-  it('leaves existing installations alone when they are updated', async () => {
+  it('gives existing installations the sample notebook, but not the sample project, when they are updated', async () => {
     const v10 = new Database(path.join(dir, 'scrumbanize.db'));
     for (const sql of migrations.slice(0, 10)) v10.exec(sql);
     v10.pragma('user_version = 10');
     v10.close();
 
     server = await startServer({ port: 0, host: '127.0.0.1', auth: 'local', dataDir: dir });
-    expect(await projectNames()).toEqual(['Allgemein']);
+    expect(await projectNames()).toEqual(['Allgemein', SAMPLE_NOTEBOOK_NAME]);
     expect(await (await fetch(`${server.url}/api/meta`)).json()).toEqual({ sampleProjectId: null, desktop: null, restoredAt: null });
+  });
+});
+
+describe('sample notebook', () => {
+  let db: Db;
+  let api: ReturnType<typeof request>;
+
+  beforeEach(() => {
+    db = openDatabase(':memory:', { onCreate: (created) => seedSampleProject(created) });
+  });
+  afterEach(() => db.close());
+
+  it('holds a guide and a recipe in a folder, linked to each other and to the welcome note of the sample project', async () => {
+    const id = seedSampleNotebookOnce(db)!;
+    api = request(createApp(db));
+    const notebook = ((await api.get('/api/projects')).body as { id: number; kind: string; icon: string; noteCount: number }[]).find((p) => p.id === id);
+    expect(notebook).toMatchObject({ kind: 'notebook', icon: 'lightbulb', noteCount: 2 });
+
+    const folders = (await api.get(`/api/projects/${id}/folders`)).body as { id: number; name: string }[];
+    expect(folders.map((f) => f.name)).toEqual(['Rezepte']);
+    const notes = (await api.get(`/api/projects/${id}/notes`)).body as { id: number; title: string; content: string; folderId: number | null; tags: string[] }[];
+    const recipe = notes.find((n) => n.title === 'Pasta Carbonara')!;
+    const guide = notes.find((n) => n.title === 'So funktioniert Wissen')!;
+    expect(recipe).toMatchObject({ folderId: folders[0]!.id, tags: ['beispiel', 'rezept'] });
+    expect(guide.folderId).toBeNull();
+    expect(guide.content).toContain(`](note:${recipe.id})`);
+    expect((await api.get(`/api/notes/${recipe.id}/backlinks`)).body).toHaveLength(1);
+    const welcomeId = ((await api.get(`/api/projects/${(await api.get('/api/meta')).body.sampleProjectId}/notes`)).body as { id: number; title: string }[]).find(
+      (n) => n.title === 'So funktioniert Scrumbanize',
+    )!.id;
+    expect(guide.content).toContain(`](note:${welcomeId})`);
+    // Shown as one entry in the activity log.
+    expect(((await api.get(`/api/projects/${id}/activities`)).body.items as { description: string }[]).map((a) => a.description)).toEqual(['Beispiel-Notizbuch angelegt']);
+  });
+
+  it('is made only once, and its administrators own it on a server with login', () => {
+    const users = createUsersRepository(db);
+    const now = new Date().toISOString();
+    const admin = db.prepare(`INSERT INTO users (email, name, password_hash, system_role, created_at, updated_at) VALUES ('a@example.com', 'A', 'x', 'admin', ?, ?) RETURNING id`).get(now, now) as { id: number };
+    const id = seedSampleNotebookOnce(db)!;
+    expect(users.members(id).map((m) => [m.user.id, m.role])).toEqual([[admin.id, 'owner']]);
+    expect(seedSampleNotebookOnce(db)).toBeUndefined();
+  });
+
+  it('leaves Wissen alone when a notebook of that name exists already', () => {
+    createProjectsRepository(db).create({ name: SAMPLE_NOTEBOOK_NAME, color: 'red', kind: 'notebook' });
+    expect(seedSampleNotebookOnce(db)).toBeUndefined();
+    expect(seedSampleNotebookOnce(db)).toBeUndefined();
   });
 });
