@@ -13,6 +13,11 @@ export const TOUR_STEPS: TourStep[] = [
     text: 'Hier verbinden sich Notizen und ein Scrumban-Board. Das Projekt „Willkommen bei Scrumbanize“ zeigt alles an Beispielen – in einer Minute kennst du die wichtigsten Stellen.',
   },
   {
+    target: 'areas',
+    title: 'Projekte und Wissen',
+    text: 'Oben links wechselst du zwischen zwei Bereichen: Projekte mit Notizen und Board – und Wissen mit Notizbüchern für alles, was zu keinem Projekt gehört, etwa Rezepte oder Mitschriften. Jeder Bereich merkt sich, wo du zuletzt warst.',
+  },
+  {
     target: 'project-switcher',
     title: 'Projekte',
     text: 'Jedes Projekt hat eigene Notizen, Spalten und Swimlanes. Hier wechselst du Projekte, legst neue an und gibst ihnen eine Farbe.',

@@ -18,17 +18,17 @@ export const accountPaths = {
   users: '/benutzer',
 };
 
-/** The overview of all notebooks (US-22); a notebook itself lives under /p/:id/notes like any project. */
+/** The area Wissen (US-22) and its "Alle Notizen"; a notebook itself lives under /p/:id/notes like any project. */
 export const KNOWLEDGE_PATH = '/wissen';
 
 /** The query parameter of the tags "Alle Notizen" is filtered by; it may repeat. */
 export const TAG_PARAM = 'tag';
 
-/** "Alle Notizen" (US-22): the notes of every project and notebook, optionally filtered by tags. */
+/** "Alle Notizen", the start of Wissen (US-22): the notes of every notebook, optionally filtered by tags. */
 export function allNotesPath(noteId?: number, tags: string[] = []): string {
   const params = new URLSearchParams(tags.map((tag) => [TAG_PARAM, tag]));
   const search = params.toString();
-  return `${KNOWLEDGE_PATH}/notizen${noteId === undefined ? '' : `/${noteId}`}${search ? `?${search}` : ''}`;
+  return `${KNOWLEDGE_PATH}${noteId === undefined ? '' : `/notizen/${noteId}`}${search ? `?${search}` : ''}`;
 }
 
 /** The top-level pages of a project (the header tabs). */

@@ -3,6 +3,7 @@ import { Navigate, Outlet, useMatch, useParams } from 'react-router';
 import { useProjects } from '../../hooks/useProjects';
 import { paths } from '../../utils/paths';
 import { setLastProjectId } from '../../utils/projects';
+import KnowledgeLayout from '../knowledge/KnowledgeLayout';
 import RedirectToProject, { ProjectsLoading } from './RedirectToProject';
 
 /** Everything under /p/:projectId. Unknown projects redirect; the pages restart for each project. */
@@ -36,9 +37,11 @@ export default function ProjectLayout() {
   if (notebook && (boardMatch || taskMatch || calendarMatch || analyticsMatch)) return <Navigate to={paths.notes(project.id)} replace />;
 
   // A new key per project resets search, filters and loaded data when switching projects.
-  return (
+  const page = (
     <Fragment key={project.id}>
       <Outlet />
     </Fragment>
   );
+  // A notebook belongs to Wissen (US-22): its pages sit beside the sidebar of notebooks and tags.
+  return notebook ? <KnowledgeLayout>{page}</KnowledgeLayout> : page;
 }

@@ -3,6 +3,7 @@ import type { Attachment } from '../types/attachment';
 import type { Note, NoteInput } from '../types/note';
 import type { Task } from '../types/task';
 import { notesApi, tasksApi, trashApi } from '../utils/api';
+import { notifyNotesChanged } from '../utils/appEvents';
 import type { TaskDraft } from '../utils/taskFromNote';
 
 export type LoadStatus = 'loading' | 'ready' | 'error';
@@ -35,6 +36,7 @@ export function useNotes(projectId: number | null) {
     if (projectId === null) throw new Error('A new note needs a project');
     const note = await notesApi.create(projectId, { title, content, tags }, folderId);
     setNotes((current) => [note, ...current]);
+    notifyNotesChanged();
     return note;
   }, [projectId]);
 
@@ -45,6 +47,7 @@ export function useNotes(projectId: number | null) {
     setNotes((current) =>
       current.map((note) => (note.id === id ? { ...saved, tasks: note.tasks, attachments: note.attachments } : note)),
     );
+    notifyNotesChanged();
   }, []);
 
   /** Into a folder (US-22), or (null) to the top level. */
@@ -67,6 +70,7 @@ export function useNotes(projectId: number | null) {
   const deleteNote = useCallback(async (id: number): Promise<void> => {
     await notesApi.remove(id);
     setNotes((current) => current.filter((note) => note.id !== id));
+    notifyNotesChanged();
   }, []);
 
   /** `targetProjectId`: the task may go into another project (US-22), e.g. from a notebook. */

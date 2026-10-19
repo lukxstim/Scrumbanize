@@ -2,19 +2,15 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../hooks/useAuth';
 import { useProjects } from '../../hooks/useProjects';
-import { useToast } from '../../hooks/useToast';
-import type { Project, ProjectInput } from '../../types/project';
-import { trashApi } from '../../utils/api';
+import type { Project } from '../../types/project';
 import { requestNewProject } from '../../utils/appEvents';
-import { KNOWLEDGE_PATH, sectionPath, type Section } from '../../utils/paths';
+import { sectionPath, type Section } from '../../utils/paths';
 import { can, ROLE_LABELS } from '../../utils/permissions';
 import { colorDot, countLabel, KIND_WORDS, ofKind } from '../../utils/projects';
 import { CheckIcon, ChevronDownIcon, PencilIcon, PlusIcon, UsersIcon } from '../icons';
 import { menuItemClass, popoverClass } from '../ui/styles';
-import DeleteProjectDialog from './DeleteProjectDialog';
-import MembersDialog from './MembersDialog';
+import ManageProjectDialogs, { type ManageDialog } from './ManageProjectDialogs';
 import NotebookSymbol from './NotebookSymbol';
-import ProjectDialog from './ProjectDialog';
 
 interface ProjectSwitcherProps {
   active: Project;
@@ -22,7 +18,7 @@ interface ProjectSwitcherProps {
   section: Section;
 }
 
-type OpenDialog = 'edit' | 'delete' | 'members' | null;
+type OpenDialog = ManageDialog | null;
 
 /** A project's color dot, or a notebook's symbol (US-22). */
 export function ProjectMark({ project }: { project: Project }) {
@@ -35,7 +31,7 @@ export function ProjectMark({ project }: { project: Project }) {
 
 /** Switches between projects, or – inside a notebook – between notebooks (US-22). */
 export default function ProjectSwitcher({ active, section }: ProjectSwitcherProps) {
-  const { projects: all, reload, updateProject, deleteProject } = useProjects();
+  const { projects: all, reload } = useProjects();
   const kind = active.kind;
   const notebook = kind === 'notebook';
   const word = KIND_WORDS[kind];
@@ -48,7 +44,6 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const toast = useToast();
 
   const menuItems = () => [...(menuRef.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]') ?? [])];
 
@@ -112,39 +107,6 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
   function openDialog(which: OpenDialog) {
     closeMenu(false);
     setDialog(which);
-  }
-
-  async function save(input: ProjectInput) {
-    // The kind never changes.
-    const { kind: _kind, ...patch } = input;
-    await updateProject(active.id, patch);
-    setDialog(null);
-    toast({ message: `${word.one} gespeichert.` });
-  }
-
-  async function remove() {
-    const { id, name } = active;
-    await deleteProject(active.id);
-    setDialog(null);
-    navigate(notebook ? KNOWLEDGE_PATH : '/', { replace: true });
-    toast({
-      message: `${word.one} „${name}“ in den Papierkorb verschoben.`,
-      action: {
-        label: 'Rückgängig',
-        onClick: async () => {
-          try {
-            const result = await trashApi.restore('project', id);
-            await reload();
-            navigate(sectionPath(id, 'notes'));
-            if (result.type === 'project' && result.renamedFrom) {
-              toast({ message: `Wiederhergestellt als „${result.item.name}“ – der Name war inzwischen vergeben.` });
-            }
-          } catch {
-            toast({ message: `${notebook ? 'Das Notizbuch' : 'Das Projekt'} konnte nicht wiederhergestellt werden.`, tone: 'error' });
-          }
-        },
-      },
-    });
   }
 
   return (
@@ -232,20 +194,7 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
         </div>
       )}
 
-      {dialog === 'edit' && (
-        <ProjectDialog
-          mode="edit"
-          initial={{ name: active.name, color: active.color, kind, icon: active.icon }}
-          onSubmit={save}
-          onClose={() => setDialog(null)}
-          onDelete={() => setDialog('delete')}
-          deleteDisabledReason={!notebook && projects.length <= 1 ? 'Das letzte Projekt kann nicht gelöscht werden.' : undefined}
-        />
-      )}
-      {dialog === 'members' && <MembersDialog project={active} onClose={() => setDialog(null)} />}
-      {dialog === 'delete' && (
-        <DeleteProjectDialog project={active} onConfirm={remove} onClose={() => setDialog('edit')} />
-      )}
+      <ManageProjectDialogs project={active} dialog={dialog} onDialogChange={setDialog} />
     </div>
   );
 }

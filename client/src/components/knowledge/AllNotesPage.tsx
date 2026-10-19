@@ -7,15 +7,14 @@ import { useToast } from '../../hooks/useToast';
 import type { Project } from '../../types/project';
 import { trashApi } from '../../utils/api';
 import { filterNotes, sortByUpdated } from '../../utils/filterNotes';
-import { allNotesPath, KNOWLEDGE_PATH, paths, TAG_PARAM } from '../../utils/paths';
+import { allNotesPath, paths, TAG_PARAM } from '../../utils/paths';
 import { can } from '../../utils/permissions';
 import { colorDot } from '../../utils/projects';
 import { countTags } from '../../utils/tags';
-import { ChevronLeftIcon, NoteIcon } from '../icons';
+import { NoteIcon } from '../icons';
 import NoteEditor from '../notes/NoteEditor';
 import NoteList from '../notes/NoteList';
 import SearchBar from '../notes/SearchBar';
-import TagFilter from '../notes/TagFilter';
 import { NotebookGlyph } from '../projects/NotebookSymbol';
 import Button from '../ui/Button';
 import Skeleton from '../ui/Skeleton';
@@ -36,9 +35,9 @@ export function NotePlace({ project }: { project: Project | undefined }) {
 }
 
 /**
- * /wissen/notizen (US-22): the notes of every project and notebook the user can see in one list, filtered by text and
- * by the global tags (`?tag=`, from the overview or the command palette). A note is edited right here, with the rights
- * its own project gives; new notes are made in a notebook or project.
+ * /wissen, the start of Wissen (US-22): the notes of every notebook the user can see in one list, filtered by text and
+ * by tags (`?tag=`, from the sidebar or the command palette). A note is edited right here, with the rights its notebook
+ * gives; new notes are made in a notebook. Notes of projects stay with their project.
  */
 export default function AllNotesPage() {
   const { noteId } = useParams();
@@ -71,12 +70,8 @@ export default function AllNotesPage() {
   const { folders } = useFolders(selectedNote?.projectId);
 
   // The tag filter lives in the address, so it survives opening a note and can be linked to.
-  function setTags(tags: string[]) {
-    navigate(allNotesPath(selectedId ?? undefined, tags), { replace: true });
-  }
-
-  function toggleTag(tag: string) {
-    setTags(activeTags.includes(tag) ? activeTags.filter((t) => t !== tag) : [...activeTags, tag]);
+  function removeTag(tag: string) {
+    navigate(allNotesPath(selectedId ?? undefined, activeTags.filter((t) => t !== tag)), { replace: true });
   }
 
   // Deleting moves the note to the trash of its project right away; the toast can take it back.
@@ -102,17 +97,9 @@ export default function AllNotesPage() {
 
   return (
     <div className="flex min-h-0 flex-1">
-      <aside className="flex w-80 shrink-0 flex-col border-r border-line bg-surface">
+      <aside className="flex w-72 shrink-0 flex-col border-r border-line bg-surface xl:w-80">
         <div className="space-y-3 border-b border-line p-4">
           <div className="flex items-center gap-2">
-            <Link
-              to={KNOWLEDGE_PATH}
-              title="Zurück zu Wissen"
-              aria-label="Zurück zu Wissen"
-              className="-ml-1 grid size-6 place-items-center rounded-md text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg focus-visible:outline-2 focus-visible:outline-accent"
-            >
-              <ChevronLeftIcon className="size-4" />
-            </Link>
             <h1 className="text-sm font-semibold text-fg">Alle Notizen</h1>
             {status === 'ready' && (
               <span className="ml-auto text-xs text-fg-subtle tabular-nums">
@@ -120,8 +107,25 @@ export default function AllNotesPage() {
               </span>
             )}
           </div>
-          <SearchBar value={query} onChange={setQuery} placeholder="Alle Notizen durchsuchen" />
-          <TagFilter tags={tagCounts} selected={activeTags} onToggle={toggleTag} onClear={() => setTags([])} />
+          <SearchBar value={query} onChange={setQuery} placeholder="Notizen durchsuchen" />
+          {activeTags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 text-xs text-fg-subtle">
+              Mit Tag
+              {activeTags.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => removeTag(tag)}
+                  title="Filter aufheben"
+                  className="flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-white transition-opacity hover:opacity-85"
+                >
+                  {tag}
+                  <span aria-hidden="true">×</span>
+                  <span className="sr-only">entfernen</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
@@ -148,7 +152,7 @@ export default function AllNotesPage() {
               notes={visibleNotes}
               selectedId={selectedId}
               onSelect={(id) => navigate(allNotesPath(id, activeTags))}
-              emptyMessage={notes.length === 0 ? 'Noch keine Notizen vorhanden.' : 'Keine Notizen gefunden.'}
+              emptyMessage={notes.length === 0 ? 'Noch keine Notizen in deinen Notizbüchern.' : 'Keine Notizen gefunden.'}
               placeOf={(note) => <NotePlace project={projectOf(note.projectId)} />}
             />
           )}
@@ -191,7 +195,7 @@ export default function AllNotesPage() {
             <div>
               <p className="text-sm font-medium text-fg">Keine Notiz ausgewählt</p>
               <p className="mt-1 max-w-xs text-sm text-fg-subtle">
-                Hier stehen die Notizen aller Projekte und Notizbücher. Neue Notizen legst du in einem Notizbuch oder Projekt an.
+                Hier stehen die Notizen all deiner Notizbücher. Neue Notizen legst du in einem Notizbuch an.
               </p>
             </div>
           </div>

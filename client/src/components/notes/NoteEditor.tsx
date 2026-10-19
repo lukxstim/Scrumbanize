@@ -131,7 +131,7 @@ export default function NoteEditor({
         }
       }}
     >
-      <div className="flex items-center gap-2 border-b border-line px-6 py-2.5">
+      <div className="flex flex-wrap items-center gap-2 border-b border-line px-6 py-2.5">
         {!readOnly && defaultTaskProject && (
           <Button
             size="sm"

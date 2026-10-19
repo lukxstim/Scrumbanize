@@ -73,3 +73,15 @@ export function onDialogOpened(handler: () => void): () => void {
   window.addEventListener(DIALOG_OPENED, handler);
   return () => window.removeEventListener(DIALOG_OPENED, handler);
 }
+
+const NOTES_CHANGED = 'scrumbanize:notes-changed';
+
+/** A note was created, saved or deleted, so the tags of Wissen (US-22) update their counts. */
+export function notifyNotesChanged(): void {
+  window.dispatchEvent(new Event(NOTES_CHANGED));
+}
+
+export function onNotesChanged(handler: () => void): () => void {
+  window.addEventListener(NOTES_CHANGED, handler);
+  return () => window.removeEventListener(NOTES_CHANGED, handler);
+}

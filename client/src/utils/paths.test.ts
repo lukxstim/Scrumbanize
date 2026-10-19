@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { allNotesPath, TAG_PARAM } from './paths';
 
 describe('allNotesPath', () => {
-  it('points at "Alle Notizen", a note in it, and keeps the tag filter in the address', () => {
-    expect(allNotesPath()).toBe('/wissen/notizen');
+  it('points at "Alle Notizen" (the start of Wissen), a note in it, and keeps the tag filter in the address', () => {
+    expect(allNotesPath()).toBe('/wissen');
     expect(allNotesPath(42)).toBe('/wissen/notizen/42');
     expect(allNotesPath(42, ['rezept', 'schnell & einfach'])).toBe('/wissen/notizen/42?tag=rezept&tag=schnell+%26+einfach');
     const search = new URL(allNotesPath(undefined, ['a b', 'c']), 'http://x').searchParams;

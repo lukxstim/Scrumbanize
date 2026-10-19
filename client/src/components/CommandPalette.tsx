@@ -285,17 +285,10 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
     items: [
       {
         id: 'go-knowledge',
-        label: 'Alle Notizbücher',
-        keywords: 'wissen notizbücher notizbuch übersicht gehe zu',
+        label: 'Wissen: Alle Notizen',
+        keywords: 'wissen alle notizen notizbücher notizbuch tags schlagworte übersicht gehe zu',
         icon: <NotebookGlyph icon="book" />,
         run: () => navigate(KNOWLEDGE_PATH),
-      },
-      {
-        id: 'go-all-notes',
-        label: 'Alle Notizen',
-        keywords: 'alle notizen wissen projekte notizbücher tags schlagworte übersicht gehe zu',
-        icon: <NoteIcon />,
-        run: () => navigate(allNotesPath()),
       },
       ...ofKind(others, 'notebook').map(switchTo),
       // Only with a query (matched below), so the list without one stays short. Not for viewers (US-21).
@@ -339,7 +332,7 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
     ].filter((item) => matchesQuery(trimmed, item.label, item.keywords)),
   });
 
-  // Tags (US-22): "#rezept" or "rezept" opens "Alle Notizen" with that tag.
+  // Tags of Wissen (US-22): "#rezept" or "rezept" opens "Alle Notizen" with that tag.
   const tagQuery = trimmed.replace(/^#/, '');
   if (tagQuery) {
     groups.push({
