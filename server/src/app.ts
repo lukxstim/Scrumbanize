@@ -39,7 +39,7 @@ import { columnsRouter, lanesRouter } from './routes/board.js';
 import { exportsRouter } from './routes/exports.js';
 import { labelsRouter } from './routes/labels.js';
 import { membersRouter } from './routes/members.js';
-import { notesRouter } from './routes/notes.js';
+import { notesRouter, tagsRouter } from './routes/notes.js';
 import { foldersRouter } from './routes/folders.js';
 import { linksRouter } from './routes/links.js';
 import { projectScopedRouter } from './routes/projectScoped.js';
@@ -150,6 +150,7 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   api.use('/projects/:projectId/members', membersRouter(users, activities, access));
   api.use('/projects/:projectId', projectScopedRouter({ access, activities, analytics, graph, labels, templates, projects, notes, tasks, board, folders }));
   api.use('/notes', notesRouter(notes, folders, access));
+  api.use('/tags', tagsRouter(notes, access));
   api.use('/folders', foldersRouter(folders, access));
   api.use(linksRouter(contentLinks, access));
   api.use('/tasks', tasksRouter(tasks, access));

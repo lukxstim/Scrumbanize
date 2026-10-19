@@ -208,6 +208,23 @@ describe('what each user sees', () => {
     expect(await list('admin')).toEqual([]);
   });
 
+  it('lists all notes and tags (US-22) only from their projects and notebooks', async () => {
+    const f = await fixture();
+    const notebook = (await request(f.app).post('/api/projects').set('Cookie', f.cookie.outsider).send({ name: 'Privat', color: 'pink', kind: 'notebook' })).body;
+    await request(f.app).post(`/api/projects/${notebook.id}/notes`).set('Cookie', f.cookie.outsider).send({ title: 'Tagebuch', content: '', tags: ['geheim'] });
+    await request(f.app).post('/api/projects/1/notes').set('Cookie', f.cookie.owner).send({ title: 'Protokoll', content: '', tags: ['team'] });
+
+    const notes = async (who: Who) => ((await request(f.app).get('/api/notes').set('Cookie', f.cookie[who])).body as { title: string }[]).map((n) => n.title).sort();
+    expect(await notes('viewer')).toEqual(['Notiz', 'Protokoll']);
+    expect(await notes('outsider')).toEqual(['Tagebuch']);
+    expect(await notes('admin')).toEqual([]);
+
+    const tags = async (who: Who) => ((await request(f.app).get('/api/tags').set('Cookie', f.cookie[who])).body as { name: string }[]).map((t) => t.name);
+    expect(await tags('viewer')).toEqual(['team']);
+    expect(await tags('outsider')).toEqual(['geheim']);
+    expect((await request(f.app).get('/api/tags')).status).toBe(401);
+  });
+
   it('searches, shows the trash and reminds only within their projects', async () => {
     const f = await fixture();
     const outsiderProject = (await request(f.app).post('/api/projects').set('Cookie', f.cookie.outsider).send({ name: 'Privat', color: 'pink' })).body;

@@ -116,6 +116,13 @@ export function createNotesRepository(db: Db) {
      WHERE n.project_id = ?
      GROUP BY t.id ORDER BY t.name`,
   );
+  // The same over several projects and notebooks (US-22); the parameter is a JSON array of their ids.
+  const selectTagSummariesIn = db.prepare<[string], TagSummary>(
+    `SELECT t.id, t.name, COUNT(nt.note_id) AS noteCount
+     FROM tags t JOIN note_tags nt ON nt.tag_id = t.id JOIN live_notes n ON n.id = nt.note_id
+     WHERE n.project_id IN (SELECT value FROM json_each(?))
+     GROUP BY t.id ORDER BY t.name`,
+  );
 
   function setTags(noteId: number, tags: string[]): void {
     clearNoteTags.run(noteId);
@@ -149,55 +156,64 @@ export function createNotesRepository(db: Db) {
     );
   }
 
+  function list(projectId: number, filter: NoteFilter = {}): Note[] {
+    const where: string[] = ['n.project_id = ?'];
+    const params: (string | number)[] = [projectId];
+
+    const q = filter.q?.trim();
+    if (q) {
+      const pattern = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+      where.push(`(n.title LIKE ? ESCAPE '\\' OR n.content LIKE ? ESCAPE '\\' OR EXISTS (
+        SELECT 1 FROM note_tags nt JOIN tags t ON t.id = nt.tag_id
+        WHERE nt.note_id = n.id AND t.name LIKE ? ESCAPE '\\'))`);
+      params.push(pattern, pattern, pattern);
+    }
+
+    const tags = filter.tags ?? [];
+    if (tags.length > 0) {
+      where.push(`n.id IN (
+        SELECT nt.note_id FROM note_tags nt JOIN tags t ON t.id = nt.tag_id
+        WHERE t.name IN (${tags.map(() => '?').join(', ')})
+        GROUP BY nt.note_id HAVING COUNT(*) = ?)`);
+      params.push(...tags, tags.length);
+    }
+
+    const rows = db
+      .prepare<(string | number)[], NoteRow>(
+        `SELECT n.* FROM live_notes n WHERE ${where.join(' AND ')}
+         ORDER BY n.updated_at DESC, n.id DESC`,
+      )
+      .all(...params);
+
+    const tagsByNote = new Map<number, string[]>();
+    for (const { note_id, name } of selectAllNoteTags.all(projectId)) {
+      const list = tagsByNote.get(note_id) ?? [];
+      list.push(name);
+      tagsByNote.set(note_id, list);
+    }
+
+    const tasksByNote = new Map<number, LinkedTask[]>();
+    const visible = visibleProjects(db);
+    for (const row of selectAllLinkedTasks.all(projectId)) {
+      const list = tasksByNote.get(row.source_note_id) ?? [];
+      list.push(toLinkedTask(row, visible));
+      tasksByNote.set(row.source_note_id, list);
+    }
+
+    const attachmentsByNote = attachmentQueries.forProjectNotes(projectId);
+    return rows.map((row) =>
+      toNote(row, tagsByNote.get(row.id) ?? [], tasksByNote.get(row.id) ?? [], attachmentsByNote.get(row.id) ?? []),
+    );
+  }
+
   return {
-    list(projectId: number, filter: NoteFilter = {}): Note[] {
-      const where: string[] = ['n.project_id = ?'];
-      const params: (string | number)[] = [projectId];
+    list,
 
-      const q = filter.q?.trim();
-      if (q) {
-        const pattern = `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
-        where.push(`(n.title LIKE ? ESCAPE '\\' OR n.content LIKE ? ESCAPE '\\' OR EXISTS (
-          SELECT 1 FROM note_tags nt JOIN tags t ON t.id = nt.tag_id
-          WHERE nt.note_id = n.id AND t.name LIKE ? ESCAPE '\\'))`);
-        params.push(pattern, pattern, pattern);
-      }
-
-      const tags = filter.tags ?? [];
-      if (tags.length > 0) {
-        where.push(`n.id IN (
-          SELECT nt.note_id FROM note_tags nt JOIN tags t ON t.id = nt.tag_id
-          WHERE t.name IN (${tags.map(() => '?').join(', ')})
-          GROUP BY nt.note_id HAVING COUNT(*) = ?)`);
-        params.push(...tags, tags.length);
-      }
-
-      const rows = db
-        .prepare<(string | number)[], NoteRow>(
-          `SELECT n.* FROM live_notes n WHERE ${where.join(' AND ')}
-           ORDER BY n.updated_at DESC, n.id DESC`,
-        )
-        .all(...params);
-
-      const tagsByNote = new Map<number, string[]>();
-      for (const { note_id, name } of selectAllNoteTags.all(projectId)) {
-        const list = tagsByNote.get(note_id) ?? [];
-        list.push(name);
-        tagsByNote.set(note_id, list);
-      }
-
-      const tasksByNote = new Map<number, LinkedTask[]>();
-      const visible = visibleProjects(db);
-      for (const row of selectAllLinkedTasks.all(projectId)) {
-        const list = tasksByNote.get(row.source_note_id) ?? [];
-        list.push(toLinkedTask(row, visible));
-        tasksByNote.set(row.source_note_id, list);
-      }
-
-      const attachmentsByNote = attachmentQueries.forProjectNotes(projectId);
-      return rows.map((row) =>
-        toNote(row, tagsByNote.get(row.id) ?? [], tasksByNote.get(row.id) ?? [], attachmentsByNote.get(row.id) ?? []),
-      );
+    /** The notes of several projects and notebooks (US-22: "Alle Notizen"), most recently changed first. */
+    listAcross(projectIds: Iterable<number>, filter: NoteFilter = {}): Note[] {
+      return [...projectIds]
+        .flatMap((projectId) => list(projectId, filter))
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || b.id - a.id);
     },
 
     get(id: number): Note | undefined {
@@ -331,6 +347,11 @@ export function createNotesRepository(db: Db) {
     /** Tags used by the project's notes, with how many of them use each. */
     listTags(projectId: number): TagSummary[] {
       return selectTagSummaries.all(projectId);
+    },
+
+    /** The same over several projects and notebooks (US-22): the global tag overview. */
+    listTagsAcross(projectIds: Iterable<number>): TagSummary[] {
+      return selectTagSummariesIn.all(JSON.stringify([...projectIds]));
     },
   };
 }

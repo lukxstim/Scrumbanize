@@ -134,8 +134,12 @@ export const projectsApi = {
 
 export const notesApi = {
   list: (projectId: number) => request<Note[]>(`/projects/${projectId}/notes`),
+  /** "Alle Notizen" (US-22): the notes of every project and notebook the user can see. */
+  listAll: () => request<Note[]>('/notes'),
   /** The tags of the project's notes, with how many notes use each. */
   tags: (projectId: number) => request<{ id: number; name: string; noteCount: number }[]>(`/projects/${projectId}/tags`),
+  /** The same over all projects and notebooks the user can see (US-22). */
+  allTags: () => request<{ id: number; name: string; noteCount: number }[]>('/tags'),
   get: (id: number) => request<Note>(`/notes/${id}`),
   /** `folderId`: right into a folder of the project (US-22). */
   create: (projectId: number, input: NoteInput, folderId?: number | null) =>
@@ -291,9 +295,12 @@ export const attachmentsApi = {
 };
 
 export const searchApi = {
-  /** Notes and tasks of all projects; hits of `projectId` come first. */
-  search: (query: string, projectId: number, signal?: AbortSignal) =>
-    request<SearchResults>(`/search?q=${encodeURIComponent(query)}&project=${projectId}&limit=8`, { signal }),
+  /** Notes and tasks of all projects; hits of `projectId` come first. Outside a project (e.g. /wissen) there is none. */
+  search: (query: string, projectId: number | undefined, signal?: AbortSignal) =>
+    request<SearchResults>(
+      `/search?${new URLSearchParams({ q: query, ...(projectId === undefined ? {} : { project: String(projectId) }), limit: '8' })}`,
+      { signal },
+    ),
 };
 
 export const graphApi = {

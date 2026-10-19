@@ -75,3 +75,23 @@ describe('snippetAround', () => {
     expect(snippetAround(long, 'treffer')).toContain('Treffer');
   });
 });
+
+describe('search words and task numbers', () => {
+  it('matches every word anywhere, in any order', async () => {
+    expect((await search('q=milch%20review')).notes.map((n: { title: string }) => n.title)).toEqual(['Einkauf']);
+    // One word in the tag, one in the title.
+    expect((await search('q=meeting%20urlaub')).notes.map((n: { title: string }) => n.title)).toEqual(['Urlaub']);
+    expect((await search('q=milch%20koffer')).notes).toEqual([]);
+  });
+
+  it('cuts the snippet around the first word found', async () => {
+    const result = await search('q=treffen%20milch');
+    expect(result.notes[0].snippet).toBe('Milch für das Review-Treffen');
+  });
+
+  it('finds a task by its number, first', async () => {
+    const task = (await api.post(`/api/projects/${privat}/tasks`).send({ title: 'Nummer', description: '' })).body;
+    expect((await search(`q=%23${task.id}`)).tasks[0]).toMatchObject({ id: task.id, title: 'Nummer' });
+    expect((await search(`q=${task.id}`)).tasks[0]).toMatchObject({ id: task.id });
+  });
+});

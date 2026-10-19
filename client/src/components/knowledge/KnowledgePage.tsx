@@ -1,28 +1,34 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '../../hooks/useAuth';
 import { useProjects } from '../../hooks/useProjects';
 import { requestNewProject } from '../../utils/appEvents';
-import { paths } from '../../utils/paths';
+import { notesApi } from '../../utils/api';
+import { allNotesPath, paths } from '../../utils/paths';
 import { ROLE_LABELS } from '../../utils/permissions';
 import { countLabel, ofKind } from '../../utils/projects';
 import { NoteIcon, PlusIcon } from '../icons';
 import NotebookSymbol from '../projects/NotebookSymbol';
 import { ProjectsLoading } from '../projects/RedirectToProject';
-import Button from '../ui/Button';
+import Button, { buttonClass } from '../ui/Button';
 
 /**
  * /wissen (US-22): all notebooks – knowledge that belongs to no project, like recipes, course notes or ideas. They are
- * personal until shared through their members.
+ * personal until shared through their members. Above them the way to "Alle Notizen", below them the tags of all notes
+ * the user can see, in projects too.
  */
 export default function KnowledgePage() {
   const { projects, status, reload } = useProjects();
   const withMembers = useAuth().session?.mode === 'required';
   const notebooks = ofKind(projects, 'notebook');
+  const [tags, setTags] = useState<{ name: string; noteCount: number }[]>([]);
 
-  // Current note counts.
+  // Current note counts and tags.
   useEffect(() => {
     void reload();
+    notesApi.allTags().then(setTags, () => {
+      // Without tags, the overview still shows the notebooks.
+    });
   }, [reload]);
 
   if (status !== 'ready') return <ProjectsLoading />;
@@ -35,6 +41,10 @@ export default function KnowledgePage() {
             <h1 className="text-xl font-semibold tracking-tight text-fg">Wissen</h1>
             <p className="mt-1 text-sm text-fg-subtle">Notizbücher für alles, was zu keinem Projekt gehört.</p>
           </div>
+          <Link to={allNotesPath()} className={buttonClass('secondary')}>
+            <NoteIcon className="size-4" />
+            Alle Notizen
+          </Link>
           {notebooks.length > 0 && (
             <Button variant="primary" onClick={() => requestNewProject('notebook')}>
               <PlusIcon className="size-4" />
@@ -82,6 +92,27 @@ export default function KnowledgePage() {
               </li>
             ))}
           </ul>
+        )}
+
+        {tags.length > 0 && (
+          <section aria-labelledby="knowledge-tags" className="mt-10">
+            <h2 id="knowledge-tags" className="text-sm font-semibold text-fg">
+              Tags
+            </h2>
+            <p className="mt-0.5 text-sm text-fg-subtle">Aus allen Projekten und Notizbüchern. Ein Tag zeigt alle Notizen damit.</p>
+            <ul className="mt-3 flex flex-wrap gap-1.5">
+              {tags.map((tag) => (
+                <li key={tag.name}>
+                  <Link
+                    to={allNotesPath(undefined, [tag.name])}
+                    className="block rounded-full border border-line bg-surface px-2.5 py-1 text-xs text-fg-muted transition-colors duration-150 hover:border-accent-line hover:text-fg focus-visible:outline-2 focus-visible:outline-accent"
+                  >
+                    {tag.name} <span className="text-fg-subtle tabular-nums">{tag.noteCount}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
       </div>
     </div>

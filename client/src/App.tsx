@@ -9,6 +9,7 @@ import CalendarPage from './components/calendar/CalendarPage';
 import TrashPage from './components/trash/TrashPage';
 import { BoardIcon, CalendarIcon, ChartIcon, HistoryIcon, SettingsIcon, NoteIcon, SearchIcon, TrashIcon } from './components/icons';
 import NotesPage from './components/notes/NotesPage';
+import AllNotesPage from './components/knowledge/AllNotesPage';
 import KnowledgePage from './components/knowledge/KnowledgePage';
 import NewProjectHost from './components/projects/NewProjectHost';
 import { NotebookGlyph } from './components/projects/NotebookSymbol';
@@ -68,7 +69,8 @@ export default function App() {
   const activeProject = projects.find((p) => p.id === Number(projectMatch?.params.projectId));
   // Notebooks (US-22) have notes only: no board, calendar or statistics tabs.
   const inNotebook = activeProject?.kind === 'notebook';
-  const onKnowledge = useMatch(KNOWLEDGE_PATH) !== null || inNotebook;
+  // The overview and "Alle Notizen" below it.
+  const onKnowledge = useMatch(`${KNOWLEDGE_PATH}/*`) !== null || inNotebook;
   // A task's details are shown on the board, so the Board tab stays active there.
   const boardMatch = useMatch('/p/:projectId/board');
   const taskMatch = useMatch('/p/:projectId/tasks/:taskId');
@@ -311,6 +313,7 @@ export default function App() {
           />
         </Route>
         <Route path={KNOWLEDGE_PATH} element={<KnowledgePage />} />
+        <Route path={`${KNOWLEDGE_PATH}/notizen/:noteId?`} element={<AllNotesPage />} />
         {/* The own account and user management (US-21c), outside the projects. */}
         <Route
           path="/profil"

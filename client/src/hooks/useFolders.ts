@@ -4,12 +4,16 @@ import { foldersApi } from '../utils/api';
 
 /**
  * The project's folders of notes (US-22). Every change reloads the list: moving or deleting a folder can change
- * the place of others (positions, folders moving up).
+ * the place of others (positions, folders moving up). Without a project (undefined), there are none.
  */
-export function useFolders(projectId: number) {
+export function useFolders(projectId: number | undefined) {
   const [folders, setFolders] = useState<Folder[]>([]);
 
   const reload = useCallback(async () => {
+    if (projectId === undefined) {
+      setFolders([]);
+      return;
+    }
     try {
       setFolders(await foldersApi.list(projectId));
     } catch {
@@ -23,6 +27,7 @@ export function useFolders(projectId: number) {
 
   const createFolder = useCallback(
     async (name: string, parentId: number | null) => {
+      if (projectId === undefined) throw new Error('Folders need a project');
       const folder = await foldersApi.create(projectId, name, parentId);
       setFolders((current) => [...current, folder]);
       return folder;

@@ -143,3 +143,38 @@ describe('folders', () => {
     expect((await api.get(`/api/notes/${loose.id}`)).body.folderId).toBe(deepest.id);
   });
 });
+
+describe('all notes and tags across projects and notebooks', () => {
+  const titles = (notes: { title: string }[]) => notes.map((n) => n.title);
+
+  it('lists the notes of every project and notebook, newest first, filtered by text and tags', async () => {
+    const studium = await newNotebook('Studium');
+    await api.post('/api/projects/1/notes').send({ title: 'Sprint', content: 'Retro', tags: ['meeting'] });
+    await api.post(`/api/projects/${studium.id}/notes`).send({ title: 'Vorlesung', content: 'Retro-Notizen', tags: ['meeting', 'uni'] });
+    const gone = await newNote(studium.id, 'Weg');
+    await api.delete(`/api/notes/${gone.id}`);
+
+    const all = (await api.get('/api/notes')).body as { title: string; projectId: number }[];
+    expect(titles(all).slice(0, 2)).toEqual(['Vorlesung', 'Sprint']);
+    expect(titles(all)).not.toContain('Weg');
+    expect(all[0]).toMatchObject({ projectId: studium.id, tags: ['meeting', 'uni'] });
+
+    expect(titles((await api.get('/api/notes?tag=meeting')).body)).toEqual(['Vorlesung', 'Sprint']);
+    expect(titles((await api.get('/api/notes?tag=meeting&tag=uni')).body)).toEqual(['Vorlesung']);
+    expect(titles((await api.get('/api/notes?q=notizen')).body)).toEqual(['Vorlesung']);
+  });
+
+  it('counts the tags over all projects and notebooks', async () => {
+    const studium = await newNotebook('Studium');
+    await api.post('/api/projects/1/notes').send({ title: 'A', content: '', tags: ['meeting'] });
+    await api.post(`/api/projects/${studium.id}/notes`).send({ title: 'B', content: '', tags: ['meeting', 'uni'] });
+    const trashed = (await api.post(`/api/projects/${studium.id}/notes`).send({ title: 'C', content: '', tags: ['alt'] })).body;
+    await api.delete(`/api/notes/${trashed.id}`);
+
+    const tags = (await api.get('/api/tags')).body as { name: string; noteCount: number }[];
+    expect(tags.map((t) => [t.name, t.noteCount])).toEqual([
+      ['meeting', 2],
+      ['uni', 1],
+    ]);
+  });
+});

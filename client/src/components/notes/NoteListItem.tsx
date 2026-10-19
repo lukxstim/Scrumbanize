@@ -1,4 +1,4 @@
-import type { DragEvent } from 'react';
+import type { DragEvent, ReactNode } from 'react';
 import type { Note } from '../../types/note';
 import { formatDate, snippet } from '../../utils/format';
 import { UNTITLED_NOTE } from '../../utils/taskFromNote';
@@ -11,9 +11,11 @@ interface NoteListItemProps {
   depth?: number;
   /** Makes the note draggable onto folders. */
   dragProps?: { onDragStart: (event: DragEvent) => void; onDragEnd: () => void };
+  /** In "Alle Notizen" (US-22): the project or notebook the note belongs to. */
+  place?: ReactNode;
 }
 
-export default function NoteListItem({ note, selected, onSelect, depth = 0, dragProps }: NoteListItemProps) {
+export default function NoteListItem({ note, selected, onSelect, depth = 0, dragProps, place }: NoteListItemProps) {
   const preview = snippet(note.content);
 
   return (
@@ -34,6 +36,7 @@ export default function NoteListItem({ note, selected, onSelect, depth = 0, drag
         </div>
         {preview && <p className="mt-0.5 line-clamp-2 text-xs text-fg-subtle">{preview}</p>}
         <div className="mt-1.5 flex flex-wrap items-center gap-1">
+          {place}
           {note.tags.map((tag) => (
             <span key={tag} className="rounded bg-surface-muted px-1.5 py-0.5 text-[11px] text-fg-muted">
               {tag}

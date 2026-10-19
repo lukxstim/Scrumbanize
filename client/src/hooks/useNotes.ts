@@ -7,15 +7,20 @@ import type { TaskDraft } from '../utils/taskFromNote';
 
 export type LoadStatus = 'loading' | 'ready' | 'error';
 
-/** Loads the project's notes once and keeps the local list in sync with every successful API call. */
-export function useNotes(projectId: number) {
+const load = (projectId: number | null) => (projectId === null ? notesApi.listAll() : notesApi.list(projectId));
+
+/**
+ * Loads the project's notes once and keeps the local list in sync with every successful API call. With `null`, the
+ * notes of every project and notebook the user can see ("Alle Notizen", US-22); new notes then need a project.
+ */
+export function useNotes(projectId: number | null) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [status, setStatus] = useState<LoadStatus>('loading');
 
   const reload = useCallback(async () => {
     setStatus('loading');
     try {
-      setNotes(await notesApi.list(projectId));
+      setNotes(await load(projectId));
       setStatus('ready');
     } catch {
       setStatus('error');
@@ -27,6 +32,7 @@ export function useNotes(projectId: number) {
   }, [reload]);
 
   const createNote = useCallback(async (title = '', content = '', tags: string[] = [], folderId: number | null = null): Promise<Note> => {
+    if (projectId === null) throw new Error('A new note needs a project');
     const note = await notesApi.create(projectId, { title, content, tags }, folderId);
     setNotes((current) => [note, ...current]);
     return note;
@@ -50,7 +56,7 @@ export function useNotes(projectId: number) {
   /** After a folder was deleted, its notes moved up a level: take the new places from the server. */
   const refreshFolders = useCallback(async (): Promise<void> => {
     try {
-      const fresh = await notesApi.list(projectId);
+      const fresh = await load(projectId);
       const folderOf = new Map(fresh.map((note) => [note.id, note.folderId]));
       setNotes((current) => current.map((note) => ({ ...note, folderId: folderOf.get(note.id) ?? null })));
     } catch {
@@ -64,14 +70,14 @@ export function useNotes(projectId: number) {
   }, []);
 
   /** `targetProjectId`: the task may go into another project (US-22), e.g. from a notebook. */
-  const createTaskFromNote = useCallback(async (noteId: number, draft: TaskDraft, targetProjectId = projectId): Promise<Task> => {
+  const createTaskFromNote = useCallback(async (noteId: number, draft: TaskDraft, targetProjectId: number): Promise<Task> => {
     const task = await tasksApi.create(targetProjectId, { ...draft, sourceNoteId: noteId });
     // The server knows the column names; take the note's task list from there. Only the tasks change,
     // so an edit that is still being saved is not overwritten.
     const { tasks } = await notesApi.get(noteId);
     setNotes((current) => current.map((note) => (note.id === noteId ? { ...note, tasks } : note)));
     return task;
-  }, [projectId]);
+  }, []);
 
   /** Takes back a task just created from a note ("Rückgängig"): it is deleted for good, not kept in the trash. */
   const discardTask = useCallback(async (taskId: number): Promise<void> => {

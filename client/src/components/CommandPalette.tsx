@@ -6,10 +6,10 @@ import { useTemplates } from '../hooks/useTemplates';
 import { useStoredState } from '../hooks/useStoredState';
 import { useTheme, type ThemeSetting } from '../hooks/useTheme';
 import type { Project } from '../types/project';
-import { searchApi, type SearchResults } from '../utils/api';
+import { notesApi, searchApi, type SearchResults } from '../utils/api';
 import { requestNewProject, requestTourStart, type CreateRequest } from '../utils/appEvents';
 import { matchesQuery } from '../utils/matchQuery';
-import { KNOWLEDGE_PATH, paths, withActivityDrawer } from '../utils/paths';
+import { allNotesPath, KNOWLEDGE_PATH, paths, withActivityDrawer } from '../utils/paths';
 import { colorDot, ofKind } from '../utils/projects';
 import { NotebookGlyph } from './projects/NotebookSymbol';
 import { ProjectMark } from './projects/ProjectSwitcher';
@@ -56,6 +56,8 @@ interface Item {
 }
 
 const SEARCH_DELAY_MS = 150;
+/** At most this many tags ("Tag „rezept“") among the results. */
+const MAX_TAG_ITEMS = 6;
 /** Views a notebook does not have (US-22). */
 const BOARD_VIEWS = ['go-board', 'go-calendar', 'go-analytics'];
 const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean';
@@ -70,6 +72,21 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
   const [compact, setCompact] = useStoredState('scrumbanize.boardCompact', false, isBoolean);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResults | null>(null);
+  // The tags of all notes the user can see (US-22), fresh every time the palette opens.
+  const [tags, setTags] = useState<{ name: string; noteCount: number }[]>([]);
+  useEffect(() => {
+    if (!open) return;
+    let current = true;
+    notesApi.allTags().then(
+      (all) => current && setTags(all),
+      () => {
+        // Without tags, everything else still works.
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [open]);
 
   // Clear on close (not on open), so the palette is already empty when it reopens and keys typed
   // right after ⌘K are not appended to the previous query.
@@ -90,7 +107,7 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
     const controller = new AbortController();
     const timer = setTimeout(() => {
       searchApi
-        .search(trimmed, activeProject?.id ?? 0, controller.signal)
+        .search(trimmed, activeProject?.id, controller.signal)
         .then(setResults)
         .catch(() => {
           // Aborted or failed: the commands still work.
@@ -255,6 +272,14 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
     ].filter((item) => matchesQuery(trimmed, item.label, item.keywords)),
   });
   // Notebooks (US-22): knowledge outside the projects.
+  // A new note right in another notebook, e.g. "rezepte" or "notiz" → "Neue Notiz in „Rezepte“".
+  const newNoteIn = (p: Project): Item & { label: string } => ({
+    id: `create-note-in-${p.id}`,
+    label: `Neue Notiz in „${p.name}“`,
+    keywords: 'neue notiz anlegen erstellen notizbuch',
+    icon: <PlusIcon />,
+    run: () => navigate(paths.notes(p.id), { state: { create: 'note', title: '' } }),
+  });
   groups.push({
     heading: 'Wissen',
     items: [
@@ -265,7 +290,16 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
         icon: <NotebookGlyph icon="book" />,
         run: () => navigate(KNOWLEDGE_PATH),
       },
+      {
+        id: 'go-all-notes',
+        label: 'Alle Notizen',
+        keywords: 'alle notizen wissen projekte notizbücher tags schlagworte übersicht gehe zu',
+        icon: <NoteIcon />,
+        run: () => navigate(allNotesPath()),
+      },
       ...ofKind(others, 'notebook').map(switchTo),
+      // Only with a query (matched below), so the list without one stays short. Not for viewers (US-21).
+      ...(trimmed ? ofKind(others, 'notebook').filter((p) => can(p.role, 'edit')).map(newNoteIn) : []),
       {
         id: 'new-notebook',
         label: 'Neues Notizbuch …',
@@ -304,6 +338,28 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
       },
     ].filter((item) => matchesQuery(trimmed, item.label, item.keywords)),
   });
+
+  // Tags (US-22): "#rezept" or "rezept" opens "Alle Notizen" with that tag.
+  const tagQuery = trimmed.replace(/^#/, '');
+  if (tagQuery) {
+    groups.push({
+      heading: 'Tags',
+      items: tags
+        .filter((tag) => matchesQuery(tagQuery, tag.name))
+        .slice(0, MAX_TAG_ITEMS)
+        .map((tag) => ({
+          id: `tag-${tag.name}`,
+          label: (
+            <>
+              Tag „{tag.name}“ <span className="text-xs text-fg-subtle">· {tag.noteCount === 1 ? '1 Notiz' : `${tag.noteCount} Notizen`}</span>
+            </>
+          ),
+          keywords: '',
+          icon: <span className="grid size-4 place-items-center text-sm font-semibold text-fg-subtle" aria-hidden="true">#</span>,
+          run: () => navigate(allNotesPath(undefined, [tag.name])),
+        })),
+    });
+  }
 
   if (results) {
     groups.push({
@@ -411,7 +467,7 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
           <span className="flex items-center gap-1">
             <Kbd>↵</Kbd> ausführen
           </span>
-          <span className="ml-auto">Durchsucht Notizen und Tasks aller Projekte</span>
+          <span className="ml-auto">Durchsucht alle Projekte und Notizbücher</span>
         </div>
       </Command>
     </Dialog>
