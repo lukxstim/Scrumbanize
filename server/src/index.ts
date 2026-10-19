@@ -1,27 +1,38 @@
 import path from 'node:path';
+import { ConfigError, loadConfig, type ServerConfig } from './config.js';
 import { startServer } from './start.js';
 
 // Entry point for `npm run dev`, `npm start` and Docker; the desktop app calls startServer() itself.
 // Defaults resolve to the repository root, from both src/ (tsx) and dist/ (node).
 const repoRoot = path.resolve(import.meta.dirname, '../..');
 
-// Login is on unless AUTH=off (US-21): this server is reachable from the network.
-const auth = process.env.AUTH === 'off' ? 'local' : 'required';
-const baseUrl = process.env.BASE_URL?.replace(/\/+$/, '');
-const trustProxy = process.env.TRUST_PROXY;
+// Settings from the environment (US-23, see config.ts and .env.example); a wrong value stops the start with a list
+// of everything to fix.
+let config: ServerConfig;
+try {
+  const loaded = loadConfig(process.env, repoRoot);
+  config = loaded.config;
+  for (const warning of loaded.warnings) console.warn(`Warning: ${warning}`);
+} catch (error) {
+  if (!(error instanceof ConfigError)) throw error;
+  console.error(error.message);
+  process.exit(1);
+}
+
 let setupCode: string | undefined;
 let listening = false;
 
 const server = await startServer({
-  port: Number(process.env.PORT ?? 3000),
+  port: config.port,
   // All interfaces by default, so Docker's port mapping and other devices in the network can reach it.
-  host: process.env.HOST || undefined,
-  dataDir: process.env.DATA_DIR ?? path.join(repoRoot, 'data'),
-  clientDist: path.resolve(process.env.CLIENT_DIST ?? path.join(repoRoot, 'client/dist')),
-  auth,
-  allowedOrigins: baseUrl ? [new URL(baseUrl).origin] : [],
-  // "true", a number of proxies, or addresses as Express takes them.
-  trustProxy: trustProxy === undefined ? undefined : trustProxy === 'true' ? true : /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy,
+  host: config.host,
+  dataDir: config.dataDir,
+  clientDist: config.clientDist,
+  // Login is on unless AUTH=off (US-21): this server is reachable from the network.
+  auth: config.auth,
+  allowedOrigins: config.allowedOrigins,
+  trustProxy: config.trustProxy,
+  version: config.version,
   onSetupCode: (code) => {
     setupCode = code;
     // Before the server address is known (at start) the message follows below; later it is printed right away.
@@ -31,10 +42,14 @@ const server = await startServer({
 listening = true;
 
 function printSetupCode(): void {
-  console.log(`\nErsteinrichtung: ${baseUrl ?? server.url}/setup\nEinrichtungscode: ${setupCode}\n`);
+  console.log(`\nErsteinrichtung: ${config.baseUrl ?? server.url}/setup\nEinrichtungscode: ${setupCode}\n`);
 }
 
-console.log(`Scrumbanize listening on ${server.url} (database: ${server.dbFile}, login: ${auth === 'required' ? 'on' : 'off'})`);
+console.log(
+  `Scrumbanize ${config.version} listening on ${server.url} (database: ${server.dbFile}, login: ${config.auth === 'required' ? 'on' : 'off'}${
+    config.baseUrl ? `, public address: ${config.baseUrl}` : ''
+  })`,
+);
 if (setupCode) printSetupCode();
 
 async function shutdown(signal: string): Promise<void> {

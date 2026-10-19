@@ -391,9 +391,16 @@ Lokal liegen die Datenbank unter `data/scrumbanize.db` und die Anhänge unter `d
 | `HOST`        | alle Netzwerkschnittstellen | Adresse, an die der Server bindet (z. B. `127.0.0.1`) |
 | `DATA_DIR`    | `<repo>/data`, Docker: `/data` | Verzeichnis der SQLite-Datenbank und der Anhänge (`uploads/`) |
 | `CLIENT_DIST` | `<repo>/client/dist`     | Gebauter Client, der mit ausgeliefert wird |
-| `AUTH`        | Anmeldung an             | `off` schaltet die Anmeldung ab (alle sind der lokale Benutzer, wie in der Desktop-App) – nur in einem vertrauenswürdigen Netz |
-| `BASE_URL`    | –                        | Öffentliche Adresse, z. B. `https://scrumbanize.example.org`; Seiten von dort dürfen Änderungen schicken, und die Einrichtungsadresse wird damit angezeigt |
+| `AUTH`        | `on`                     | `off` schaltet die Anmeldung ab (alle sind der lokale Benutzer, wie in der Desktop-App) – nur in einem vertrauenswürdigen Netz |
+| `DOMAIN`      | –                        | Host-Name für Caddy und Let's Encrypt, z. B. `scrumbanize.example.org`; ohne `BASE_URL` gilt `https://DOMAIN` als öffentliche Adresse |
+| `ACME_EMAIL`  | –                        | E-Mail-Adresse für Let's Encrypt (liest Caddy; der Server prüft nur das Format) |
+| `BASE_URL`    | `https://DOMAIN`         | Öffentliche Adresse ohne Pfad, z. B. `https://scrumbanize.example.org`; Seiten von dort dürfen Änderungen schicken, und die Einrichtungsadresse wird damit angezeigt. Muss zum `DOMAIN` passen |
+| `ALLOWED_ORIGINS` | –                    | Weitere Adressen (kommagetrennt), deren Seiten Änderungen schicken dürfen |
+| `TZ`          | Zeitzone des Systems     | Zeitzone, z. B. `Europe/Berlin` |
+| `APP_VERSION` | aus `desktop/package.json` | Version, die `/api/health` meldet |
 | `TRUST_PROXY` | –                        | Hinter einem Reverse Proxy: `1` (ein Proxy), `true` oder Adressen wie in Express' „trust proxy“ – für `Secure`-Cookies und die echte IP-Adresse bei der Begrenzung von Fehlversuchen |
+
+Alle Werte prüft der Server beim Start (`server/src/config.ts`): Stimmt etwas nicht, bricht er mit einer Liste aller Probleme ab; Einstellungen, die funktionieren, aber vermutlich nicht gemeint sind (etwa `https` ohne `TRUST_PROXY`), meldet er als Warnung. Leere Werte gelten als nicht gesetzt. Für Docker Compose liegt eine kommentierte Vorlage in [`.env.example`](.env.example).
 
 ## Projektstruktur
 
@@ -410,7 +417,7 @@ Alle Endpunkte außer `/api/health` und `/api/auth/*` verlangen eine Anmeldung (
 
 | Methode | Pfad              | Beschreibung |
 |---------|-------------------|--------------|
-| GET     | `/api/health`     | Health-Check (ohne Anmeldung) |
+| GET     | `/api/health`     | Health-Check (ohne Anmeldung, US-23): `{ status, version, database, backups }` – `status` ist `ok`, `degraded` (Backup-Ordner nicht beschreibbar, die App läuft) oder `error` (Datenbank antwortet nicht, dann HTTP 503) |
 | GET     | `/api/auth/session` | Ohne Anmeldung: `{ "mode": "required" \| "local", "setupRequired", "user" }` – ob es eine Anmeldung gibt, ob noch eingerichtet werden muss und wer angemeldet ist |
 | POST    | `/api/auth/setup` | Erstes Konto (Administrator, Owner aller Projekte): `{ "code", "name", "email", "password" }` – nur solange es keinen Administrator gibt (sonst 409), Code aus der Server-Ausgabe (sonst 403) |
 | POST    | `/api/auth/login` | `{ "email", "password" }` → Sitzungs-Cookie und `{ "user" }`; falsch: 401 `wrong_credentials`, zu viele Versuche: 429 |

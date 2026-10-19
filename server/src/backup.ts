@@ -24,6 +24,9 @@ export const MAX_UNPACKED_SIZE = 4 * 1024 ** 3;
 export const SAFETY_COPIES_KEPT = 5;
 export const SAFETY_COPY_PREFIX = 'vor-wiederherstellung-';
 
+/** Where backups are kept: the safety copies before a restore, and the daily ones (US-23). */
+export const backupsDirOf = (dataDir: string) => path.join(dataDir, 'backups');
+
 export interface BackupCounts {
   projects: number;
   notes: number;
@@ -337,7 +340,7 @@ export function createRestoreService(options: { db: Db; uploadsDir: string; onRe
   const dataDir = path.dirname(uploadsDir);
   /** Uploads and unpacked archives; left-overs from a crash are removed on start. */
   const workDir = path.join(dataDir, '.restore');
-  const backupsDir = path.join(dataDir, 'backups');
+  const backupsDir = backupsDirOf(dataDir);
   fs.rmSync(workDir, { recursive: true, force: true });
   let pending: (PreparedRestore & { dir: string }) | null = null;
   let busy = false;

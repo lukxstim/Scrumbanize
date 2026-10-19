@@ -33,6 +33,8 @@ export interface ServerOptions {
   allowedOrigins?: readonly string[];
   /** Express "trust proxy" (TRUST_PROXY), when a reverse proxy terminates HTTPS. */
   trustProxy?: boolean | number | string;
+  /** The app's version, for /api/health (US-23). */
+  version?: string;
 }
 
 export interface RunningServer {
@@ -74,6 +76,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     onSetupCode: options.onSetupCode,
     allowedOrigins: options.allowedOrigins,
     trustProxy: options.trustProxy,
+    version: options.version ?? options.desktop?.version,
   });
 
   let server: Server;

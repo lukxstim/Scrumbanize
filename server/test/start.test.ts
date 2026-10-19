@@ -55,7 +55,11 @@ describe('startServer', () => {
     expect(server.dbFile).toBe(path.join(dataDir, 'scrumbanize.db'));
     expect(fs.existsSync(server.dbFile)).toBe(true);
     expect(server.url).toBe(`http://127.0.0.1:${server.port}`);
-    expect(await request(server.port)).toEqual({ status: 200, body: '{"status":"ok"}' });
+    const health = await request(server.port);
+    expect(health.status).toBe(200);
+    expect(JSON.parse(health.body)).toEqual({ status: 'ok', version: null, database: 'ok', backups: 'ok' });
+    // Backups go next to the database (US-23).
+    expect(fs.existsSync(path.join(dataDir, 'backups'))).toBe(true);
   });
 
   it('falls back to a free port when asked to, and fails otherwise', async () => {

@@ -10,8 +10,9 @@ import { setVisibility } from './auth/visibility.js';
 import { authenticate, requireAuth, sameOriginForChanges, type AuthMode } from './auth/middleware.js';
 import { createRateLimiter } from './auth/rateLimit.js';
 import { createSetupCode } from './auth/setupCode.js';
-import { createRestoreService } from './backup.js';
+import { backupsDirOf, createRestoreService } from './backup.js';
 import { apiNotFoundHandler, errorHandler } from './errors.js';
+import { healthReport } from './health.js';
 import { hostGuard } from './hostGuard.js';
 import { createActivityRepository } from './repositories/activityRepository.js';
 import { createAnalyticsRepository } from './repositories/analyticsRepository.js';
@@ -74,6 +75,8 @@ export interface AppOptions {
   allowedOrigins?: readonly string[];
   /** Express "trust proxy": behind a reverse proxy, so the client's address and HTTPS are seen correctly. */
   trustProxy?: boolean | number | string;
+  /** The app's version, reported by /api/health (US-23). */
+  version?: string;
 }
 
 export function createApp(db: Db, options: AppOptions = {}): express.Express {
@@ -127,13 +130,18 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   app.use(express.json({ limit: '2mb' }));
 
   const api = express.Router();
+  // Status of database and backup folder (US-23): 503 only if the database does not answer, so a full or read-only
+  // backup folder shows up in monitoring without Docker restarting a working app. Public, and before the session
+  // check, which needs the database itself (and would renew a session with every probe).
+  const backupsDir = backupsDirOf(path.dirname(uploadsDir));
+  api.get('/health', (_req, res) => {
+    const report = healthReport(db, backupsDir, options.version ?? null);
+    res.status(report.database === 'ok' ? 200 : 503).json(report);
+  });
   // With a session cookie, only the app's own pages may change something.
   if (authMode === 'required') api.use(sameOriginForChanges(options.allowedOrigins));
   api.use(authenticate(authMode, users));
-  // Public: health check, login and setup. Everything after requireAuth needs a logged-in user (US-21).
-  api.get('/health', (_req, res) => {
-    res.json({ status: 'ok' });
-  });
+  // Public: login and setup. Everything after requireAuth needs a logged-in user (US-21).
   api.use('/auth', authRouter({ mode: authMode, users, setupCode, limiter }));
   api.use(requireAuth);
   // Facts about the installation; `sampleProjectId` is null once the sample project was deleted, `desktop` is
