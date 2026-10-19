@@ -4,15 +4,43 @@ import multer from 'multer';
 import type { Access } from '../auth/access.js';
 import { userOf } from '../auth/middleware.js';
 import { backupFileName, MAX_BACKUP_SIZE, writeBackup, type RestoreService } from '../backup.js';
+import { isWritableDir, lastBackupFailed, readDailyBackupState, type BackupSchedule } from '../dailyBackup.js';
 import type { Db } from '../database.js';
 import { HttpError } from '../errors.js';
 import { attachmentDisposition } from '../exports.js';
 
-/** Backup of the whole instance and its restore in two steps (check, then replace). Mounted at /api/backup. */
-export function backupRouter(db: Db, uploadsDir: string, restore: RestoreService, access: Access): Router {
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/**
+ * Backup of the whole instance and its restore in two steps (check, then replace), and the state of the daily
+ * backups (US-23). Mounted at /api/backup.
+ */
+export function backupRouter(options: {
+  db: Db;
+  uploadsDir: string;
+  backupsDir: string;
+  schedule: BackupSchedule | undefined;
+  restore: RestoreService;
+  access: Access;
+}): Router {
+  const { db, uploadsDir, backupsDir, schedule, restore, access } = options;
   const router = Router();
   // A backup holds every project of every user, and a restore replaces them all: administrators only (US-21).
   router.use(access.requireSystemAdmin);
+
+  /** The daily backups: when they run, the last one, and the last failure if it came after it. */
+  router.get('/status', (_req, res) => {
+    const state = readDailyBackupState(db);
+    res.json({
+      schedule:
+        schedule?.time == null
+          ? null
+          : { time: `${pad(schedule.time.hour)}:${pad(schedule.time.minute)}`, keep: schedule.keep, timeZone: schedule.timeZone },
+      folder: isWritableDir(backupsDir) ? 'ok' : 'not_writable',
+      last: state.lastAt ? { at: state.lastAt, file: state.lastFile ?? null, size: state.lastSize ?? null } : null,
+      error: lastBackupFailed(state) ? { at: state.errorAt, message: state.error ?? '' } : null,
+    });
+  });
 
   router.get('/', async (_req, res) => {
     const now = new Date();

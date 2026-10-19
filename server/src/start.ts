@@ -2,6 +2,8 @@ import { createServer, type Server } from 'node:http';
 import path from 'node:path';
 import { createApp, type DesktopInfo } from './app.js';
 import type { AuthMode } from './auth/middleware.js';
+import { backupBeforeUpdate, backupsDirOf } from './backup.js';
+import { startDailyBackups, type BackupSchedule } from './dailyBackup.js';
 import { DB_FILE_NAME, openDatabase, UPLOADS_DIR_NAME } from './database.js';
 import { seedSampleNotebookOnce } from './sampleNotebook.js';
 import { seedSampleProject } from './sampleProject.js';
@@ -35,6 +37,8 @@ export interface ServerOptions {
   trustProxy?: boolean | number | string;
   /** The app's version, for /api/health (US-23). */
   version?: string;
+  /** Daily backups into `<dataDir>/backups/taeglich` (US-23: BACKUP_TIME, BACKUP_KEEP, TZ). Omitted: none (desktop app). */
+  backups?: BackupSchedule;
 }
 
 export interface RunningServer {
@@ -60,6 +64,15 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
 
   const dbFile = path.join(path.resolve(options.dataDir), DB_FILE_NAME);
   const uploadsDir = path.join(path.resolve(options.dataDir), UPLOADS_DIR_NAME);
+  const backupsDir = backupsDirOf(path.resolve(options.dataDir));
+  // An update that changes the schema keeps a copy of the database as it was (US-23). If that fails (e.g. the backup
+  // folder is not writable), the update still goes ahead: the server must come up, and /api/health reports the folder.
+  try {
+    const copy = backupBeforeUpdate(dbFile, backupsDir);
+    if (copy) console.log(`Database backed up before the update: ${copy}`);
+  } catch (error) {
+    console.warn(`Warning: no backup before the update (${error instanceof Error ? error.message : String(error)}); updating anyway.`);
+  }
   // A brand-new database starts with the sample project (US-13); updates of existing ones never get it.
   const db = openDatabase(dbFile, { onCreate: (created) => seedSampleProject(created) });
   // Wissen (US-22) starts with a sample notebook, also on existing installations – once, never again after deleting.
@@ -77,6 +90,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     allowedOrigins: options.allowedOrigins,
     trustProxy: options.trustProxy,
     version: options.version ?? options.desktop?.version,
+    backupSchedule: options.backups,
   });
 
   let server: Server;
@@ -95,13 +109,17 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   const address = server.address();
   actualPort = typeof address === 'object' && address ? address.port : options.port;
   const urlHost = !options.host || options.host === '0.0.0.0' || options.host === '::' ? 'localhost' : options.host;
+  const daily = options.backups ? startDailyBackups({ db, uploadsDir, backupsDir, schedule: options.backups }) : undefined;
 
   let closing: Promise<void> | undefined;
   const close = () =>
     (closing ??= new Promise<void>((resolve) => {
       server.close(() => {
-        db.close(); // also checkpoints the WAL into the database file
-        resolve();
+        // A backup still being written finishes before the database closes.
+        void (daily?.stop() ?? Promise.resolve()).then(() => {
+          db.close(); // also checkpoints the WAL into the database file
+          resolve();
+        });
       });
       // Keep-alive connections (e.g. of the app window) would otherwise keep the server open.
       server.closeAllConnections();

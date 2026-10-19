@@ -272,6 +272,8 @@ describe('administrators', () => {
       });
       expect(res.status, who).toBe(who === 'admin' ? 200 : 403);
       expect((await request(f.app).post('/api/backup/restore').set('Cookie', f.cookie[who])).status, who).toBe(who === 'admin' ? 400 : 403);
+      // The state of the daily backups (US-23) names files and errors of the server: administrators only, too.
+      expect((await request(f.app).get('/api/backup/status').set('Cookie', f.cookie[who])).status, who).toBe(who === 'admin' ? 200 : 403);
       f.db.close();
     }
   });

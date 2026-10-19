@@ -12,6 +12,7 @@ import ConfirmDialog from '../ConfirmDialog';
 import { DownloadIcon, RestoreIcon } from '../icons';
 import Button, { buttonClass } from '../ui/Button';
 import Section from '../ui/Section';
+import AutoBackupStatus from './AutoBackupStatus';
 import DesktopSection from './DesktopSection';
 import TemplatesSection from './TemplatesSection';
 
@@ -64,6 +65,7 @@ export default function SettingsPage() {
               Backup herunterladen
             </a>
             <p className="mt-3 text-xs text-fg-subtle">Das Backup lässt sich erstellen, während Scrumbanize benutzt wird. Bewahre es an einem sicheren Ort auf.</p>
+            <AutoBackupStatus />
           </Section>
         )}
 

@@ -27,6 +27,38 @@ export const SAFETY_COPY_PREFIX = 'vor-wiederherstellung-';
 /** Where backups are kept: the safety copies before a restore, and the daily ones (US-23). */
 export const backupsDirOf = (dataDir: string) => path.join(dataDir, 'backups');
 
+/** Copies of the database made before an update changed its schema (US-23). */
+export const UPDATE_COPY_PREFIX = 'vor-update-';
+export const UPDATE_COPIES_KEPT = 5;
+
+/**
+ * Before a new version migrates an existing database, a copy of it as it was (US-23): `vor-update-v<schema>-<time>.db`
+ * in the backups folder, the newest five kept. To go back, stop the server, put the copy in place of scrumbanize.db
+ * and start the old version. Only the database: migrations never touch the attachment files. Returns the copy, or
+ * undefined if nothing is to be migrated (new database, or already up to date).
+ */
+export function backupBeforeUpdate(dbFile: string, backupsDir: string, now = new Date()): string | undefined {
+  if (!fs.existsSync(dbFile)) return undefined;
+  const db = new Database(dbFile, { readonly: true, fileMustExist: true });
+  try {
+    const version = db.pragma('user_version', { simple: true }) as number;
+    if (version === 0 || version >= migrations.length) return undefined;
+    fs.mkdirSync(backupsDir, { recursive: true });
+    const stamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const file = path.join(backupsDir, `${UPDATE_COPY_PREFIX}v${version}-${stamp}.db`);
+    db.prepare(`VACUUM INTO ?`).run(file);
+    const copies = fs
+      .readdirSync(backupsDir)
+      .filter((n) => n.startsWith(UPDATE_COPY_PREFIX) && n.endsWith('.db'))
+      // By time, which follows the schema version in the name.
+      .sort((a, b) => a.slice(a.indexOf('-', UPDATE_COPY_PREFIX.length)).localeCompare(b.slice(b.indexOf('-', UPDATE_COPY_PREFIX.length))));
+    for (const old of copies.slice(0, -UPDATE_COPIES_KEPT)) fs.rmSync(path.join(backupsDir, old), { force: true });
+    return file;
+  } finally {
+    db.close();
+  }
+}
+
 export interface BackupCounts {
   projects: number;
   notes: number;
@@ -107,6 +139,32 @@ export async function writeBackup(db: Db, uploadsDir: string, out: Writable, now
     return manifest;
   } finally {
     await fsp.rm(tmpDir, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Writes a backup ZIP to `file`: first as `<file>.part`, renamed when complete, so a crash or a full disk never
+ * leaves a broken archive under the real name (US-23). Returns the manifest and the archive's size in bytes.
+ */
+export async function writeBackupFile(db: Db, uploadsDir: string, file: string, now = new Date()): Promise<{ manifest: BackupManifest; size: number }> {
+  await fsp.mkdir(path.dirname(file), { recursive: true });
+  const part = `${file}.part`;
+  const out = fs.createWriteStream(part);
+  const finished = new Promise<void>((resolve, reject) => {
+    out.on('close', resolve);
+    out.on('error', reject);
+  });
+  try {
+    const manifest = await writeBackup(db, uploadsDir, out, now);
+    await finished;
+    await fsp.rename(part, file);
+    return { manifest, size: (await fsp.stat(file)).size };
+  } catch (error) {
+    // Closed first: an open file cannot be removed on Windows.
+    out.destroy();
+    await finished.catch(() => {});
+    await fsp.rm(part, { force: true });
+    throw error;
   }
 }
 
@@ -351,7 +409,7 @@ export function createRestoreService(options: { db: Db; uploadsDir: string; onRe
     await fsp.mkdir(backupsDir, { recursive: true });
     const stamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const file = path.join(backupsDir, `${SAFETY_COPY_PREFIX}${stamp}.zip`);
-    await writeBackup(db, uploadsDir, fs.createWriteStream(file), now);
+    await writeBackupFile(db, uploadsDir, file, now);
     // Keep the newest few; names sort by time.
     const copies = (await fsp.readdir(backupsDir)).filter((n) => n.startsWith(SAFETY_COPY_PREFIX) && n.endsWith('.zip')).sort();
     for (const old of copies.slice(0, -SAFETY_COPIES_KEPT)) await fsp.rm(path.join(backupsDir, old), { force: true });

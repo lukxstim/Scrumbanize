@@ -350,9 +350,19 @@ export interface PreparedRestore {
   missingFiles: number;
 }
 
+/** The daily backups on a server (US-23); `schedule` is null where there are none (desktop app, BACKUP_TIME=off). */
+export interface BackupStatus {
+  schedule: { time: string; keep: number; timeZone: string } | null;
+  folder: 'ok' | 'not_writable';
+  last: { at: string; file: string | null; size: number | null } | null;
+  /** The last failure, if it came after the last success. */
+  error: { at: string; message: string } | null;
+}
+
 export const backupApi = {
   /** The whole instance as ZIP; the browser downloads it. */
   downloadUrl: '/api/backup',
+  status: () => request<BackupStatus>('/backup/status'),
   /** Uploads and checks a backup; nothing is replaced yet. `onProgress` gets 0…1. */
   prepareRestore(file: File, onProgress?: (share: number) => void): Promise<PreparedRestore> {
     const form = new FormData();

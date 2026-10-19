@@ -13,6 +13,7 @@ import { createSetupCode } from './auth/setupCode.js';
 import { backupsDirOf, createRestoreService } from './backup.js';
 import { apiNotFoundHandler, errorHandler } from './errors.js';
 import { healthReport } from './health.js';
+import type { BackupSchedule } from './dailyBackup.js';
 import { hostGuard } from './hostGuard.js';
 import { createActivityRepository } from './repositories/activityRepository.js';
 import { createAnalyticsRepository } from './repositories/analyticsRepository.js';
@@ -77,6 +78,8 @@ export interface AppOptions {
   trustProxy?: boolean | number | string;
   /** The app's version, reported by /api/health (US-23). */
   version?: string;
+  /** The daily backups' settings, shown to administrators (US-23); omitted: none. */
+  backupSchedule?: BackupSchedule;
 }
 
 export function createApp(db: Db, options: AppOptions = {}): express.Express {
@@ -169,7 +172,7 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   api.use('/reminders', remindersRouter(reminders, access));
   api.use('/trash', trashRouter(trash, projects, () => attachments.sweep(), access));
   api.use(attachmentsRouter(attachments, access));
-  api.use('/backup', backupRouter(db, uploadsDir, restore, access));
+  api.use('/backup', backupRouter({ db, uploadsDir, backupsDir, schedule: options.backupSchedule, restore, access }));
   api.use(exportsRouter({ access, projects, notes, tasks, board, attachments }));
   api.use(apiNotFoundHandler);
   app.use('/api', api);

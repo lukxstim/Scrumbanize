@@ -93,6 +93,15 @@ function packageVersion(repoRoot: string): string | undefined {
 }
 
 /**
+ * Creates the folder for temporary files if TMPDIR names one. The Docker image points it into the data volume (its own
+ * file system is read-only there), and volumes from before that version do not have the folder yet.
+ */
+export function ensureTempDir(env: Record<string, string | undefined>): void {
+  const dir = env.TMPDIR?.trim();
+  if (dir) fs.mkdirSync(dir, { recursive: true });
+}
+
+/**
  * Reads and checks the settings. Empty values count as unset (Compose passes `VAR=` for variables left empty in
  * `.env`). Throws a ConfigError listing every problem; `warnings` are settings that work but are probably not meant.
  */

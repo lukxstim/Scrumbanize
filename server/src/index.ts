@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { ConfigError, loadConfig, type ServerConfig } from './config.js';
+import { ConfigError, ensureTempDir, loadConfig, type ServerConfig } from './config.js';
 import { startServer } from './start.js';
 
 // Entry point for `npm run dev`, `npm start` and Docker; the desktop app calls startServer() itself.
@@ -13,6 +13,7 @@ try {
   const loaded = loadConfig(process.env, repoRoot);
   config = loaded.config;
   for (const warning of loaded.warnings) console.warn(`Warning: ${warning}`);
+  ensureTempDir(process.env);
 } catch (error) {
   if (!(error instanceof ConfigError)) throw error;
   console.error(error.message);
@@ -33,6 +34,7 @@ const server = await startServer({
   allowedOrigins: config.allowedOrigins,
   trustProxy: config.trustProxy,
   version: config.version,
+  backups: { time: config.backupTime, keep: config.backupKeep, timeZone: config.timeZone },
   onSetupCode: (code) => {
     setupCode = code;
     // Before the server address is known (at start) the message follows below; later it is printed right away.
