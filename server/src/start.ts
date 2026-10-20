@@ -8,6 +8,8 @@ import { DB_FILE_NAME, openDatabase, UPLOADS_DIR_NAME } from './database.js';
 import { seedSampleNotebookOnce } from './sampleNotebook.js';
 import { seedSampleProject } from './sampleProject.js';
 import { loopbackHosts } from './hostGuard.js';
+import { createRealtimeHub } from './realtime/events.js';
+import { attachRealtime } from './realtime/server.js';
 
 export interface ServerOptions {
   /** Port to listen on; 0 picks a free one. */
@@ -80,17 +82,20 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
 
   // The guard needs the actual port, which is only known after listening.
   let actualPort = options.port;
+  const trustedHosts = options.localOnly ? () => loopbackHosts(actualPort) : undefined;
+  const realtime = createRealtimeHub();
   const app = createApp(db, {
     clientDist: options.clientDist,
     uploadsDir,
     desktop: options.desktop,
-    trustedHosts: options.localOnly ? () => loopbackHosts(actualPort) : undefined,
+    trustedHosts,
     auth: options.auth,
     onSetupCode: options.onSetupCode,
     allowedOrigins: options.allowedOrigins,
     trustProxy: options.trustProxy,
     version: options.version ?? options.desktop?.version,
     backupSchedule: options.backups,
+    realtime,
   });
 
   let server: Server;
@@ -109,11 +114,14 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   const address = server.address();
   actualPort = typeof address === 'object' && address ? address.port : options.port;
   const urlHost = !options.host || options.host === '0.0.0.0' || options.host === '::' ? 'localhost' : options.host;
+  // Live updates (US-24) on the same server and port.
+  const live = attachRealtime(server, { db, hub: realtime, auth: options.auth, allowedOrigins: options.allowedOrigins, trustedHosts });
   const daily = options.backups ? startDailyBackups({ db, uploadsDir, backupsDir, schedule: options.backups }) : undefined;
 
   let closing: Promise<void> | undefined;
   const close = () =>
     (closing ??= new Promise<void>((resolve) => {
+      live.close();
       server.close(() => {
         // A backup still being written finishes before the database closes.
         void (daily?.stop() ?? Promise.resolve()).then(() => {

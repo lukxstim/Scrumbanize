@@ -8,6 +8,8 @@ export default defineConfig({
     proxy: {
       // Keep the browser's Host header, so the server sees requests from this page as its own (sameOriginForChanges).
       '/api': { target: `http://localhost:${process.env.PORT ?? 3000}`, changeOrigin: false },
+      // Live updates (US-24): polling and the WebSocket upgrade.
+      '/socket.io': { target: `http://localhost:${process.env.PORT ?? 3000}`, changeOrigin: false, ws: true },
     },
   },
 });

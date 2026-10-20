@@ -15,7 +15,7 @@ export const SESSION_COOKIE = 'scrumbanize_session';
 /** The user of this request; undefined until `authenticate` found one. */
 export const userOf = (res: Response) => res.locals.user as User | undefined;
 
-function readCookie(req: Request, name: string): string | undefined {
+function readCookie(req: Pick<Request, 'headers'>, name: string): string | undefined {
   for (const part of (req.headers.cookie ?? '').split(';')) {
     const index = part.indexOf('=');
     if (index > 0 && part.slice(0, index).trim() === name) return decodeURIComponent(part.slice(index + 1).trim());
@@ -23,7 +23,8 @@ function readCookie(req: Request, name: string): string | undefined {
   return undefined;
 }
 
-export const sessionTokenOf = (req: Request) => readCookie(req, SESSION_COOKIE);
+/** Also for the live connection's handshake (US-24), which is a plain Node request. */
+export const sessionTokenOf = (req: Pick<Request, 'headers'>) => readCookie(req, SESSION_COOKIE);
 
 /**
  * HttpOnly, so scripts on the page never see it; SameSite=Lax, so other sites cannot send it along with requests

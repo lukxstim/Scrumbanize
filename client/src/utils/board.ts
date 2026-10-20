@@ -70,6 +70,14 @@ export function addTask(cells: Cells, task: Task): Cells {
   return { ...cells, [key]: [...(cells[key] ?? []), task] };
 }
 
+/** Puts the server's version of a task where it now belongs, by its position in the cell (changes from elsewhere, US-24). */
+export function placeTask(cells: Cells, task: Task): Cells {
+  const next = removeTask(cells, task.id);
+  const key = cellKey(task.columnId, task.laneId);
+  const list = [...(next[key] ?? []), task].sort((a, b) => a.position - b.position || a.id - b.id);
+  return { ...next, [key]: list };
+}
+
 /** Tasks in a column across all lanes; WIP limits count these. */
 export function columnCount(cells: Cells, columnId: number): number {
   return Object.entries(cells).reduce((sum, [key, list]) => (key.startsWith(`${columnId}:`) ? sum + list.length : sum), 0);

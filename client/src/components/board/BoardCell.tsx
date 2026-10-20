@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { RemoteMark } from '../../hooks/useBoard';
 import type { BoardColumn, Task } from '../../types/task';
 import { columnWidthVar } from '../../utils/columnWidths';
 import { DraggableTaskCard } from './TaskCard';
@@ -14,6 +15,8 @@ interface BoardCellProps {
   done: boolean;
   /** The task to highlight briefly after a move. */
   flashId: number | null;
+  /** Tasks changed elsewhere a moment ago (US-24). */
+  remoteMarks?: Record<number, RemoteMark>;
   /** The column's width shown now, saved or default. */
   width: number;
   minHeightClass: string;
@@ -37,6 +40,7 @@ export default function BoardCell({
   compact,
   done,
   flashId,
+  remoteMarks,
   width,
   minHeightClass,
   isDropTarget,
@@ -64,6 +68,7 @@ export default function BoardCell({
           compact={compact}
           done={done}
           flash={task.id === flashId}
+          remote={remoteMarks?.[task.id]}
           onOpen={onOpenTask}
           onMoveTo={onMoveTask}
           readOnly={readOnly}

@@ -8,6 +8,7 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import SetupPage from './components/auth/SetupPage';
 import { AuthProvider } from './hooks/useAuth';
 import { ProjectsProvider } from './hooks/useProjects';
+import { RealtimeProvider } from './hooks/useRealtime';
 import { ToastProvider } from './hooks/useToast';
 import './index.css';
 
@@ -26,9 +27,12 @@ createRoot(document.getElementById('root')!).render(
               <Route
                 path="*"
                 element={
-                  <ProjectsProvider>
-                    <App />
-                  </ProjectsProvider>
+                  // Live updates (US-24) only for logged-in pages.
+                  <RealtimeProvider>
+                    <ProjectsProvider>
+                      <App />
+                    </ProjectsProvider>
+                  </RealtimeProvider>
                 }
               />
             </Route>

@@ -571,6 +571,7 @@ export default function BoardPage() {
                             compact={compact}
                             done={column.id === doneColumnId}
                             flashId={board.flashId}
+                            remoteMarks={board.remoteMarks}
                             width={widthOf(column)}
                             minHeightClass={showLanes ? 'min-h-28' : 'min-h-40'}
                             isDropTarget={dropCell === `${column.id}:${lane.id}`}

@@ -220,6 +220,17 @@ export function createUsersRepository(db: Db) {
       return { user: toUser(row), renewed };
     },
 
+    /**
+     * The user of a session token like sessionUser, but without extending the session: the live connection (US-24)
+     * checks it now and then and cannot renew the cookie, so only requests keep a session alive.
+     */
+    peekSession(token: string, now = new Date()): User | undefined {
+      const session = selectSession.get(hashToken(token));
+      if (!session || Date.parse(session.expires_at) <= now.getTime()) return undefined;
+      const row = selectById.get(session.user_id);
+      return row && !row.disabled_at && row.password_hash ? toUser(row) : undefined;
+    },
+
     deleteSession(token: string): void {
       deleteSession.run(hashToken(token));
     },

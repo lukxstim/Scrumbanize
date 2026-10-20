@@ -12,6 +12,7 @@ import type { NotesRepository } from '../repositories/notesRepository.js';
 import type { ProjectsRepository } from '../repositories/projectsRepository.js';
 import type { TasksRepository } from '../repositories/tasksRepository.js';
 import type { TemplatesRepository } from '../repositories/templatesRepository.js';
+import { changed } from '../realtime/events.js';
 import {
   activityQuerySchema,
   analyticsQuerySchema,
@@ -91,7 +92,9 @@ export function projectScopedRouter({ access, activities, analytics, graph, labe
     if (folderId !== null && !folders.inProject(folderId, projectId)) {
       throw new HttpError(400, 'invalid_folder', 'The folder must belong to this project');
     }
-    res.status(201).json(notes.create(projectId, noteInputSchema.parse(req.body), folderId));
+    const note = notes.create(projectId, noteInputSchema.parse(req.body), folderId);
+    changed(res, projectId, { type: 'note.created', noteId: note.id });
+    res.status(201).json(note);
   });
 
   /** Folders of notes (US-22), in projects and notebooks alike. */
@@ -100,7 +103,9 @@ export function projectScopedRouter({ access, activities, analytics, graph, labe
   });
 
   router.post('/folders', member, (req, res) => {
-    res.status(201).json(unwrapFolder(folders.create(projectIdOf(res), folderInputSchema.parse(req.body))));
+    const folder = unwrapFolder(folders.create(projectIdOf(res), folderInputSchema.parse(req.body)));
+    changed(res, projectIdOf(res), { type: 'folder.changed' });
+    res.status(201).json(folder);
   });
 
   router.get('/activities', (req, res) => {
@@ -125,8 +130,8 @@ export function projectScopedRouter({ access, activities, analytics, graph, labe
   router.post('/tasks', boardOnly, member, (req, res) => {
     const input = taskInputSchema.parse(req.body);
     // The note may be in another project or notebook (US-22), if the user may read it there.
+    const noteProjectId = input.sourceNoteId === undefined ? undefined : tasks.noteProjectId(input.sourceNoteId);
     if (input.sourceNoteId !== undefined) {
-      const noteProjectId = tasks.noteProjectId(input.sourceNoteId);
       if (noteProjectId === undefined) throw notFound('Source note not found');
       if (noteProjectId !== projectIdOf(res)) access.check(userOf(res)!, noteProjectId, 'viewer');
     }
@@ -139,7 +144,11 @@ export function projectScopedRouter({ access, activities, analytics, graph, labe
     if (input.labelIds && !labels.allInProject(projectIdOf(res), input.labelIds)) {
       throw new HttpError(400, 'invalid_input', 'A label belongs to another project');
     }
-    res.status(201).json(tasks.create(projectIdOf(res), input));
+    const task = tasks.create(projectIdOf(res), input);
+    changed(res, projectIdOf(res), { type: 'task.created', taskId: task.id });
+    // The note shows the tasks made from it, also where it lives in another project or notebook.
+    if (noteProjectId !== undefined) changed(res, noteProjectId, { type: 'note.tasks', noteId: input.sourceNoteId! });
+    res.status(201).json(task);
   });
 
   router.get('/board', boardOnly, (_req, res) => {
@@ -153,19 +162,24 @@ export function projectScopedRouter({ access, activities, analytics, graph, labe
   });
 
   router.post('/columns', boardOnly, owner, (req, res) => {
-    res.status(201).json(unwrapBoard(board.createColumn(projectIdOf(res), columnInputSchema.parse(req.body)), 'Column'));
+    const column = unwrapBoard(board.createColumn(projectIdOf(res), columnInputSchema.parse(req.body)), 'Column');
+    changed(res, projectIdOf(res), { type: 'board.changed', what: 'columns' });
+    res.status(201).json(column);
   });
 
   router.put('/column-widths', boardOnly, owner, (req, res) => {
     const { widths } = columnWidthsSchema.parse(req.body);
     const result = board.setColumnWidths(projectIdOf(res), widths);
     if (!result.ok) throw new HttpError(400, 'invalid_target', 'Every column must belong to this project');
+    changed(res, projectIdOf(res), { type: 'board.changed', what: 'columns' });
     res.json(result.value);
   });
 
   router.post('/lanes', boardOnly, owner, (req, res) => {
     const { name } = laneInputSchema.parse(req.body);
-    res.status(201).json(unwrapBoard(board.createLane(projectIdOf(res), name), 'Lane'));
+    const lane = unwrapBoard(board.createLane(projectIdOf(res), name), 'Lane');
+    changed(res, projectIdOf(res), { type: 'board.changed', what: 'lanes' });
+    res.status(201).json(lane);
   });
 
   router.get('/labels', (_req, res) => {
@@ -173,7 +187,9 @@ export function projectScopedRouter({ access, activities, analytics, graph, labe
   });
 
   router.post('/labels', boardOnly, member, (req, res) => {
-    res.status(201).json(unwrapLabel(labels.create(projectIdOf(res), labelInputSchema.parse(req.body))));
+    const label = unwrapLabel(labels.create(projectIdOf(res), labelInputSchema.parse(req.body)));
+    changed(res, projectIdOf(res), { type: 'board.changed', what: 'labels' });
+    res.status(201).json(label);
   });
 
   // Templates: the project's own and those for all projects. Changes go through a project, which is where they are logged.

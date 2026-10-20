@@ -3,6 +3,7 @@ import type { Project, ProjectInput } from '../types/project';
 import { metaApi, projectsApi, type DesktopInfo } from '../utils/api';
 import { sortProjects } from '../utils/projects';
 import type { LoadStatus } from './useNotes';
+import { useRealtimeSignal } from './useRealtime';
 
 interface ProjectsState {
   /** Alphabetical. */
@@ -43,6 +44,13 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  // Projects renamed, deleted, restored or shared elsewhere, or the user's memberships changed (US-24).
+  useRealtimeSignal((signal) => {
+    if (signal.type === 'projects' || signal.type === 'resync' || signal.type.startsWith('project.') || signal.type === 'members.changed') {
+      void reload();
+    }
+  });
 
   const createProject = useCallback(async (input: ProjectInput) => {
     const project = await projectsApi.create(input);

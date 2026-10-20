@@ -3,6 +3,7 @@ import type { Access } from '../auth/access.js';
 import { userOf } from '../auth/middleware.js';
 import { HttpError, notFound } from '../errors.js';
 import type { UsersRepository } from '../repositories/usersRepository.js';
+import { accessChanged } from '../realtime/events.js';
 import { accountPatchSchema, handOverSchema, idParamSchema, invitationSchema } from '../validation.js';
 
 /**
@@ -41,6 +42,8 @@ export function adminRouter(users: UsersRepository, access: Access): Router {
     }
     if (patch.systemRole) users.setSystemRole(target.id, patch.systemRole);
     if (patch.disabled !== undefined) users.setDisabled(target.id, patch.disabled);
+    // A disabled account's open pages end their live connection.
+    accessChanged(res, [target.id]);
     res.json(account(req.params.id));
   });
 
@@ -50,7 +53,9 @@ export function adminRouter(users: UsersRepository, access: Access): Router {
     const { toUserId } = handOverSchema.parse(req.body);
     const to = users.accounts().find((a) => a.id === toUserId);
     if (!to || to.disabled || to.id === target.id) throw new HttpError(400, 'invalid_target', 'Hand over to another active account');
-    res.json({ projects: users.handOver(target.id, to.id), account: account(req.params.id) });
+    const handedOver = users.handOver(target.id, to.id);
+    accessChanged(res, [target.id, to.id]);
+    res.json({ projects: handedOver, account: account(req.params.id) });
   });
 
   /** A link (24 hours) to set a new password; earlier unused reset links of the account stop working. */

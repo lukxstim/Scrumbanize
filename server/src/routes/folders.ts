@@ -3,6 +3,7 @@ import type { Access } from '../auth/access.js';
 import { HttpError, notFound } from '../errors.js';
 import type { FolderResult, FoldersRepository } from '../repositories/foldersRepository.js';
 import { MAX_FOLDER_DEPTH } from '../repositories/foldersRepository.js';
+import { changed } from '../realtime/events.js';
 import { folderPatchSchema, idParamSchema } from '../validation.js';
 
 /** The folder of a successful result, or the matching HTTP error. */
@@ -20,12 +21,15 @@ export function foldersRouter(folders: FoldersRepository, access: Access): Route
   const edit = access.requireRole('member', access.of.folder());
 
   router.patch('/:id', edit, (req, res) => {
-    res.json(unwrapFolder(folders.update(idParamSchema.parse(req.params.id), folderPatchSchema.parse(req.body))));
+    const folder = unwrapFolder(folders.update(idParamSchema.parse(req.params.id), folderPatchSchema.parse(req.body)));
+    changed(res, res.locals.projectId as number, { type: 'folder.changed' });
+    res.json(folder);
   });
 
   /** Its notes and subfolders move up one level. */
   router.delete('/:id', edit, (req, res) => {
     if (!folders.remove(idParamSchema.parse(req.params.id))) throw notFound('Folder not found');
+    changed(res, res.locals.projectId as number, { type: 'folder.changed' });
     res.status(204).end();
   });
 

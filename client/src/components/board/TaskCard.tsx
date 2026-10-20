@@ -2,6 +2,7 @@ import { LabelChips, LabelDots } from '../tasks/LabelChip';
 import { useDraggable } from '@dnd-kit/core';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { Link } from 'react-router';
+import type { RemoteMark } from '../../hooks/useBoard';
 import { useProjects } from '../../hooks/useProjects';
 import type { BoardColumn, Task } from '../../types/task';
 import { todayIso } from '../../utils/dates';
@@ -25,6 +26,8 @@ interface TaskCardProps {
   done?: boolean;
   /** Briefly highlighted after it was moved. */
   flash?: boolean;
+  /** Changed elsewhere a moment ago (US-24). */
+  remote?: RemoteMark;
   onOpen: (id: number) => void;
   /** Moves the task to the end of another column, staying in its lane. */
   onMoveTo: (id: number, columnId: number) => void;
@@ -33,7 +36,7 @@ interface TaskCardProps {
 }
 
 /** A draggable card: Space picks it up with the keyboard, Enter or a click opens the details. */
-export function DraggableTaskCard({ task, previous, next, compact, done = false, flash = false, onOpen, onMoveTo, readOnly = false }: TaskCardProps) {
+export function DraggableTaskCard({ task, previous, next, compact, done = false, flash = false, remote, onOpen, onMoveTo, readOnly = false }: TaskCardProps) {
   // The card stays in place as a placeholder; the DragOverlay follows the pointer.
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id, data: { type: 'task' }, disabled: readOnly });
 
@@ -51,7 +54,7 @@ export function DraggableTaskCard({ task, previous, next, compact, done = false,
       }}
       className="group touch-manipulation select-none rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
-      <TaskCardBody task={task} compact={compact} done={done} placeholder={isDragging} flash={flash}>
+      <TaskCardBody task={task} compact={compact} done={done} placeholder={isDragging} flash={flash} remote={remote}>
         <div className="flex gap-0.5">
           {previous && !readOnly && (
             <QuickMoveButton label={previous.name} onClick={() => onMoveTo(task.id, previous.id)}>
@@ -99,6 +102,8 @@ interface TaskCardBodyProps {
   placeholder?: boolean;
   /** Briefly highlights the card, e.g. right after it was moved. */
   flash?: boolean;
+  /** Changed elsewhere a moment ago (US-24): a neutral highlight and, with login, who did it. */
+  remote?: RemoteMark;
 }
 
 /** Small grey counters on the card (links, checklist, attachments). */
@@ -114,6 +119,7 @@ export function TaskCardBody({
   lifted = false,
   placeholder = false,
   flash = false,
+  remote,
 }: TaskCardBodyProps) {
   const look = lifted
     ? 'cursor-grabbing border-accent-line shadow-popover ring-1 ring-accent-line rotate-[1.5deg] scale-[1.02]'
@@ -140,8 +146,16 @@ export function TaskCardBody({
     <article
       className={`relative overflow-hidden rounded-lg border bg-surface text-left transition-[transform,box-shadow,border-color] duration-150 ${
         compact ? 'px-2.5 py-1.5' : 'px-3 py-2.5'
-      } ${look} ${flash ? 'animate-flash' : ''}`}
+      } ${look} ${flash ? 'animate-flash' : remote ? 'animate-flash-remote' : ''}`}
     >
+      {remote?.label && (
+        <span
+          key={remote.seq}
+          className="pointer-events-none absolute right-1.5 bottom-1.5 z-10 animate-fade-in rounded bg-surface-strong px-1.5 py-px text-[11px] font-medium text-fg-muted shadow-card ring-1 ring-line ring-inset"
+        >
+          {remote.label}
+        </span>
+      )}
       {task.priority && (
         <span
           aria-hidden="true"

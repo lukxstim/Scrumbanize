@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Folder } from '../types/note';
 import { foldersApi } from '../utils/api';
+import { useRealtimeProject } from './useRealtime';
 
 /**
  * The project's folders of notes (US-22). Every change reloads the list: moving or deleting a folder can change
@@ -24,6 +25,11 @@ export function useFolders(projectId: number | undefined) {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  // Folders changed elsewhere (US-24), or changes may have been missed.
+  useRealtimeProject(projectId, (events) => {
+    if (events.some((e) => e.type === 'folder.changed' || e.type === 'notes.imported' || e.type === 'resync')) void reload();
+  });
 
   const createFolder = useCallback(
     async (name: string, parentId: number | null) => {

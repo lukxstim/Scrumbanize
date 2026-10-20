@@ -9,6 +9,7 @@ import {
   laneCount,
   neighbours,
   placementOf,
+  placeTask,
   removeTask,
   reorder,
   replaceTask,
@@ -120,5 +121,20 @@ describe('wipState', () => {
     expect(wipState(2, 3)).toBe('ok');
     expect(wipState(3, 3)).toBe('at-limit');
     expect(wipState(4, 3)).toBe('over-limit');
+  });
+});
+
+describe('placeTask', () => {
+  const cells = groupByCell([task(1, 10, 1, 1000), task(2, 10, 1, 2000), task(3, 20, 1, 1000)]);
+
+  it('moves a task changed elsewhere into its new cell, by position', () => {
+    const next = placeTask(cells, { ...task(1, 20, 1, 500), title: 'Neu' });
+    expect(cellTasks(next, 10, 1).map((t) => t.id)).toEqual([2]);
+    expect(cellTasks(next, 20, 1).map((t) => t.id)).toEqual([1, 3]);
+    expect(cellTasks(next, 20, 1)[0]!.title).toBe('Neu');
+  });
+
+  it('adds a task new to this board', () => {
+    expect(cellTasks(placeTask(cells, task(4, 10, 1, 1500)), 10, 1).map((t) => t.id)).toEqual([1, 4, 2]);
   });
 });

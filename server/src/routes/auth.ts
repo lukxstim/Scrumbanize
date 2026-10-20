@@ -6,6 +6,7 @@ import type { RateLimiter } from '../auth/rateLimit.js';
 import type { SetupCode } from '../auth/setupCode.js';
 import { HttpError } from '../errors.js';
 import type { UsersRepository } from '../repositories/usersRepository.js';
+import { accessChanged } from '../realtime/events.js';
 import { loginSchema, registerSchema, resetPasswordSchema, setupSchema } from '../validation.js';
 
 interface AuthRouterOptions {
@@ -126,6 +127,9 @@ export function authRouter({ mode, users, setupCode, limiter }: AuthRouterOption
     const token = sessionTokenOf(req);
     if (token) users.deleteSession(token);
     clearSessionCookie(req, res);
+    // Other tabs of this session end their live connection now, not at the next check.
+    const user = userOf(res);
+    if (user) accessChanged(res, [user.id]);
     res.status(204).end();
   });
 

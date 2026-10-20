@@ -4,6 +4,7 @@ import { userOf } from '../auth/middleware.js';
 import { HttpError, notFound } from '../errors.js';
 import type { FoldersRepository } from '../repositories/foldersRepository.js';
 import type { NotesRepository } from '../repositories/notesRepository.js';
+import { changed } from '../realtime/events.js';
 import { idParamSchema, noteFolderSchema, noteInputSchema, noteListQuerySchema } from '../validation.js';
 
 /**
@@ -30,6 +31,7 @@ export function notesRouter(notes: NotesRepository, folders: FoldersRepository, 
   router.put('/:id', edit, (req, res) => {
     const note = notes.update(idParamSchema.parse(req.params.id), noteInputSchema.parse(req.body));
     if (!note) throw notFound('Note not found');
+    changed(res, note.projectId, { type: 'note.updated', noteId: note.id });
     res.json(note);
   });
 
@@ -39,11 +41,14 @@ export function notesRouter(notes: NotesRepository, folders: FoldersRepository, 
     if (!folders.moveNote(id, noteFolderSchema.parse(req.body).folderId)) {
       throw new HttpError(400, 'invalid_folder', "The folder must belong to the note's project");
     }
+    changed(res, res.locals.projectId as number, { type: 'note.moved', noteId: id });
     res.json(notes.get(id));
   });
 
   router.delete('/:id', edit, (req, res) => {
-    if (!notes.remove(idParamSchema.parse(req.params.id))) throw notFound('Note not found');
+    const id = idParamSchema.parse(req.params.id);
+    if (!notes.remove(id)) throw notFound('Note not found');
+    changed(res, res.locals.projectId as number, { type: 'note.deleted', noteId: id });
     res.status(204).end();
   });
 

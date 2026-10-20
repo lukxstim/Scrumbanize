@@ -3,6 +3,7 @@ import type { Access } from '../auth/access.js';
 import { userOf } from '../auth/middleware.js';
 import { HttpError, notFound } from '../errors.js';
 import type { ProjectResult, ProjectsRepository } from '../repositories/projectsRepository.js';
+import { accessChanged, changed } from '../realtime/events.js';
 import { idParamSchema, projectInputSchema, projectPatchSchema } from '../validation.js';
 
 const nameTaken = () => new HttpError(409, 'name_taken', 'A project with this name already exists');
@@ -23,17 +24,23 @@ export function projectsRouter(projects: ProjectsRepository, access: Access): Ro
   });
 
   router.post('/', (req, res) => {
-    res.status(201).json({ ...unwrap(projects.create(projectInputSchema.parse(req.body))), role: 'owner' });
+    const project = unwrap(projects.create(projectInputSchema.parse(req.body)));
+    // The creator's other tabs and windows get the new project's room.
+    accessChanged(res, [userOf(res)!.id]);
+    res.status(201).json({ ...project, role: 'owner' });
   });
 
   router.patch('/:id', owner, (req, res) => {
-    res.json({ ...unwrap(projects.update(idParamSchema.parse(req.params.id), projectPatchSchema.parse(req.body))), role: res.locals.projectRole });
+    const project = unwrap(projects.update(idParamSchema.parse(req.params.id), projectPatchSchema.parse(req.body)));
+    changed(res, project.id, { type: 'project.updated' });
+    res.json({ ...project, role: res.locals.projectRole });
   });
 
   router.delete('/:id', owner, (req, res) => {
     const result = projects.remove(idParamSchema.parse(req.params.id));
     if (result === 'not_found') throw notFound('Project not found');
     if (result === 'last_project') throw new HttpError(409, 'last_project', 'The last project cannot be deleted');
+    changed(res, res.locals.projectId as number, { type: 'project.deleted' });
     res.status(204).end();
   });
 

@@ -2,12 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Activity, ActivityEntity } from '../types/activity';
 import { activitiesApi } from '../utils/api';
 import type { LoadStatus } from './useNotes';
+import { useRealtimeProject } from './useRealtime';
 
 const PAGE_SIZE = 30;
 
 /**
  * The project's activity log, newest first, filtered by area. Older entries load page by page;
- * the first page reloads when the filter changes and when the browser window regains focus.
+ * the first page reloads when the filter changes, when the browser window regains focus, and after changes made
+ * elsewhere (US-24), at most once a second.
  */
 export function useActivities(projectId: number, type?: ActivityEntity) {
   const [items, setItems] = useState<Activity[]>([]);
@@ -41,6 +43,8 @@ export function useActivities(projectId: number, type?: ActivityEntity) {
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, [reload]);
+
+  useRealtimeProject(projectId, () => void reload(false), 1000);
 
   const loadMore = useCallback(async () => {
     if (nextCursor === null || loadingMore) return;

@@ -1,11 +1,23 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Attachment } from '../types/attachment';
 import type { ProjectColor } from '../types/project';
 import type { BoardColumn, Label, Lane, LinkKind, Task, TaskInput, TaskPatch } from '../types/task';
 import { ApiError, boardApi, columnsApi, labelsApi, lanesApi, tasksApi } from '../utils/api';
-import { addTask, applyMove, groupByCell, removeTask, reorder, replaceTask, type Cells } from '../utils/board';
+import { addTask, applyMove, groupByCell, placeTask, removeTask, reorder, replaceTask, type Cells } from '../utils/board';
 import { dropLinksTo, refreshLinkedTask } from '../utils/links';
+import { planBoard } from '../utils/realtime';
 import type { LoadStatus } from './useNotes';
+import { useRealtimeProject } from './useRealtime';
+
+/** How long a card changed elsewhere shows who did it (US-24). */
+const REMOTE_MARK_MS = 3000;
+
+/** A card changed elsewhere: "von Lukas verschoben", or null (no login) for only the highlight. */
+export interface RemoteMark {
+  label: string | null;
+  /** Tells a newer mark of the same card from the one whose time ran out. */
+  seq: number;
+}
 
 type ItemKind = 'column' | 'lane' | 'label';
 
@@ -68,6 +80,76 @@ export function useBoard(projectId: number) {
     [reload],
   );
 
+  // --- Changes made elsewhere (US-24) ----------------------------------------------------------------------------
+  const columnsRef = useRef(columns);
+  useEffect(() => {
+    columnsRef.current = columns;
+  });
+  // Tasks with a move or date change of this tab still on its way: news about them waits until it was saved, so
+  // the server's state of a moment ago never undoes what the user just did.
+  const saving = useRef(new Map<number, number>());
+  const waiting = useRef(new Set<number>());
+  const [remoteMarks, setRemoteMarks] = useState<Record<number, RemoteMark>>({});
+  const markSeq = useRef(0);
+
+  /** Loads tasks again and puts them where they now are; a task that is gone leaves the board. */
+  const refreshTasks = useCallback(async (ids: number[]) => {
+    await Promise.all(
+      ids.map(async (id) => {
+        try {
+          const task = await tasksApi.get(id);
+          setCells((current) => refreshLinkedTask(placeTask(current, task), task, columnsRef.current));
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 404) setCells((current) => dropLinksTo(removeTask(current, id), id));
+        }
+      }),
+    );
+  }, []);
+
+  const mark = useCallback((marks: Map<number, string | null>) => {
+    if (marks.size === 0) return;
+    const seq = ++markSeq.current;
+    setRemoteMarks((current) => ({ ...current, ...Object.fromEntries([...marks].map(([id, label]) => [id, { label, seq }])) }));
+    setTimeout(() => {
+      setRemoteMarks((current) => Object.fromEntries(Object.entries(current).filter(([, m]) => m.seq !== seq)));
+    }, REMOTE_MARK_MS);
+  }, []);
+
+  useRealtimeProject(projectId, (events) => {
+    const plan = planBoard(events);
+    if (plan.remove.length) {
+      setCells((current) => plan.remove.reduce((cells, id) => dropLinksTo(removeTask(cells, id), id), current));
+    }
+    if (plan.reload) {
+      void reload().then(() => mark(plan.marks));
+      return;
+    }
+    const now = plan.refetch.filter((id) => {
+      if (!saving.current.has(id)) return true;
+      waiting.current.add(id);
+      return false;
+    });
+    void refreshTasks(now).then(() => mark(plan.marks));
+  });
+
+  /** Runs this tab's optimistic change of a task; news from elsewhere about it is applied afterwards. */
+  const whileSaving = useCallback(
+    async (id: number, work: () => Promise<void>) => {
+      saving.current.set(id, (saving.current.get(id) ?? 0) + 1);
+      try {
+        await work();
+      } finally {
+        const left = saving.current.get(id)! - 1;
+        if (left > 0) saving.current.set(id, left);
+        else {
+          saving.current.delete(id);
+          if (waiting.current.delete(id)) void refreshTasks([id]);
+        }
+      }
+    },
+    [refreshTasks],
+  );
+
   /** Runs a column or lane change on the server, then shows the board as the server has it. */
   const change = useCallback(
     async (kind: ItemKind, request: () => Promise<unknown>): Promise<boolean> => {
@@ -112,18 +194,19 @@ export function useBoard(projectId: number) {
   }, []);
 
   const moveTask = useCallback(
-    async (id: number, columnId: number, laneId: number, index: number) => {
-      setCells((current) => applyMove(current, id, columnId, laneId, index));
-      try {
-        const saved = await tasksApi.move(id, columnId, laneId, index);
-        // Tasks linked to this one show its column, so they change too.
-        setCells((current) => refreshLinkedTask(replaceTask(current, saved), saved, columns));
-        flashTask(id);
-      } catch {
-        failed('Der Task konnte nicht verschoben werden. Das Board wurde neu geladen.');
-      }
-    },
-    [failed, flashTask, columns],
+    (id: number, columnId: number, laneId: number, index: number) =>
+      whileSaving(id, async () => {
+        setCells((current) => applyMove(current, id, columnId, laneId, index));
+        try {
+          const saved = await tasksApi.move(id, columnId, laneId, index);
+          // Tasks linked to this one show its column, so they change too.
+          setCells((current) => refreshLinkedTask(replaceTask(current, saved), saved, columns));
+          flashTask(id);
+        } catch {
+          failed('Der Task konnte nicht verschoben werden. Das Board wurde neu geladen.');
+        }
+      }),
+    [failed, flashTask, columns, whileSaving],
   );
 
   /**
@@ -168,19 +251,20 @@ export function useBoard(projectId: number) {
 
   /** Changes dates right away (e.g. dragged in the calendar) and then saves; a failed save reloads the board. */
   const rescheduleTask = useCallback(
-    async (id: number, patch: Pick<TaskPatch, 'startDate' | 'dueDate'>) => {
-      setCells((current) => {
-        const task = Object.values(current).flat().find((t) => t.id === id);
-        return task ? replaceTask(current, { ...task, ...patch }) : current;
-      });
-      try {
-        const saved = await tasksApi.update(id, patch);
-        setCells((current) => replaceTask(current, saved));
-      } catch {
-        failed('Der Termin konnte nicht gespeichert werden. Die Daten wurden neu geladen.');
-      }
-    },
-    [failed],
+    (id: number, patch: Pick<TaskPatch, 'startDate' | 'dueDate'>) =>
+      whileSaving(id, async () => {
+        setCells((current) => {
+          const task = Object.values(current).flat().find((t) => t.id === id);
+          return task ? replaceTask(current, { ...task, ...patch }) : current;
+        });
+        try {
+          const saved = await tasksApi.update(id, patch);
+          setCells((current) => replaceTask(current, saved));
+        } catch {
+          failed('Der Termin konnte nicht gespeichert werden. Die Daten wurden neu geladen.');
+        }
+      }),
+    [failed, whileSaving],
   );
 
   const deleteTask = useCallback(async (id: number): Promise<void> => {
@@ -234,6 +318,8 @@ export function useBoard(projectId: number) {
     labels,
     cells,
     flashId,
+    /** Cards changed elsewhere a moment ago (US-24). */
+    remoteMarks,
     status,
     actionError,
     dismissError: () => setActionError(null),

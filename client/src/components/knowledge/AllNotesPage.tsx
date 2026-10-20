@@ -46,7 +46,7 @@ export default function AllNotesPage() {
   const navigate = useNavigate();
   const toast = useToast();
   const { projects } = useProjects();
-  const { notes, status, reload, updateAttachments, saveNote, moveNote, deleteNote, createTaskFromNote, discardTask } = useNotes(null);
+  const { notes, status, reload, remoteEdits, updateAttachments, saveNote, moveNote, deleteNote, createTaskFromNote, discardTask } = useNotes(null);
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
 
@@ -174,6 +174,7 @@ export default function AllNotesPage() {
               <NoteEditor
                 key={selectedNote.id}
                 note={selectedNote}
+                remoteEdit={remoteEdits[selectedNote.id]}
                 tagSuggestions={tagCounts.map((t) => t.name)}
                 autoFocusTitle={false}
                 onSave={saveNote}

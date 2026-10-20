@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useProjects } from '../../hooks/useProjects';
 import { folderPath } from '../../utils/folders';
 import { can } from '../../utils/permissions';
@@ -6,9 +6,11 @@ import { getLastProjectId, ofKind } from '../../utils/projects';
 import Backlinks from './Backlinks';
 import MoveToFolderDialog from './MoveToFolderDialog';
 import { useAutosave, type SaveStatus } from '../../hooks/useAutosave';
+import type { RemoteEdit } from '../../hooks/useNotes';
 import { useToast } from '../../hooks/useToast';
 import type { Attachment } from '../../types/attachment';
 import type { Folder, Note, NoteInput } from '../../types/note';
+import type { RealtimeActor } from '../../types/realtime';
 import type { Task } from '../../types/task';
 import { buildTaskDraft, UNTITLED_NOTE, type TaskDraft } from '../../utils/taskFromNote';
 import { exportUrls, startDownload, type ExportFormat } from '../../utils/api';
@@ -42,7 +44,12 @@ interface NoteEditorProps {
   /** The project's folders (US-22), for showing and changing where the note is. */
   folders?: Folder[];
   onMove?: (folderId: number | null) => Promise<void>;
+  /** Someone else changed this note's text (US-24); `note` then holds their version. */
+  remoteEdit?: RemoteEdit;
 }
+
+const sameInput = (a: NoteInput, b: NoteInput) =>
+  a.title === b.title && a.content === b.content && a.tags.length === b.tags.length && a.tags.every((tag, i) => tag === b.tags[i]);
 
 export default function NoteEditor({
   note,
@@ -57,6 +64,7 @@ export default function NoteEditor({
   readOnly = false,
   folders = [],
   onMove,
+  remoteEdit,
 }: NoteEditorProps) {
   // Tasks may go into any project the user may add tasks to (US-22): the note's own, or the last one used.
   const { projects } = useProjects();
@@ -72,6 +80,39 @@ export default function NoteEditor({
   // Markdown of what is selected in the editor, for "Auswahl in Task umwandeln".
   const [selection, setSelection] = useState('');
   const [mindmapOpen, setMindmapOpen] = useState(false);
+
+  // A change from elsewhere (US-24) is taken over right away while nobody works in this editor; otherwise the user
+  // decides. The rich text editor starts over (new key) to show the new text.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [editorKey, setEditorKey] = useState(0);
+  const [remoteConflict, setRemoteConflict] = useState<{ by: RealtimeActor | null } | null>(null);
+  const seenEdit = useRef(remoteEdit?.seq);
+
+  function takeRemote() {
+    cancel();
+    setDraft({ title: note.title, content: note.content, tags: note.tags });
+    setEditorKey((key) => key + 1);
+    setRemoteConflict(null);
+  }
+
+  function keepMine() {
+    setRemoteConflict(null);
+    schedule(draft);
+    void flush();
+  }
+
+  useEffect(() => {
+    if (!remoteEdit || remoteEdit.seq === seenEdit.current) return;
+    seenEdit.current = remoteEdit.seq;
+    if (sameInput(draft, { title: note.title, content: note.content, tags: note.tags })) {
+      setRemoteConflict(null);
+      return;
+    }
+    const working = !readOnly && (status !== 'saved' || rootRef.current?.contains(document.activeElement));
+    if (working) setRemoteConflict({ by: remoteEdit.by });
+    else takeRemote();
+    // Only a new change from elsewhere decides; draft and status are read as they are at that moment.
+  }, [remoteEdit]);
 
   function change(patch: Partial<NoteInput>) {
     const next = { ...draft, ...patch };
@@ -123,6 +164,7 @@ export default function NoteEditor({
 
   return (
     <div
+      ref={rootRef}
       className="flex h-full flex-col"
       onKeyDown={(event) => {
         if (event.key === 's' && (event.ctrlKey || event.metaKey)) {
@@ -191,6 +233,22 @@ export default function NoteEditor({
         )}
       </div>
 
+      {remoteConflict && (
+        <div role="status" className="flex flex-wrap items-center gap-2 border-b border-line bg-surface-muted px-6 py-2 text-sm text-fg-muted">
+          <span className="min-w-0 flex-1">
+            {remoteConflict.by
+              ? `${remoteConflict.by.name} hat diese Notiz gerade geändert.`
+              : 'Diese Notiz wurde gerade in einem anderen Fenster geändert.'}
+          </span>
+          <Button size="sm" onClick={takeRemote}>
+            Übernehmen
+          </Button>
+          <Button size="sm" variant="ghost" onClick={keepMine}>
+            Meine Fassung behalten
+          </Button>
+        </div>
+      )}
+
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-3 px-8 py-8">
           <input
@@ -209,6 +267,7 @@ export default function NoteEditor({
           <LinkedTasks projectId={note.projectId} tasks={note.tasks} />
           <hr className="my-1 border-line" />
           <MarkdownEditor
+            key={editorKey}
             value={draft.content}
             onChange={(content) => change({ content })}
             onSelectionChange={setSelection}

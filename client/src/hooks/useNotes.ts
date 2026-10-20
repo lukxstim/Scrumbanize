@@ -1,12 +1,21 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Attachment } from '../types/attachment';
 import type { Note, NoteInput } from '../types/note';
+import type { RealtimeActor } from '../types/realtime';
 import type { Task } from '../types/task';
-import { notesApi, tasksApi, trashApi } from '../utils/api';
+import { ApiError, notesApi, tasksApi, trashApi } from '../utils/api';
 import { notifyNotesChanged } from '../utils/appEvents';
+import { planNotes } from '../utils/realtime';
 import type { TaskDraft } from '../utils/taskFromNote';
+import { useRealtimeProject } from './useRealtime';
 
 export type LoadStatus = 'loading' | 'ready' | 'error';
+
+/** Someone else changed the note's text (US-24); `seq` grows with every such change. */
+export interface RemoteEdit {
+  seq: number;
+  by: RealtimeActor | null;
+}
 
 const load = (projectId: number | null) => (projectId === null ? notesApi.listAll() : notesApi.list(projectId));
 
@@ -18,19 +27,24 @@ export function useNotes(projectId: number | null) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [status, setStatus] = useState<LoadStatus>('loading');
 
-  const reload = useCallback(async () => {
-    setStatus('loading');
-    try {
-      setNotes(await load(projectId));
-      setStatus('ready');
-    } catch {
-      setStatus('error');
-    }
-  }, [projectId]);
+  /** `quietly`: without the loading state, for changes from elsewhere; a failure keeps the list as it is. */
+  const reload = useCallback(
+    async (quietly = false) => {
+      if (!quietly) setStatus('loading');
+      try {
+        setNotes(await load(projectId));
+        setStatus('ready');
+      } catch {
+        if (!quietly) setStatus('error');
+      }
+    },
+    [projectId],
+  );
 
   useEffect(() => {
     void reload();
   }, [reload]);
+  const reloadVisibly = useCallback(() => reload(), [reload]);
 
   const createNote = useCallback(async (title = '', content = '', tags: string[] = [], folderId: number | null = null): Promise<Note> => {
     if (projectId === null) throw new Error('A new note needs a project');
@@ -83,6 +97,48 @@ export function useNotes(projectId: number | null) {
     return task;
   }, []);
 
+  // --- Changes made elsewhere (US-24) ----------------------------------------------------------------------------
+  const notesRef = useRef(notes);
+  useEffect(() => {
+    notesRef.current = notes;
+  });
+  const [remoteEdits, setRemoteEdits] = useState<Record<number, RemoteEdit>>({});
+  const editSeq = useRef(0);
+
+  useRealtimeProject(projectId ?? 'all', async (events) => {
+    const plan = planNotes(events, projectId === null);
+    if (plan.remove.length) setNotes((current) => current.filter((note) => !plan.remove.includes(note.id)));
+    if (plan.reload) await reload(true);
+    else if (plan.folders) await refreshFolders();
+    // In "Alle Notizen" only notes already listed: the others are in projects, which Wissen does not show.
+    const known = new Set(notesRef.current.map((note) => note.id));
+    const ids = projectId === null ? plan.refetch.filter((id) => known.has(id)) : plan.refetch;
+    const fetched = await Promise.all(
+      ids.map(async (id) => {
+        try {
+          return await notesApi.get(id);
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 404) setNotes((current) => current.filter((note) => note.id !== id));
+          return undefined;
+        }
+      }),
+    );
+    const fresh = fetched.filter((note) => note !== undefined);
+    if (fresh.length === 0) return;
+    setNotes((current) => {
+      const byId = new Map(fresh.map((note) => [note.id, note]));
+      const added = fresh.filter((note) => !current.some((c) => c.id === note.id));
+      return [...added, ...current.map((note) => byId.get(note.id) ?? note)];
+    });
+    const edited = fresh.filter((note) => plan.edited.has(note.id));
+    if (edited.length) {
+      setRemoteEdits((current) => ({
+        ...current,
+        ...Object.fromEntries(edited.map((note) => [note.id, { seq: ++editSeq.current, by: plan.edited.get(note.id)! }])),
+      }));
+    }
+  });
+
   /** Takes back a task just created from a note ("Rückgängig"): it is deleted for good, not kept in the trash. */
   const discardTask = useCallback(async (taskId: number): Promise<void> => {
     await tasksApi.remove(taskId);
@@ -99,5 +155,19 @@ export function useNotes(projectId: number | null) {
     setNotes((current) => current.map((note) => (note.id === noteId ? { ...note, attachments: update(note.attachments) } : note)));
   }, []);
 
-  return { notes, status, reload, updateAttachments, createNote, saveNote, moveNote, refreshFolders, deleteNote, createTaskFromNote, discardTask };
+  return {
+    notes,
+    status,
+    reload: reloadVisibly,
+    /** Notes whose text was changed elsewhere, for the open editor (US-24). */
+    remoteEdits,
+    updateAttachments,
+    createNote,
+    saveNote,
+    moveNote,
+    refreshFolders,
+    deleteNote,
+    createTaskFromNote,
+    discardTask,
+  };
 }

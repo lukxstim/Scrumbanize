@@ -7,6 +7,7 @@ import type { BoardRepository } from '../repositories/boardRepository.js';
 import type { NotesRepository } from '../repositories/notesRepository.js';
 import type { ProjectsRepository } from '../repositories/projectsRepository.js';
 import type { TasksRepository } from '../repositories/tasksRepository.js';
+import { changed } from '../realtime/events.js';
 import { exportQuerySchema, idParamSchema, importNotesSchema } from '../validation.js';
 import { createZipStream, isCompressible } from '../zipStream.js';
 
@@ -92,7 +93,9 @@ export function exportsRouter({ access, projects, notes, tasks, board, attachmen
     const project = projectOf(req.params.projectId);
     const { notes: batch } = importNotesSchema.parse(req.body);
     if (batch.length === 0) throw new HttpError(400, 'invalid_input', 'No notes');
-    res.status(201).json({ created: notes.importMany(project.id, batch) });
+    const created = notes.importMany(project.id, batch);
+    changed(res, project.id, { type: 'notes.imported' });
+    res.status(201).json({ created });
   });
 
   return router;

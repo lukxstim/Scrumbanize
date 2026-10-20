@@ -179,10 +179,10 @@ export function createAttachmentsRepository(db: Db, uploadsDir: string) {
       return row && { attachment: toAttachment(row), path: filePath(row.stored_name) };
     },
 
-    /** Deletes the attachment and its file for good. False if it does not exist (or its owner is in the trash). */
-    remove(id: number): boolean {
+    /** Deletes the attachment and its file for good; returns its note or task. Undefined if it does not exist (or its owner is in the trash). */
+    remove(id: number): AttachmentOwner | undefined {
       const row = selectAttachment.get(id);
-      if (!row) return false;
+      if (!row) return undefined;
       const owner: AttachmentOwner = row.note_id !== null ? { type: 'note', id: row.note_id } : { type: 'task', id: row.task_id! };
       db.transaction(() => {
         deleteRow.run(id);
@@ -197,7 +197,7 @@ export function createAttachmentsRepository(db: Db, uploadsDir: string) {
         });
       })();
       removeFile(filePath(row.stored_name));
-      return true;
+      return owner;
     },
 
     /**

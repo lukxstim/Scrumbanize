@@ -1,6 +1,7 @@
-import { Router } from 'express';
+import { Router, type RequestHandler } from 'express';
 import type { Access } from '../auth/access.js';
 import { HttpError, notFound } from '../errors.js';
+import { changed } from '../realtime/events.js';
 import type { BoardFailure, BoardRepository, BoardResult } from '../repositories/boardRepository.js';
 import {
   columnPatchSchema,
@@ -27,10 +28,19 @@ export function unwrapBoard<T>(result: BoardResult<T>, label: 'Column' | 'Lane')
   throw new HttpError(status, result.reason, `${label}: ${message}`);
 }
 
+/** Every route here changes the board: announced once it succeeded (US-24). */
+const announce =
+  (what: 'columns' | 'lanes'): RequestHandler =>
+  (_req, res, next) => {
+    changed(res, res.locals.projectId as number, { type: 'board.changed', what });
+    next();
+  };
+
 /** Single columns by id, mounted at /api/columns. Creating is project-scoped (see projectScoped.ts). Owners only. */
 export function columnsRouter(board: BoardRepository, access: Access): Router {
   const router = Router();
   router.use('/:id', access.requireRole('owner', access.of.column()));
+  router.use('/:id', announce('columns'));
 
   router.patch('/:id', (req, res) => {
     res.json(unwrapBoard(board.updateColumn(idParamSchema.parse(req.params.id), columnPatchSchema.parse(req.body)), 'Column'));
@@ -54,6 +64,7 @@ export function columnsRouter(board: BoardRepository, access: Access): Router {
 export function lanesRouter(board: BoardRepository, access: Access): Router {
   const router = Router();
   router.use('/:id', access.requireRole('owner', access.of.lane()));
+  router.use('/:id', announce('lanes'));
 
   router.patch('/:id', (req, res) => {
     const { name } = laneInputSchema.parse(req.body);

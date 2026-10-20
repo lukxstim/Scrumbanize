@@ -4,6 +4,7 @@ import { userOf } from '../auth/middleware.js';
 import { notFound } from '../errors.js';
 import type { ProjectsRepository } from '../repositories/projectsRepository.js';
 import type { TrashRepository } from '../repositories/trashRepository.js';
+import { changed } from '../realtime/events.js';
 import { idParamSchema, trashQuerySchema, trashTypeSchema } from '../validation.js';
 
 /**
@@ -31,17 +32,24 @@ export function trashRouter(trash: TrashRepository, projects: ProjectsRepository
   });
 
   router.post('/:type/:id/restore', (req, res) => {
-    checkItem(res, trashTypeSchema.parse(req.params.type), idParamSchema.parse(req.params.id), 'member');
-    const restored = trash.restore(trashTypeSchema.parse(req.params.type), idParamSchema.parse(req.params.id));
+    const type = trashTypeSchema.parse(req.params.type);
+    const id = idParamSchema.parse(req.params.id);
+    checkItem(res, type, id, 'member');
+    const projectId = access.trashProject(type, id)!;
+    const restored = trash.restore(type, id);
     if (!restored) throw notFound('Not in the trash');
+    announce(res, projectId, type, id, 'restored');
     res.json(restored);
   });
 
   router.delete('/:type/:id', (req, res) => {
-    checkItem(res, trashTypeSchema.parse(req.params.type), idParamSchema.parse(req.params.id), 'owner');
-    if (!trash.purge(trashTypeSchema.parse(req.params.type), idParamSchema.parse(req.params.id))) {
-      throw notFound('Not in the trash');
-    }
+    const type = trashTypeSchema.parse(req.params.type);
+    const id = idParamSchema.parse(req.params.id);
+    checkItem(res, type, id, 'owner');
+    // Known only before the item is gone.
+    const projectId = access.trashProject(type, id)!;
+    if (!trash.purge(type, id)) throw notFound('Not in the trash');
+    announce(res, projectId, type, id, 'purged');
     afterPurge();
     res.status(204).end();
   });
@@ -51,10 +59,19 @@ export function trashRouter(trash: TrashRepository, projects: ProjectsRepository
     const { project } = trashQuerySchema.parse(req.query);
     if (project !== undefined && !projects.exists(project)) throw notFound('Project not found');
     if (project !== undefined) access.check(userOf(res)!, project, 'owner');
-    const purged = trash.empty(project, access.projectIds(userOf(res)!, 'owner'));
+    const own = access.projectIds(userOf(res)!, 'owner');
+    const purged = trash.empty(project, own);
+    for (const projectId of project === undefined ? own : [project]) changed(res, projectId, { type: 'trash.emptied' });
     afterPurge();
     res.json(purged);
   });
 
   return router;
+}
+
+/** A restored or purged note, task or project, for the open pages (US-24). */
+function announce(res: Parameters<typeof changed>[0], projectId: number, type: 'note' | 'task' | 'project', id: number, what: 'restored' | 'purged') {
+  if (type === 'note') changed(res, projectId, { type: `note.${what}`, noteId: id });
+  else if (type === 'task') changed(res, projectId, { type: `task.${what}`, taskId: id });
+  else changed(res, projectId, { type: `project.${what}` });
 }

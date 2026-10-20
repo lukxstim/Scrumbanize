@@ -15,6 +15,7 @@ import { apiNotFoundHandler, errorHandler } from './errors.js';
 import { healthReport } from './health.js';
 import type { BackupSchedule } from './dailyBackup.js';
 import { hostGuard } from './hostGuard.js';
+import { createRealtimeHub, realtimeQueue, type RealtimeHub } from './realtime/events.js';
 import { createActivityRepository } from './repositories/activityRepository.js';
 import { createAnalyticsRepository } from './repositories/analyticsRepository.js';
 import { createAttachmentsRepository } from './repositories/attachmentsRepository.js';
@@ -80,6 +81,8 @@ export interface AppOptions {
   version?: string;
   /** The daily backups' settings, shown to administrators (US-23); omitted: none. */
   backupSchedule?: BackupSchedule;
+  /** Where changes are announced for live updates (US-24); startServer connects it to the pages. Omitted: nobody listens. */
+  realtime?: RealtimeHub;
 }
 
 export function createApp(db: Db, options: AppOptions = {}): express.Express {
@@ -100,6 +103,7 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   const reminders = createRemindersRepository(db);
   const users = createUsersRepository(db);
   const authMode = options.auth ?? 'local';
+  const realtime = options.realtime ?? createRealtimeHub();
   const setupCode = createSetupCode(options.onSetupCode ?? (() => {}));
   const access = createAccess(db, authMode);
   // Links and tasks pointing into other projects show only what the request's user may see (US-22).
@@ -123,6 +127,8 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
       attachments.sweep();
       // Other open windows notice this (GET /api/meta) and ask to reload.
       meta.set('restored_at', new Date().toISOString());
+      // Open pages learn it right away (US-24); GET /api/meta stays as the fallback.
+      realtime.dispatch({ kind: 'restored' });
     },
   });
 
@@ -144,6 +150,8 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   // With a session cookie, only the app's own pages may change something.
   if (authMode === 'required') api.use(sameOriginForChanges(options.allowedOrigins));
   api.use(authenticate(authMode, users));
+  // Changes the routes announce go out to the open pages after a successful response (US-24).
+  api.use(realtimeQueue(realtime));
   // Public: login and setup. Everything after requireAuth needs a logged-in user (US-21).
   api.use('/auth', authRouter({ mode: authMode, users, setupCode, limiter }));
   api.use(requireAuth);

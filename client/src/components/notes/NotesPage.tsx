@@ -40,7 +40,7 @@ export default function NotesPage() {
   const projectId = Number(projectParam);
   // Viewers read notes only (US-21).
   const canEdit = useCan('edit');
-  const { notes, status, reload, updateAttachments, createNote, saveNote, moveNote, refreshFolders, deleteNote, createTaskFromNote, discardTask } =
+  const { notes, status, reload, remoteEdits, updateAttachments, createNote, saveNote, moveNote, refreshFolders, deleteNote, createTaskFromNote, discardTask } =
     useNotes(projectId);
   // Folders (US-22): which are open is remembered per project in this browser.
   const { folders, createFolder, updateFolder, deleteFolder } = useFolders(projectId);
@@ -299,6 +299,7 @@ export default function NotesPage() {
           <NoteEditor
             key={selectedNote.id}
             note={selectedNote}
+            remoteEdit={remoteEdits[selectedNote.id]}
             tagSuggestions={tagCounts.map((t) => t.name)}
             autoFocusTitle={selectedNote.id === newNoteId}
             onSave={saveNote}

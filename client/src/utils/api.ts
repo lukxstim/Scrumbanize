@@ -11,6 +11,7 @@ import type { BoardColumn, Label, Lane, LinkKind, Task, TaskInput, TaskPatch } f
 import type { Template, TemplateInput, TemplateKind } from '../types/template';
 import type { EmptyResult, RestoreResult, TrashItem, TrashType } from '../types/trash';
 import { notifyTrashChanged, notifyUnauthorized } from './appEvents';
+import { clientId } from './realtime';
 
 export class ApiError extends Error {
   constructor(
@@ -25,7 +26,8 @@ export class ApiError extends Error {
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`/api${path}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...init.headers },
+    // X-Client-Id: this tab skips the live announcement of its own change (US-24).
+    headers: { 'Content-Type': 'application/json', 'X-Client-Id': clientId, ...init.headers },
   });
 
   if (!res.ok) {
@@ -174,6 +176,7 @@ export const foldersApi = {
 };
 
 export const tasksApi = {
+  get: (id: number) => request<Task>(`/tasks/${id}`),
   create: (projectId: number, input: TaskInput) =>
     request<Task>(`/projects/${projectId}/tasks`, { method: 'POST', body: JSON.stringify(input) }),
   update: (id: number, patch: TaskPatch) =>
@@ -275,6 +278,7 @@ export const attachmentsApi = {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', `/api/${owner.type === 'note' ? 'notes' : 'tasks'}/${owner.id}/attachments`);
+      xhr.setRequestHeader('X-Client-Id', clientId);
       xhr.responseType = 'json';
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) onProgress?.(event.loaded / event.total);

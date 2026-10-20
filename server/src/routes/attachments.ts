@@ -13,6 +13,7 @@ import {
 } from '../attachmentFiles.js';
 import { HttpError, notFound } from '../errors.js';
 import type { AttachmentOwner, AttachmentsRepository } from '../repositories/attachmentsRepository.js';
+import { changed } from '../realtime/events.js';
 import { idParamSchema } from '../validation.js';
 
 /** Uploads to notes and tasks, and the files themselves. Mounted at /api. */
@@ -70,6 +71,7 @@ export function attachmentsRouter(attachments: AttachmentsRepository, access: Ac
           }),
         );
         if (!added) throw notFound(`${type} not found`);
+        changed(res, res.locals.projectId as number, { type: 'attachment.changed', owner: type, ownerId: idParamSchema.parse(req.params.id) });
         res.status(201).json(added);
       },
     ];
@@ -99,7 +101,9 @@ export function attachmentsRouter(attachments: AttachmentsRepository, access: Ac
   });
 
   router.delete('/attachments/:id', access.requireRole('member', access.of.attachment()), (req, res) => {
-    if (!attachments.remove(idParamSchema.parse(req.params.id))) throw notFound('Attachment not found');
+    const owner = attachments.remove(idParamSchema.parse(req.params.id));
+    if (!owner) throw notFound('Attachment not found');
+    changed(res, res.locals.projectId as number, { type: 'attachment.changed', owner: owner.type, ownerId: owner.id });
     res.status(204).end();
   });
 

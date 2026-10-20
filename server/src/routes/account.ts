@@ -8,6 +8,7 @@ import { hashPassword, verifyPassword } from '../auth/passwords.js';
 import type { RateLimiter } from '../auth/rateLimit.js';
 import { HttpError, notFound } from '../errors.js';
 import type { UsersRepository } from '../repositories/usersRepository.js';
+import { accessChanged } from '../realtime/events.js';
 import { idParamSchema, passwordChangeSchema, profilePatchSchema } from '../validation.js';
 
 /** Largest profile picture; the app shrinks pictures to 256 × 256 before uploading, so this is generous. */
@@ -62,6 +63,8 @@ export function accountRouter({ mode, users, uploadsDir, limiter }: AccountRoute
     }
     limiter.reset(key);
     users.setPassword(user.id, await hashPassword(password), sessionTokenOf(req));
+    // The ended sessions' open pages lose their live connection too.
+    accessChanged(res, [user.id]);
     res.status(204).end();
   });
 

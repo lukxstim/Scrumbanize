@@ -1,15 +1,21 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { metaApi } from '../utils/api';
+import { useRealtimeSignal } from './useRealtime';
 import { useToast } from './useToast';
 
 const CHECK_INTERVAL_MS = 60_000;
 
 /**
  * After a backup was restored (in this or another window), the data this window shows is outdated: it asks to
- * reload. Checked when the window regains focus and once a minute; the window doing the restore reloads anyway.
+ * reload. The live connection tells right away (US-24); checked also when the window regains focus and once a
+ * minute. The window doing the restore reloads anyway.
  */
 export function useRestoreNotice(): void {
   const toast = useToast();
+  const checkRef = useRef<() => Promise<void>>(undefined);
+  useRealtimeSignal((signal) => {
+    if (signal.type === 'restored') void checkRef.current?.();
+  });
 
   useEffect(() => {
     let known: string | null | undefined;
@@ -34,6 +40,7 @@ export function useRestoreNotice(): void {
       }
     }
 
+    checkRef.current = check;
     void check();
     const timer = setInterval(() => void check(), CHECK_INTERVAL_MS);
     const onFocus = () => void check();

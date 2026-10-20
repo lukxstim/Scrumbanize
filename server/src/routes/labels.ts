@@ -3,6 +3,7 @@ import type { Access } from '../auth/access.js';
 import { HttpError, notFound } from '../errors.js';
 import type { LabelResult, LabelsRepository } from '../repositories/labelsRepository.js';
 import type { TemplateResult, TemplatesRepository } from '../repositories/templatesRepository.js';
+import { changed } from '../realtime/events.js';
 import { idParamSchema, labelPatchSchema, reorderSchema } from '../validation.js';
 
 /** The label of a successful result, or the matching HTTP error. */
@@ -27,12 +28,16 @@ export function labelsRouter(labels: LabelsRepository, access: Access): Router {
   const edit = access.requireRole('member', access.of.label());
 
   router.patch('/:id', edit, (req, res) => {
-    res.json(unwrapLabel(labels.update(idParamSchema.parse(req.params.id), labelPatchSchema.parse(req.body))));
+    const label = unwrapLabel(labels.update(idParamSchema.parse(req.params.id), labelPatchSchema.parse(req.body)));
+    changed(res, res.locals.projectId as number, { type: 'board.changed', what: 'labels' });
+    res.json(label);
   });
 
   router.post('/:id/move', edit, (req, res) => {
     const { index } = reorderSchema.parse(req.body);
-    res.json(unwrapLabel(labels.move(idParamSchema.parse(req.params.id), index)));
+    const label = unwrapLabel(labels.move(idParamSchema.parse(req.params.id), index));
+    changed(res, res.locals.projectId as number, { type: 'board.changed', what: 'labels' });
+    res.json(label);
   });
 
   /** How many tasks carry the label, for the confirmation before deleting. */
@@ -44,6 +49,7 @@ export function labelsRouter(labels: LabelsRepository, access: Access): Router {
 
   router.delete('/:id', edit, (req, res) => {
     if (!labels.remove(idParamSchema.parse(req.params.id))) throw notFound('Label not found');
+    changed(res, res.locals.projectId as number, { type: 'board.changed', what: 'labels' });
     res.status(204).end();
   });
 
