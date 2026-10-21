@@ -11,7 +11,9 @@ COPY client/package.json client/
 COPY server/package.json server/
 # The desktop workspace must exist for npm, but its packages (Electron …) are not installed.
 COPY desktop/package.json desktop/
-RUN npm ci --workspace client --workspace server
+# No install scripts, as in CI: better-sqlite3 loads its prebuilt binary (prebuilds/) at run time, but its binding.gyp
+# makes npm run `node-gyp rebuild`, which fails in the slim image without Python and a compiler.
+RUN npm ci --ignore-scripts --workspace client --workspace server
 COPY client client
 COPY server server
 RUN npm run build
@@ -23,7 +25,7 @@ COPY package.json package-lock.json ./
 COPY client/package.json client/
 COPY server/package.json server/
 COPY desktop/package.json desktop/
-RUN npm ci --omit=dev --workspace server && npm cache clean --force
+RUN npm ci --ignore-scripts --omit=dev --workspace server && npm cache clean --force
 
 # ---- runtime ----
 FROM ${NODE_IMAGE}
