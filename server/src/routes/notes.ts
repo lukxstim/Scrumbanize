@@ -5,7 +5,7 @@ import { HttpError, notFound } from '../errors.js';
 import type { FoldersRepository } from '../repositories/foldersRepository.js';
 import type { NotesRepository } from '../repositories/notesRepository.js';
 import { changed } from '../realtime/events.js';
-import { idParamSchema, noteFolderSchema, noteInputSchema, noteListQuerySchema } from '../validation.js';
+import { idParamSchema, noteFolderSchema, noteListQuerySchema, noteUpdateSchema } from '../validation.js';
 
 /**
  * Single notes by id, and the notes of all the user's notebooks at once; listing and creating per project are project-scoped (see
@@ -28,11 +28,14 @@ export function notesRouter(notes: NotesRepository, folders: FoldersRepository, 
     res.json(note);
   });
 
+  // A save based on an older version is refused with the current note (US-24), so the editor can offer both.
   router.put('/:id', edit, (req, res) => {
-    const note = notes.update(idParamSchema.parse(req.params.id), noteInputSchema.parse(req.body));
-    if (!note) throw notFound('Note not found');
-    changed(res, note.projectId, { type: 'note.updated', noteId: note.id });
-    res.json(note);
+    const { baseUpdatedAt, ...input } = noteUpdateSchema.parse(req.body);
+    const result = notes.update(idParamSchema.parse(req.params.id), input, baseUpdatedAt);
+    if (!result.ok && result.reason === 'not_found') throw notFound('Note not found');
+    if (!result.ok) throw new HttpError(409, 'conflict', 'The note was changed in the meantime', { note: result.note });
+    changed(res, result.note.projectId, { type: 'note.updated', noteId: result.note.id });
+    res.json(result.note);
   });
 
   /** Into a folder of the note's project, or (null) to the top level (US-22). */

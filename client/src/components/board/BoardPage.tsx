@@ -14,6 +14,7 @@ import {
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useLocation, useMatch, useNavigate, useParams } from 'react-router';
 import { useBoard } from '../../hooks/useBoard';
+import { useGoneNotice } from '../../hooks/useCollaboration';
 import { useCan } from '../../hooks/useProjectRole';
 import { useProjects } from '../../hooks/useProjects';
 import { useTemplates } from '../../hooks/useTemplates';
@@ -227,6 +228,7 @@ export default function BoardPage() {
   );
 
   const openTask = openTaskId === null ? undefined : findTask(board.cells, openTaskId);
+  useGoneNotice(projectId, 'task', openTaskId);
 
   useEffect(() => {
     if (board.status === 'ready' && openTaskId !== null && !openTask) navigate(paths.board(projectId), { replace: true });

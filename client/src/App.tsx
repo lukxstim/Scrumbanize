@@ -17,9 +17,12 @@ import ProjectLayout from './components/projects/ProjectLayout';
 import ProjectSwitcher from './components/projects/ProjectSwitcher';
 import RedirectToProject from './components/projects/RedirectToProject';
 import Tour from './components/onboarding/Tour';
+import PresenceAvatars from './components/PresenceAvatars';
 import ThemeSwitcher from './components/ThemeSwitcher';
 import Kbd, { modKey } from './components/ui/Kbd';
+import { useProjectPresence } from './hooks/useCollaboration';
 import { desktopBridge } from './hooks/useDesktopSettings';
+import { useRealtimeStatus } from './hooks/useRealtime';
 import { useProjects } from './hooks/useProjects';
 import { useStoredState } from './hooks/useStoredState';
 import { useRestoreNotice } from './hooks/useRestoreNotice';
@@ -95,6 +98,9 @@ export default function App() {
     navigate(`${location.pathname}${search ? `?${search}` : ''}`, { replace: true });
   }
   const trashCount = useTrashCount(activeProject?.id);
+  // Who else is in this project right now, and whether live updates arrive (US-24).
+  const others = useProjectPresence(activeProject?.id);
+  const offline = useRealtimeStatus() === 'reconnecting';
   useRestoreNotice();
 
   // The area switch comes back to the page last shown in the other area (without the activity drawer).
@@ -242,6 +248,17 @@ export default function App() {
           </>
         )}
         <div className="flex-1" />
+        {offline && (
+          <span
+            role="status"
+            title="Änderungen anderer erscheinen wieder, sobald die Verbindung zurück ist."
+            className="flex shrink-0 items-center gap-1.5 rounded-full bg-warning-muted px-2.5 py-1 text-xs font-medium text-warning-text"
+          >
+            <span aria-hidden="true" className="size-1.5 animate-pulse rounded-full bg-current" />
+            <span className="sr-only lg:not-sr-only">Verbindung wird wiederhergestellt …</span>
+          </span>
+        )}
+        <PresenceAvatars people={others} what="gerade in diesem Projekt" max={4} />
         <button
           type="button"
           onClick={() => setPaletteOpen(true)}

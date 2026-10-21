@@ -149,3 +149,34 @@ describe('migration', () => {
     }
   });
 });
+
+describe('conflicts (US-24)', () => {
+  it('refuses title or description changed elsewhere since the edit started, with the current task', async () => {
+    const task = await createTask({ title: 'Angebot', description: 'eins' });
+    expect((await api.patch(`/api/tasks/${task.id}`).send({ description: 'zwei', base: { description: 'eins' } })).status).toBe(200);
+
+    const stale = await api.patch(`/api/tasks/${task.id}`).send({ title: 'Angebot', description: 'drei', base: { title: 'Angebot', description: 'eins' } });
+    expect(stale.status).toBe(409);
+    expect(stale.body.error).toMatchObject({ code: 'conflict', fields: ['description'], task: { id: task.id, description: 'zwei' } });
+    expect((await api.get(`/api/tasks/${task.id}`)).body.description).toBe('zwei');
+  });
+
+  it('moves, dates and the other field are no conflict', async () => {
+    const task = await createTask({ title: 'Angebot', description: 'eins' });
+    const { columns } = (await api.get('/api/projects/1/board')).body;
+    await api.post(`/api/tasks/${task.id}/move`).send({ columnId: columns[1].id, laneId: task.laneId, index: 0 });
+    await api.patch(`/api/tasks/${task.id}`).send({ priority: 'high' });
+    await api.patch(`/api/tasks/${task.id}`).send({ title: 'Angebot schreiben', base: { title: 'Angebot' } });
+
+    // Started before all of that, but only the description is sent.
+    const res = await api.patch(`/api/tasks/${task.id}`).send({ description: 'zwei', base: { description: 'eins' } });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ title: 'Angebot schreiben', description: 'zwei', priority: 'high' });
+  });
+
+  it('accepts the same text as already there', async () => {
+    const task = await createTask({ title: 'Angebot', description: 'eins' });
+    await api.patch(`/api/tasks/${task.id}`).send({ description: 'zwei', base: { description: 'eins' } });
+    expect((await api.patch(`/api/tasks/${task.id}`).send({ description: 'zwei', base: { description: 'eins' } })).status).toBe(200);
+  });
+});

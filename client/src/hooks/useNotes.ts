@@ -54,14 +54,16 @@ export function useNotes(projectId: number | null) {
     return note;
   }, [projectId]);
 
-  const saveNote = useCallback(async (id: number, input: NoteInput): Promise<void> => {
-    const saved = await notesApi.update(id, input);
+  /** `baseUpdatedAt`: the version the edit started from; changed elsewhere since, it fails with 409 (US-24). */
+  const saveNote = useCallback(async (id: number, input: NoteInput, baseUpdatedAt?: string): Promise<Note> => {
+    const saved = await notesApi.update(id, input, baseUpdatedAt);
     // Keep the local task and attachment lists: a save sent before a task was created or a file was uploaded
     // would otherwise drop them.
     setNotes((current) =>
       current.map((note) => (note.id === id ? { ...saved, tasks: note.tasks, attachments: note.attachments } : note)),
     );
     notifyNotesChanged();
+    return saved;
   }, []);
 
   /** Into a folder (US-22), or (null) to the top level. */

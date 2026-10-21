@@ -1,5 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
+import { useGoneNotice } from '../../hooks/useCollaboration';
 import { useFolders } from '../../hooks/useFolders';
 import { useNotes } from '../../hooks/useNotes';
 import { useStoredState } from '../../hooks/useStoredState';
@@ -73,6 +74,7 @@ export default function NotesPage() {
     [notes, deferredQuery, activeTags],
   );
   const selectedNote = notes.find((note) => note.id === selectedId);
+  useGoneNotice(projectId, 'note', selectedId);
   // While searching or filtering by tag, a flat list of the matches; otherwise the folder tree.
   const filtering = deferredQuery.trim() !== '' || activeTags.length > 0;
   const tree = useMemo(() => buildFolderTree(folders, visibleNotes), [folders, visibleNotes]);

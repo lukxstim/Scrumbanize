@@ -50,10 +50,11 @@ export function useAutosave<T>(save: (value: T) => Promise<void>, delay = 1000) 
     [flush, delay],
   );
 
-  /** Drops changes that have not been sent yet, e.g. before deleting. */
+  /** Drops changes that have not been sent yet, e.g. before deleting or when taking over a version from elsewhere. */
   const cancel = useCallback(() => {
     clearTimeout(timer.current);
     pending.current = null;
+    setStatus((current) => (current === 'saving' ? current : 'saved'));
   }, []);
 
   useEffect(() => {

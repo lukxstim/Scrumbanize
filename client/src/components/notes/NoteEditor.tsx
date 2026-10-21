@@ -6,6 +6,7 @@ import { getLastProjectId, ofKind } from '../../utils/projects';
 import Backlinks from './Backlinks';
 import MoveToFolderDialog from './MoveToFolderDialog';
 import { useAutosave, type SaveStatus } from '../../hooks/useAutosave';
+import { useShowItem, useSoftLock } from '../../hooks/useCollaboration';
 import type { RemoteEdit } from '../../hooks/useNotes';
 import { useToast } from '../../hooks/useToast';
 import type { Attachment } from '../../types/attachment';
@@ -13,11 +14,12 @@ import type { Folder, Note, NoteInput } from '../../types/note';
 import type { RealtimeActor } from '../../types/realtime';
 import type { Task } from '../../types/task';
 import { buildTaskDraft, UNTITLED_NOTE, type TaskDraft } from '../../utils/taskFromNote';
-import { exportUrls, startDownload, type ExportFormat } from '../../utils/api';
+import { ApiError, exportUrls, startDownload, type ExportFormat } from '../../utils/api';
 import { BoardIcon, DownloadIcon, FolderIcon, MindmapIcon } from '../icons';
 import Menu from '../Menu';
 import AttachmentsPanel from '../attachments/AttachmentsPanel';
 import MarkdownEditor from '../editor/MarkdownEditor';
+import LockNotice, { isTextField } from '../LockNotice';
 import Button, { buttonClass } from '../ui/Button';
 import ConvertToTaskDialog from './ConvertToTaskDialog';
 import LinkedTasks from './LinkedTasks';
@@ -31,7 +33,8 @@ interface NoteEditorProps {
   note: Note;
   tagSuggestions: string[];
   autoFocusTitle: boolean;
-  onSave: (id: number, input: NoteInput) => Promise<void>;
+  /** Saves based on the version `baseUpdatedAt`; fails with 409 if the note changed elsewhere since (US-24). */
+  onSave: (id: number, input: NoteInput, baseUpdatedAt: string) => Promise<Note>;
   onDelete: (id: number) => Promise<void>;
   onCreateTask: (noteId: number, draft: TaskDraft, projectId: number) => Promise<Task>;
   /** Takes back a task just created from this note. */
@@ -76,45 +79,72 @@ export default function NoteEditor({
   const [draft, setDraft] = useState<NoteInput>({ title: note.title, content: note.content, tags: note.tags });
   const [conversion, setConversion] = useState<{ draft: TaskDraft; fromSelection: boolean } | null>(null);
   const toast = useToast();
-  const { status, schedule, flush, cancel } = useAutosave<NoteInput>((input) => onSave(note.id, input));
+  // The version the draft builds on (US-24): a save based on an older one than the server's is refused (409).
+  const base = useRef(note.updatedAt);
+  const { status, schedule, flush, cancel } = useAutosave<NoteInput>(async (input) => {
+    try {
+      base.current = (await onSave(note.id, input, base.current)).updatedAt;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) setConflict({ by: null, latest: error.details.note as Note });
+      throw error;
+    }
+  });
+  // Others see who has the note open; while someone else edits it, it is read-only here.
+  useShowItem(note.projectId, { type: 'note', id: note.id });
+  const lock = useSoftLock(note.projectId, { type: 'note', id: note.id }, !readOnly);
+  const lockedBy = readOnly ? null : lock.holder;
+  const editable = !readOnly && !lockedBy;
   // Markdown of what is selected in the editor, for "Auswahl in Task umwandeln".
   const [selection, setSelection] = useState('');
   const [mindmapOpen, setMindmapOpen] = useState(false);
 
   // A change from elsewhere (US-24) is taken over right away while nobody works in this editor; otherwise the user
-  // decides. The rich text editor starts over (new key) to show the new text.
+  // decides, also when a save was refused (409) because of it. The rich text editor starts over (new key) to show the
+  // new text.
   const rootRef = useRef<HTMLDivElement>(null);
   const [editorKey, setEditorKey] = useState(0);
-  const [remoteConflict, setRemoteConflict] = useState<{ by: RealtimeActor | null } | null>(null);
+  const [conflict, setConflict] = useState<{ by: RealtimeActor | null; latest?: Note } | null>(null);
   const seenEdit = useRef(remoteEdit?.seq);
+  /** The newest version known: from the list (live updates) or from a refused save. */
+  const latest = () => (conflict?.latest && conflict.latest.updatedAt > note.updatedAt ? conflict.latest : note);
 
   function takeRemote() {
+    const source = latest();
     cancel();
-    setDraft({ title: note.title, content: note.content, tags: note.tags });
+    base.current = source.updatedAt;
+    setDraft({ title: source.title, content: source.content, tags: source.tags });
     setEditorKey((key) => key + 1);
-    setRemoteConflict(null);
+    setConflict(null);
   }
 
   function keepMine() {
-    setRemoteConflict(null);
+    base.current = latest().updatedAt;
+    setConflict(null);
     schedule(draft);
     void flush();
   }
+
+  // Someone else took over editing: what was typed here is saved first, then the editor follows their changes.
+  useEffect(() => {
+    if (lockedBy) void flush();
+  }, [lockedBy, flush]);
 
   useEffect(() => {
     if (!remoteEdit || remoteEdit.seq === seenEdit.current) return;
     seenEdit.current = remoteEdit.seq;
     if (sameInput(draft, { title: note.title, content: note.content, tags: note.tags })) {
-      setRemoteConflict(null);
+      base.current = note.updatedAt;
+      setConflict(null);
       return;
     }
-    const working = !readOnly && (status !== 'saved' || rootRef.current?.contains(document.activeElement));
-    if (working) setRemoteConflict({ by: remoteEdit.by });
+    const working = editable && (status !== 'saved' || rootRef.current?.contains(document.activeElement));
+    if (working) setConflict({ by: remoteEdit.by });
     else takeRemote();
     // Only a new change from elsewhere decides; draft and status are read as they are at that moment.
   }, [remoteEdit]);
 
   function change(patch: Partial<NoteInput>) {
+    lock.touch();
     const next = { ...draft, ...patch };
     setDraft(next);
     schedule(next);
@@ -166,6 +196,11 @@ export default function NoteEditor({
     <div
       ref={rootRef}
       className="flex h-full flex-col"
+      // The lock starts when a field gets the focus and ends a moment after the focus left the note (US-24).
+      onFocus={(event) => {
+        if (isTextField(event.target)) lock.touch();
+      }}
+      onBlur={() => lock.blur(() => !!rootRef.current?.contains(document.activeElement), flush)}
       onKeyDown={(event) => {
         if (event.key === 's' && (event.ctrlKey || event.metaKey)) {
           event.preventDefault();
@@ -225,7 +260,7 @@ export default function NoteEditor({
           <span className="text-xs text-fg-subtle">Nur lesen</span>
         ) : (
           <>
-            <SaveIndicator status={status} onRetry={() => void flush()} />
+            <SaveIndicator status={status} conflict={conflict !== null} onRetry={() => void flush()} />
             <Button variant="danger-ghost" size="sm" onClick={() => void moveToTrash()}>
               Löschen
             </Button>
@@ -233,12 +268,16 @@ export default function NoteEditor({
         )}
       </div>
 
-      {remoteConflict && (
+      {lockedBy && <LockNotice holder={lockedBy.user.name} what="die Notiz" onTakeOver={() => void lock.takeOver()} />}
+
+      {conflict && (
         <div role="status" className="flex flex-wrap items-center gap-2 border-b border-line bg-surface-muted px-6 py-2 text-sm text-fg-muted">
           <span className="min-w-0 flex-1">
-            {remoteConflict.by
-              ? `${remoteConflict.by.name} hat diese Notiz gerade geändert.`
-              : 'Diese Notiz wurde gerade in einem anderen Fenster geändert.'}
+            {conflict.by
+              ? `${conflict.by.name} hat diese Notiz gerade geändert.`
+              : conflict.latest
+                ? 'Diese Notiz wurde inzwischen anderswo geändert – deine Änderungen sind noch nicht gespeichert.'
+                : 'Diese Notiz wurde gerade in einem anderen Fenster geändert.'}
           </span>
           <Button size="sm" onClick={takeRemote}>
             Übernehmen
@@ -253,7 +292,7 @@ export default function NoteEditor({
         <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-3 px-8 py-8">
           <input
             value={draft.title}
-            readOnly={readOnly}
+            readOnly={!editable}
             onChange={(event) => change({ title: event.target.value })}
             placeholder="Titel"
             aria-label="Titel"
@@ -261,20 +300,21 @@ export default function NoteEditor({
             autoFocus={autoFocusTitle}
             className="bg-transparent text-2xl font-semibold tracking-tight text-fg placeholder:text-fg-faint focus:outline-none"
           />
-          <fieldset disabled={readOnly} className="min-w-0">
+          <fieldset disabled={!editable} className="min-w-0">
             <TagInput tags={draft.tags} suggestions={tagSuggestions} onChange={(tags) => change({ tags })} />
           </fieldset>
           <LinkedTasks projectId={note.projectId} tasks={note.tasks} />
           <hr className="my-1 border-line" />
           <MarkdownEditor
-            key={editorKey}
+            // Also anew when someone else's lock starts or ends: the editor takes `readOnly` only when it is made.
+            key={`${editorKey}-${editable}`}
             value={draft.content}
             onChange={(content) => change({ content })}
             onSelectionChange={setSelection}
             label="Inhalt"
             placeholder="Schreibe deine Notiz … ([[ verlinkt Notizen und Tasks)"
             minHeightClass="min-h-64"
-            readOnly={readOnly}
+            readOnly={!editable}
             links={{ projectId: note.projectId }}
           />
           <AttachmentsPanel
@@ -319,7 +359,10 @@ export default function NoteEditor({
   );
 }
 
-function SaveIndicator({ status, onRetry }: { status: SaveStatus; onRetry: () => void }) {
+function SaveIndicator({ status, conflict, onRetry }: { status: SaveStatus; conflict: boolean; onRetry: () => void }) {
+  if (conflict && status !== 'saved') {
+    return <span className="px-1 text-xs text-warning-text">Nicht gespeichert</span>;
+  }
   const busy = status === 'pending' || status === 'saving';
   return (
     <span aria-live="polite" className="flex items-center gap-1.5 px-1 text-xs text-fg-subtle">

@@ -150,3 +150,29 @@ describe('persistence', () => {
     }
   });
 });
+
+describe('conflicts (US-24)', () => {
+  it('refuses a save based on an older version, with the current note', async () => {
+    const note = await createNote({ title: 'Plan', content: 'eins' });
+    const mine = await api.put(`/api/notes/${note.id}`).send({ title: 'Plan', content: 'zwei', tags: [], baseUpdatedAt: note.updatedAt });
+    expect(mine.status).toBe(200);
+
+    // Someone who still has the first version.
+    const stale = await api.put(`/api/notes/${note.id}`).send({ title: 'Plan', content: 'drei', tags: [], baseUpdatedAt: note.updatedAt });
+    expect(stale.status).toBe(409);
+    expect(stale.body.error).toMatchObject({ code: 'conflict', note: { id: note.id, content: 'zwei', updatedAt: mine.body.updatedAt } });
+    expect((await api.get(`/api/notes/${note.id}`)).body.content).toBe('zwei');
+
+    // Based on the current version, it goes through; without a base (older clients, imports), as before.
+    expect((await api.put(`/api/notes/${note.id}`).send({ title: 'Plan', content: 'drei', tags: [], baseUpdatedAt: mine.body.updatedAt })).status).toBe(200);
+    expect((await api.put(`/api/notes/${note.id}`).send({ title: 'Plan', content: 'vier', tags: [] })).status).toBe(200);
+  });
+
+  it('accepts a stale save that changes nothing, e.g. a retry after a lost answer', async () => {
+    const note = await createNote({ title: 'Plan', content: 'eins', tags: ['a', 'b'] });
+    const saved = (await api.put(`/api/notes/${note.id}`).send({ title: 'Plan', content: 'zwei', tags: ['a', 'b'], baseUpdatedAt: note.updatedAt })).body;
+    const retry = await api.put(`/api/notes/${note.id}`).send({ title: 'Plan', content: 'zwei', tags: ['b', 'a'], baseUpdatedAt: note.updatedAt });
+    expect(retry.status).toBe(200);
+    expect(retry.body.updatedAt).toBe(saved.updatedAt);
+  });
+});

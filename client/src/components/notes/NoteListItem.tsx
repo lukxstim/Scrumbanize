@@ -1,7 +1,9 @@
 import type { DragEvent, ReactNode } from 'react';
+import { useItemViewers } from '../../hooks/useCollaboration';
 import type { Note } from '../../types/note';
 import { formatDate, snippet } from '../../utils/format';
 import { UNTITLED_NOTE } from '../../utils/taskFromNote';
+import PresenceAvatars from '../PresenceAvatars';
 
 interface NoteListItemProps {
   note: Note;
@@ -17,6 +19,8 @@ interface NoteListItemProps {
 
 export default function NoteListItem({ note, selected, onSelect, depth = 0, dragProps, place }: NoteListItemProps) {
   const preview = snippet(note.content);
+  // Who has the note open right now (US-24).
+  const viewers = useItemViewers(note.projectId, { type: 'note', id: note.id });
 
   return (
     <li>
@@ -55,7 +59,8 @@ export default function NoteListItem({ note, selected, onSelect, depth = 0, drag
               <span className="sr-only">{note.tasks.length === 1 ? ' verknüpfter Task' : ' verknüpfte Tasks'}</span>
             </span>
           )}
-          <time dateTime={note.updatedAt} className="ml-auto text-[11px] text-fg-subtle">
+          <PresenceAvatars people={viewers} what="hat die Notiz gerade offen" size="sm" className="ml-auto" />
+          <time dateTime={note.updatedAt} className={`${viewers.length ? '' : 'ml-auto '}text-[11px] text-fg-subtle`}>
             {formatDate(note.updatedAt)}
           </time>
         </div>

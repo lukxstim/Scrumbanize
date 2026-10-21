@@ -223,9 +223,10 @@ export function useBoard(projectId: number) {
   );
 
   const updateTask = useCallback(
-    async (id: number, patch: TaskPatch): Promise<void> => {
+    async (id: number, patch: TaskPatch): Promise<Task> => {
       const saved = await tasksApi.update(id, patch);
       setCells((current) => refreshLinkedTask(replaceTask(current, saved), saved, columns));
+      return saved;
     },
     [columns],
   );

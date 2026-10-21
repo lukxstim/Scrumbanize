@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useAutosave, type SaveStatus } from '../../hooks/useAutosave';
+import { useShowItem, useSoftLock } from '../../hooks/useCollaboration';
 import { useProjects } from '../../hooks/useProjects';
 import type { ProjectColor } from '../../types/project';
 import type { BoardColumn, Label, Lane, LinkKind, Task, TaskPatch } from '../../types/task';
@@ -14,7 +15,9 @@ import TaskLinks from '../tasks/TaskLinks';
 import AttachmentsPanel from '../attachments/AttachmentsPanel';
 import Backlinks from '../notes/Backlinks';
 import type { Attachment } from '../../types/attachment';
+import { ApiError } from '../../utils/api';
 import { linkCandidates } from '../../utils/links';
+import LockNotice, { isTextField } from '../LockNotice';
 import MarkdownEditor from '../editor/MarkdownEditor';
 import Button from '../ui/Button';
 import Dialog from '../ui/Dialog';
@@ -26,7 +29,8 @@ interface TaskDetailDialogProps {
   columns: BoardColumn[];
   lanes: Lane[];
   onClose: () => void;
-  onSave: (id: number, patch: TaskPatch) => Promise<void>;
+  /** Resolves to the saved task; a title or description changed elsewhere meanwhile fails with 409 (US-24). */
+  onSave: (id: number, patch: TaskPatch) => Promise<Task>;
   /** Moves the task to the end of the given cell. */
   onMove: (id: number, columnId: number, laneId: number) => void;
   onDelete: (id: number) => Promise<void>;
@@ -88,9 +92,75 @@ export default function TaskDetailDialog({
       setLabelsFailed(true);
     }
   }
-  const { status, schedule, flush, cancel } = useAutosave<TaskPatch>((patch) => onSave(task.id, patch));
+  // Title and description as the server had them when the draft started (US-24): saved with it, so a change made
+  // elsewhere in between is refused (409) instead of overwritten.
+  const base = useRef({ title: task.title, description: task.description });
+  const [conflict, setConflict] = useState<{ latest: Task } | null>(null);
+  // What this dialog sent last: the board shows it once saved, which is no change from elsewhere.
+  const sent = useRef<TaskPatch>({});
+  const { status, schedule, flush, cancel } = useAutosave<TaskPatch>(async (patch) => {
+    sent.current = patch;
+    try {
+      const saved = await onSave(task.id, { ...patch, base: base.current });
+      base.current = { title: saved.title, description: saved.description };
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) setConflict({ latest: error.details.task as Task });
+      throw error;
+    }
+  });
+  // Others see who has the task open; while someone else edits title or description, they are read-only here.
+  useShowItem(task.projectId, { type: 'task', id: task.id });
+  const lock = useSoftLock(task.projectId, { type: 'task', id: task.id }, !readOnly);
+  const lockedBy = readOnly ? null : lock.holder;
+  const textEditable = !readOnly && !lockedBy;
+  const textRef = useRef<HTMLDivElement>(null);
+  const [editorKey, setEditorKey] = useState(0);
+
+  /** Shows the given version of title and description and builds on it. */
+  function adopt(source: Pick<Task, 'title' | 'description'>) {
+    cancel();
+    base.current = { title: source.title, description: source.description };
+    setTitle(source.title);
+    setDescription(source.description);
+    setEditorKey((key) => key + 1);
+    setConflict(null);
+  }
+
+  // Title or description changed elsewhere (live update): taken over unless the user is working on them here.
+  useEffect(() => {
+    if (task.title === base.current.title && task.description === base.current.description) return;
+    const ownSave = task.title === sent.current.title && task.description === sent.current.description;
+    if (ownSave || (title === task.title && description === task.description)) {
+      base.current = { title: task.title, description: task.description };
+      return;
+    }
+    const untouched = title === base.current.title && description === base.current.description;
+    const working = textRef.current?.contains(document.activeElement);
+    if (untouched && !working && status === 'saved') adopt(task);
+    else setConflict({ latest: task });
+    // Only a new version from elsewhere decides; the draft is read as it is at that moment.
+  }, [task.title, task.description]);
+
+  // Someone else took over editing: what was typed here is saved first, then the dialog follows their changes.
+  useEffect(() => {
+    if (lockedBy) void flush();
+  }, [lockedBy, flush]);
+
+  /** The newest version known: the board's (live updates) or the one from a refused save. */
+  const latest = () => (conflict && conflict.latest.updatedAt > task.updatedAt ? conflict.latest : task);
+
+  function keepMine() {
+    const source = latest();
+    base.current = { title: source.title, description: source.description };
+    setConflict(null);
+    if (title.trim()) {
+      schedule({ title, description });
+      void flush();
+    }
+  }
 
   function change(next: { title?: string; description?: string }) {
+    lock.touch();
     const nextTitle = next.title ?? title;
     const nextDescription = next.description ?? description;
     setTitle(nextTitle);
@@ -168,12 +238,26 @@ export default function TaskDetailDialog({
         {readOnly ? (
           <span className="text-xs text-fg-subtle">Nur lesen</span>
         ) : (
-          <SaveIndicator status={status} titleMissing={!title.trim()} onRetry={() => void flush()} />
+          <SaveIndicator status={status} titleMissing={!title.trim()} conflict={conflict !== null} onRetry={() => void flush()} />
         )}
         <button type="button" onClick={onClose} aria-label="Schließen" className={`text-lg leading-none ${iconButtonClass}`}>
           ×
         </button>
       </div>
+
+      {lockedBy && <LockNotice holder={lockedBy.user.name} what="Titel und Beschreibung" onTakeOver={() => void lock.takeOver()} />}
+
+      {conflict && (
+        <div role="status" className="flex flex-wrap items-center gap-2 border-b border-line bg-surface-muted px-6 py-2 text-sm text-fg-muted">
+          <span className="min-w-0 flex-1">Titel oder Beschreibung wurden gerade anderswo geändert.</span>
+          <Button size="sm" onClick={() => adopt(latest())}>
+            Übernehmen
+          </Button>
+          <Button size="sm" variant="ghost" onClick={keepMine}>
+            Meine Fassung behalten
+          </Button>
+        </div>
+      )}
 
       {deleteFailed && (
         <p role="alert" className="bg-danger-muted px-6 py-2 text-sm text-danger-text">
@@ -181,11 +265,20 @@ export default function TaskDetailDialog({
         </p>
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
+      <div
+        ref={textRef}
+        className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5"
+        // Title and description are locked from the focus on, and given free a moment after it left them (US-24).
+        onFocus={(event) => {
+          if (isTextField(event.target) && event.target.closest('[data-locked-text]')) lock.touch();
+        }}
+        onBlur={() => lock.blur(() => !!document.activeElement?.closest('[data-locked-text]'), flush)}
+      >
         <input
           id="task-detail-title"
+          data-locked-text
           value={title}
-          readOnly={readOnly}
+          readOnly={!textEditable}
           onChange={(event) => change({ title: event.target.value })}
           maxLength={200}
           placeholder="Titel"
@@ -241,16 +334,18 @@ export default function TaskDetailDialog({
           readOnly={readOnly}
         />
 
-        <div>
+        <div data-locked-text>
           <span className="mb-1 block text-sm font-medium text-fg-muted">Beschreibung</span>
           <div className="rounded-md border border-line px-3 pb-3">
             <MarkdownEditor
+              // Anew for a version from elsewhere, and when someone else's lock starts or ends (`readOnly` counts once).
+              key={`${editorKey}-${textEditable}`}
               value={description}
               onChange={(next) => change({ description: next })}
               label="Beschreibung"
               placeholder="Beschreibung … ([[ verlinkt Notizen und Tasks)"
               minHeightClass="min-h-40"
-              readOnly={readOnly}
+              readOnly={!textEditable}
               links={{ projectId: task.projectId }}
             />
           </div>
@@ -293,9 +388,22 @@ export default function TaskDetailDialog({
   );
 }
 
-function SaveIndicator({ status, titleMissing, onRetry }: { status: SaveStatus; titleMissing: boolean; onRetry: () => void }) {
+function SaveIndicator({
+  status,
+  titleMissing,
+  conflict,
+  onRetry,
+}: {
+  status: SaveStatus;
+  titleMissing: boolean;
+  conflict: boolean;
+  onRetry: () => void;
+}) {
   if (titleMissing) {
     return <span className="text-xs text-warning-text">Titel fehlt – nicht gespeichert</span>;
+  }
+  if (conflict && status !== 'saved') {
+    return <span className="text-xs text-warning-text">Nicht gespeichert</span>;
   }
   return (
     <span aria-live="polite" className="text-xs text-fg-subtle">

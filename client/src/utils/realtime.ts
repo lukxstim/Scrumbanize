@@ -1,4 +1,4 @@
-import type { RealtimeActor, RealtimeEvent } from '../types/realtime';
+import type { ItemRef, RealtimeActor, RealtimeEvent, Viewer } from '../types/realtime';
 
 /**
  * Identifies this browser tab (sent as X-Client-Id), so it skips the announcements of its own changes (US-24); other
@@ -129,4 +129,37 @@ export function planNotes(events: RealtimeEvent[], all: boolean): NotesPlan {
     }
   }
   return { reload, refetch: [...refetch], remove: [...remove], edited, folders };
+}
+
+/** The people in a project besides the user (`me`); the user's own other tabs do not count. */
+export function othersIn(viewers: Viewer[] | undefined, me: number | undefined): RealtimeActor[] {
+  return (viewers ?? []).filter((v) => v.user.id !== me).map((v) => v.user);
+}
+
+/** The others who have a note or task open. */
+export function viewersOf(viewers: Viewer[] | undefined, item: ItemRef, me: number | undefined): RealtimeActor[] {
+  return (viewers ?? []).filter((v) => v.user.id !== me && v.items.some((i) => i.type === item.type && i.id === item.id)).map((v) => v.user);
+}
+
+/** "Lukas, Anna und 2 weitere" for a tooltip or screen reader. */
+export function namesOf(people: RealtimeActor[], max = 3): string {
+  const names = people.slice(0, max).map((p) => p.name);
+  const rest = people.length - names.length;
+  if (rest > 0) return `${names.join(', ')} und ${rest} ${rest === 1 ? 'weitere Person' : 'weitere'}`;
+  return names.length > 1 ? `${names.slice(0, -1).join(', ')} und ${names.at(-1)}` : (names[0] ?? '');
+}
+
+/**
+ * "Dieser Task wurde von Lukas gelöscht." when the open note or task went to the trash (or was purged) elsewhere;
+ * null if it did not.
+ */
+export function goneMessage(events: RealtimeEvent[], item: ItemRef): string | null {
+  const gone = events.find((event) =>
+    item.type === 'task'
+      ? (event.type === 'task.deleted' || event.type === 'task.purged') && event.taskId === item.id
+      : (event.type === 'note.deleted' || event.type === 'note.purged') && event.noteId === item.id,
+  );
+  if (!gone || gone.type === 'resync') return null;
+  const what = item.type === 'task' ? 'Dieser Task wurde' : 'Diese Notiz wurde';
+  return gone.actor ? `${what} von ${gone.actor.name} gelöscht.` : `${what} in einem anderen Fenster gelöscht.`;
 }

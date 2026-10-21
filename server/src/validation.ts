@@ -56,6 +56,9 @@ export const noteInputSchema = z.object({
 
 export type NoteInput = z.infer<typeof noteInputSchema>;
 
+/** Saving a note (US-24): `baseUpdatedAt` is the version the edit started from; a newer one on the server is a conflict (409). */
+export const noteUpdateSchema = noteInputSchema.extend({ baseUpdatedAt: z.iso.datetime().optional() });
+
 /** Folders of notes (US-22). */
 const folderIdSchema = z.number().int().positive().nullable();
 export const noteFolderSchema = z.object({ folderId: folderIdSchema });
@@ -121,6 +124,11 @@ export const taskPatchSchema = z.object({
   /** Replaces the task's labels. */
   labelIds: z.array(z.number().int().positive()).max(MAX_LABELS_PER_PROJECT).optional(),
   ...scheduleFields,
+  /**
+   * Title and description as they were when the edit started (US-24). If someone else changed one of them since, the
+   * save is a conflict (409). Moves and other fields bump updated_at, so this is per field rather than by time.
+   */
+  base: z.object({ title: z.string().max(200).optional(), description: z.string().max(1_000_000).optional() }).optional(),
 });
 
 export type TaskPatch = z.infer<typeof taskPatchSchema>;

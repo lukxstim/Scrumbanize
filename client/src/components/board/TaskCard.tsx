@@ -3,6 +3,7 @@ import { useDraggable } from '@dnd-kit/core';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { Link } from 'react-router';
 import type { RemoteMark } from '../../hooks/useBoard';
+import { useItemViewers } from '../../hooks/useCollaboration';
 import { useProjects } from '../../hooks/useProjects';
 import type { BoardColumn, Task } from '../../types/task';
 import { todayIso } from '../../utils/dates';
@@ -14,6 +15,7 @@ import { UNTITLED_NOTE } from '../../utils/taskFromNote';
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, LinkIcon, NoteIcon, PaperclipIcon } from '../icons';
 import { DueBadge, PriorityBadge } from '../tasks/TaskBadges';
 import { NotebookGlyph } from '../projects/NotebookSymbol';
+import PresenceAvatars from '../PresenceAvatars';
 import { isolate } from './isolate';
 
 interface TaskCardProps {
@@ -133,7 +135,10 @@ export function TaskCardBody({
   const sourceNotebook = sourcePlace?.kind === 'notebook' ? sourcePlace : undefined;
   const blockers = openBlockers(task);
   const checklist = checklistProgress(task.description);
+  // Who has the task open right now (US-24).
+  const viewers = useItemViewers(task.projectId, { type: 'task', id: task.id });
   const hasBadges =
+    viewers.length > 0 ||
     task.dueDate ||
     (task.priority && !compact) ||
     task.links.length > 0 ||
@@ -231,6 +236,7 @@ export function TaskCardBody({
               <span className="sr-only">{task.attachments.length === 1 ? ' Anhang' : ' Anhänge'}</span>
             </span>
           )}
+          <PresenceAvatars people={viewers} what="hat den Task gerade offen" size="sm" className="ml-auto" />
         </div>
       )}
       {tags.length > 0 && (

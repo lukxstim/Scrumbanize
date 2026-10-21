@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { io } from 'socket.io-client';
-import type { RealtimeChange, RealtimeEvent } from '../types/realtime';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { io, type Socket } from 'socket.io-client';
+import type { ItemRef, LockAnswer, LockInfo, RealtimeChange, RealtimeEvent, Viewer } from '../types/realtime';
 import { notifyNotesChanged, notifyTrashChanged, notifyUnauthorized } from '../utils/appEvents';
 import { clientId } from '../utils/realtime';
 import { useAuth } from './useAuth';
@@ -18,6 +18,31 @@ interface RealtimeState {
 }
 
 const RealtimeContext = createContext<RealtimeState | null>(null);
+
+/** Where this page is: a project, and maybe a note or task open in it. */
+export interface PresenceLocation {
+  projectId: number;
+  item: ItemRef | null;
+}
+
+/** Presence and soft locks (US-24); only with login (`enabled`), since without it everyone is the same local user. */
+export interface CollaborationState {
+  enabled: boolean;
+  /** Per project: who is there, including this user. */
+  presence: Record<number, Viewer[]>;
+  locks: Record<number, LockInfo[]>;
+  /** The project this page shows (ProjectLayout); null: none. */
+  showProject: (projectId: number | null) => void;
+  /** The note or task open in this page; null when it closes. */
+  showItem: (location: PresenceLocation | null) => void;
+  acquireLock: (item: ItemRef, force?: boolean) => Promise<LockAnswer>;
+  releaseLock: (item: ItemRef) => void;
+}
+
+const CollaborationContext = createContext<CollaborationState | null>(null);
+
+/** Without an answer within this time (e.g. offline), editing goes ahead: the 409 check still protects the text. */
+const LOCK_ANSWER_MS = 5000;
 
 const TRASH_TYPES = new Set(['task.deleted', 'task.restored', 'task.purged', 'note.deleted', 'note.restored', 'note.purged', 'project.deleted', 'project.restored', 'project.purged', 'trash.emptied']);
 const NOTE_TYPES = new Set(['note.created', 'note.updated', 'note.deleted', 'note.restored', 'note.purged', 'notes.imported']);
@@ -43,9 +68,22 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const local = session?.mode === 'local';
   const listeners = useRef(new Set<Listener>());
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
+  const socketRef = useRef<Socket | null>(null);
+  const [presence, setPresence] = useState<Record<number, Viewer[]>>({});
+  const [locks, setLocks] = useState<Record<number, LockInfo[]>>({});
+  // Sent again after every reconnect, since the server forgets a closed connection's place.
+  const shownProject = useRef<number | null>(null);
+  const shownItem = useRef<PresenceLocation | null>(null);
+
+  const sendLocation = useCallback(() => {
+    if (local || !socketRef.current?.connected) return;
+    const project = shownProject.current;
+    socketRef.current.emit('presence:view', shownItem.current ?? (project === null ? null : { projectId: project, item: null }));
+  }, [local]);
 
   useEffect(() => {
-    const socket = io({ reconnectionDelayMax: 10_000 });
+    const socket = io({ reconnectionDelayMax: 10_000, auth: { clientId } });
+    socketRef.current = socket;
     const emit = (signal: RealtimeSignal) => {
       for (const listener of listeners.current) listener(signal);
     };
@@ -56,10 +94,16 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
     socket.on('connect', () => {
       setStatus('connected');
+      sendLocation();
       if (connectedBefore) emit({ type: 'resync' });
       connectedBefore = true;
     });
-    socket.on('disconnect', () => setStatus('reconnecting'));
+    socket.on('disconnect', () => {
+      setStatus('reconnecting');
+      // Out of date while offline; the server sends everything again after the reconnect.
+      setPresence({});
+      setLocks({});
+    });
     socket.on('connect_error', (error) => {
       // Refused by the server (not a network problem): the session is over, the login takes over.
       if (!socket.active && error.message === 'unauthenticated') notifyUnauthorized();
@@ -73,13 +117,20 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     });
     socket.on('projects', () => emit({ type: 'projects' }));
     socket.on('restored', () => emit({ type: 'restored' }));
+    socket.on('presence', ({ projectId, viewers }: { projectId: number; viewers: Viewer[] }) =>
+      setPresence((current) => ({ ...current, [projectId]: viewers })),
+    );
+    socket.on('locks', ({ projectId, locks: projectLocks }: { projectId: number; locks: LockInfo[] }) =>
+      setLocks((current) => ({ ...current, [projectId]: projectLocks })),
+    );
 
     return () => {
       trashChanged.cancel();
       notesChanged.cancel();
       socket.disconnect();
+      socketRef.current = null;
     };
-  }, [local]);
+  }, [local, sendLocation]);
 
   const value = useMemo<RealtimeState>(
     () => ({
@@ -91,7 +142,49 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     }),
     [status],
   );
-  return <RealtimeContext.Provider value={value}>{children}</RealtimeContext.Provider>;
+
+  // The actions stay the same across presence and lock updates: hooks run effects on them, which must not repeat
+  // (and announce again, or give a lock free) with every update.
+  const actions = useMemo<Omit<CollaborationState, 'enabled' | 'presence' | 'locks'>>(
+    () => ({
+      showProject: (projectId) => {
+        if (shownProject.current === projectId) return;
+        shownProject.current = projectId;
+        sendLocation();
+      },
+      showItem: (location) => {
+        const current = shownItem.current;
+        if (current?.projectId === location?.projectId && current?.item?.type === location?.item?.type && current?.item?.id === location?.item?.id) return;
+        shownItem.current = location;
+        sendLocation();
+      },
+      acquireLock: async (item, force = false) => {
+        const socket = socketRef.current;
+        if (local || !socket?.connected) return { ok: true };
+        try {
+          return (await socket.timeout(LOCK_ANSWER_MS).emitWithAck('lock:acquire', { item, force })) as LockAnswer;
+        } catch {
+          return { ok: true };
+        }
+      },
+      releaseLock: (item) => {
+        if (!local) socketRef.current?.emit('lock:release', item);
+      },
+    }),
+    [local, sendLocation],
+  );
+  const collaboration = useMemo<CollaborationState>(() => ({ enabled: !local, presence, locks, ...actions }), [local, presence, locks, actions]);
+
+  return (
+    <RealtimeContext.Provider value={value}>
+      <CollaborationContext.Provider value={collaboration}>{children}</CollaborationContext.Provider>
+    </RealtimeContext.Provider>
+  );
+}
+
+/** Presence and locks; null outside the provider. */
+export function useCollaborationState(): CollaborationState | null {
+  return useContext(CollaborationContext);
 }
 
 /** Whether live updates arrive right now; 'connecting' outside the provider. */

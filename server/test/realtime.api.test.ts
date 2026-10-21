@@ -51,8 +51,8 @@ afterEach(async () => {
   fs.rmSync(dataDir, { recursive: true, force: true });
 });
 
-function open(headers: Record<string, string>, transports: ('websocket' | 'polling')[] = ['websocket']): Socket {
-  const socket = connect(server.url, { extraHeaders: headers, transports, reconnection: false, forceNew: true });
+function open(headers: Record<string, string>, transports: ('websocket' | 'polling')[] = ['websocket'], clientId?: string): Socket {
+  const socket = connect(server.url, { extraHeaders: headers, transports, reconnection: false, forceNew: true, auth: clientId ? { clientId } : {} });
   sockets.push(socket);
   return socket;
 }
@@ -185,6 +185,141 @@ describe('live connection', () => {
     const events = collect(member, 'change');
     expect((await api('owner', 'POST', `/projects/${projectId}/tasks`, { title: 'Aus Notiz', description: '', sourceNoteId: note.id })).status).toBe(201);
     expect(((await events) as { type: string }[]).map((e) => e.type)).toEqual(['task.created', 'note.tasks']);
+  });
+});
+
+type Viewers = { projectId: number; viewers: { user: { id: number }; items: { type: string; id: number }[] }[] };
+type Locks = { projectId: number; locks: { item: { type: string; id: number }; user: { id: number }; clientId: string }[] };
+type Answer = { ok: boolean; holder?: { user: { id: number } } | null };
+
+/** The next presence or lock state of the project that satisfies `match`. */
+function nextState<T extends { projectId: number }>(socket: Socket, event: 'presence' | 'locks', match: (state: T) => boolean, timeout = 2000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      socket.off(event, listener);
+      reject(new Error(`no matching "${event}" within ${timeout} ms`));
+    }, timeout);
+    const listener = (state: T) => {
+      if (state.projectId !== projectId || !match(state)) return;
+      clearTimeout(timer);
+      socket.off(event, listener);
+      resolve(state);
+    };
+    socket.on(event, listener);
+  });
+}
+
+const acquire = (socket: Socket, item: { type: 'note' | 'task'; id: number }, force = false) =>
+  socket.timeout(2000).emitWithAck('lock:acquire', { item, force }) as Promise<Answer>;
+
+describe('presence and locks', () => {
+  const taskItem = () => ({ type: 'task' as const, id: task.id });
+
+  it("shows who is in the project and what they have open, to the project's members only", async () => {
+    const owner = open({ Cookie: cookie.owner });
+    const member = open({ Cookie: cookie.member });
+    const outsider = open({ Cookie: cookie.outsider });
+    for (const socket of [owner, member, outsider]) expect(await connected(socket)).toBe('ok');
+
+    const seen = nextState<Viewers>(member, 'presence', (s) => s.viewers.length === 1);
+    const outsiderSaw = collect(outsider, 'presence');
+    owner.emit('presence:view', { projectId, item: taskItem() });
+    expect((await seen).viewers).toEqual([{ user: expect.objectContaining({ id: userId.owner, name: 'owner' }), items: [taskItem()] }]);
+    expect(await outsiderSaw).toEqual([]);
+
+    // Gone with the connection.
+    const left = nextState<Viewers>(member, 'presence', (s) => s.viewers.length === 0);
+    owner.disconnect();
+    await left;
+  });
+
+  it('ignores projects the page may not see and items of other projects', async () => {
+    const outsider = open({ Cookie: cookie.outsider });
+    const member = open({ Cookie: cookie.member });
+    expect(await connected(outsider)).toBe('ok');
+    expect(await connected(member)).toBe('ok');
+    const memberSaw = collect(member, 'presence');
+    outsider.emit('presence:view', { projectId, item: null });
+    expect(await memberSaw).toEqual([]);
+
+    const seen = nextState<Viewers>(member, 'presence', (s) => s.viewers.length === 1);
+    member.emit('presence:view', { projectId, item: { type: 'task', id: 999999 } });
+    expect((await seen).viewers[0].items).toEqual([]);
+  });
+
+  it('a new page gets the presence and locks already there', async () => {
+    const owner = open({ Cookie: cookie.owner }, ['websocket'], 'owner-tab');
+    expect(await connected(owner)).toBe('ok');
+    owner.emit('presence:view', { projectId, item: taskItem() });
+    expect(await acquire(owner, taskItem())).toEqual({ ok: true });
+
+    const member = open({ Cookie: cookie.member });
+    const presence = nextState<Viewers>(member, 'presence', () => true);
+    const locks = nextState<Locks>(member, 'locks', () => true);
+    expect(await connected(member)).toBe('ok');
+    expect((await presence).viewers.map((v) => v.user.id)).toEqual([userId.owner]);
+    expect((await locks).locks).toEqual([expect.objectContaining({ item: taskItem(), clientId: 'owner-tab', user: expect.objectContaining({ id: userId.owner }) })]);
+  });
+
+  it('refuses a held lock with its holder; "Trotzdem bearbeiten" takes it over', async () => {
+    const owner = open({ Cookie: cookie.owner }, ['websocket'], 'owner-tab');
+    const member = open({ Cookie: cookie.member }, ['websocket'], 'member-tab');
+    expect(await connected(owner)).toBe('ok');
+    expect(await connected(member)).toBe('ok');
+
+    expect(await acquire(owner, taskItem())).toEqual({ ok: true });
+    expect(await acquire(member, taskItem())).toEqual({ ok: false, holder: expect.objectContaining({ user: expect.objectContaining({ id: userId.owner }) }) });
+
+    const takenOver = nextState<Locks>(owner, 'locks', (s) => s.locks[0]?.clientId === 'member-tab');
+    expect(await acquire(member, taskItem(), true)).toEqual({ ok: true });
+    await takenOver;
+  });
+
+  it('gives a lock free when released, when its tab closes, and when the item is deleted', async () => {
+    const owner = open({ Cookie: cookie.owner });
+    const member = open({ Cookie: cookie.member });
+    expect(await connected(owner)).toBe('ok');
+    expect(await connected(member)).toBe('ok');
+    const note = (await (await api('owner', 'POST', `/projects/${projectId}/notes`, { title: 'Idee', content: '', tags: [] })).json()) as { id: number };
+    const noteItem = { type: 'note' as const, id: note.id };
+
+    expect(await acquire(owner, noteItem)).toEqual({ ok: true });
+    let free = nextState<Locks>(member, 'locks', (s) => s.locks.length === 0);
+    owner.emit('lock:release', noteItem);
+    await free;
+
+    expect(await acquire(member, noteItem)).toEqual({ ok: true });
+    free = nextState<Locks>(owner, 'locks', (s) => s.locks.length === 0);
+    expect((await api('owner', 'DELETE', `/notes/${note.id}`)).status).toBe(204);
+    await free;
+
+    expect(await acquire(owner, taskItem())).toEqual({ ok: true });
+    free = nextState<Locks>(member, 'locks', (s) => s.locks.length === 0);
+    owner.disconnect();
+    await free;
+  });
+
+  it('viewers and outsiders never hold a lock', async () => {
+    createUsersRepository(db).addMember(projectId, userId.outsider, 'viewer');
+    const viewer = open({ Cookie: cookie.outsider });
+    expect(await connected(viewer)).toBe('ok');
+    expect(await acquire(viewer, taskItem())).toEqual({ ok: false, holder: null });
+    expect(await acquire(viewer, { type: 'note', id: 999999 })).toEqual({ ok: false, holder: null });
+  });
+
+  it('a removed member leaves the presence and loses their locks', async () => {
+    const member = open({ Cookie: cookie.member });
+    const owner = open({ Cookie: cookie.owner });
+    expect(await connected(member)).toBe('ok');
+    expect(await connected(owner)).toBe('ok');
+    member.emit('presence:view', { projectId, item: taskItem() });
+    expect(await acquire(member, taskItem())).toEqual({ ok: true });
+
+    const gone = nextState<Locks>(owner, 'locks', (s) => s.locks.length === 0);
+    const left = nextState<Viewers>(owner, 'presence', (s) => !s.viewers.some((v) => v.user.id === userId.member));
+    expect((await api('owner', 'DELETE', `/projects/${projectId}/members/${userId.member}`)).status).toBe(204);
+    await gone;
+    await left;
   });
 });
 

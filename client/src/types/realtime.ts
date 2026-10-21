@@ -29,3 +29,27 @@ export type RealtimeChange = ChangeEvent & { projectId: number; actor: RealtimeA
  * have been missed and the data should be loaded again.
  */
 export type RealtimeEvent = RealtimeChange | { type: 'resync' };
+
+/** A note, or a task's title and description, that someone looks at or edits. */
+export interface ItemRef {
+  type: 'note' | 'task';
+  id: number;
+}
+
+/** Someone in a project right now, with the notes and tasks open in their pages (US-24). */
+export interface Viewer {
+  user: RealtimeActor;
+  items: ItemRef[];
+}
+
+/** Someone edits an item (soft lock): others see it read-only, with "Trotzdem bearbeiten". */
+export interface LockInfo {
+  item: ItemRef;
+  user: RealtimeActor;
+  /** The browser tab holding it; compared with this tab's clientId. */
+  clientId: string;
+  since: string;
+}
+
+/** The server's answer to taking a lock; `holder` null: the user may not edit the item, or it is gone. */
+export type LockAnswer = { ok: true } | { ok: false; holder: LockInfo | null };

@@ -62,6 +62,15 @@ export interface ImportedNote extends NoteInput {
   createdAt?: string;
 }
 
+export type NoteUpdateResult =
+  | { ok: true; note: Note }
+  | { ok: false; reason: 'not_found' }
+  /** Changed elsewhere since the edit started (US-24); `note` is the current state. */
+  | { ok: false; reason: 'conflict'; note: Note };
+
+/** Tags are stored as a set; their order does not matter. */
+const sameTags = (a: string[], b: string[]) => a.length === b.length && a.every((tag) => b.includes(tag));
+
 export type NotesRepository = ReturnType<typeof createNotesRepository>;
 
 export function createNotesRepository(db: Db) {
@@ -269,12 +278,23 @@ export function createNotesRepository(db: Db) {
     }),
 
     /** Replaces title, content and tags. Returns undefined if the note does not exist. */
-    update: db.transaction((id: number, input: NoteInput): Note | undefined => {
+    /**
+     * Saves title, text and tags. With `baseUpdatedAt` (US-24), the version the edit started from: if the note changed
+     * since, nothing is saved and the result holds the current note, unless the edit is the same as what is there.
+     */
+    update: db.transaction((id: number, input: NoteInput, baseUpdatedAt?: string): NoteUpdateResult => {
       const before = selectNote.get(id);
-      if (!before) return undefined;
+      if (!before) return { ok: false, reason: 'not_found' };
       const tagsBefore = selectTagsOfNote.all(id).map((t) => t.name);
+      if (baseUpdatedAt !== undefined && baseUpdatedAt !== before.updated_at) {
+        const same =
+          before.title === input.title && before.content === input.content && sameTags(tagsBefore, input.tags);
+        return same ? { ok: true, note: withRelations(before) } : { ok: false, reason: 'conflict', note: withRelations(before) };
+      }
 
-      const row = updateNote.get(input.title, input.content, new Date().toISOString(), id)!;
+      // Always later than the version before, so two saves within a millisecond still tell apart (see baseUpdatedAt).
+      const at = new Date(Math.max(Date.now(), Date.parse(before.updated_at) + 1)).toISOString();
+      const row = updateNote.get(input.title, input.content, at, id)!;
       setTags(id, input.tags);
       if (before.content !== input.content) contentLinks.sync('note', id, input.content);
 
@@ -294,7 +314,7 @@ export function createNotesRepository(db: Db) {
         describeUpdate: text.noteUpdated,
         describeCreate: (title) => text.noteCreated(title),
       });
-      return withRelations(row);
+      return { ok: true, note: withRelations(row) };
     }),
 
     /** Moves the note to the trash; its tags and task links stay for a restore. False if there is no such note. */

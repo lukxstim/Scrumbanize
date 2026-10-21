@@ -17,6 +17,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router';
 import { useBoard } from '../../hooks/useBoard';
+import { useGoneNotice } from '../../hooks/useCollaboration';
 import { useCan } from '../../hooks/useProjectRole';
 import { useStoredState } from '../../hooks/useStoredState';
 import { useToast } from '../../hooks/useToast';
@@ -93,6 +94,7 @@ export default function CalendarPage() {
     .filter((t) => !t.dueDate && t.columnId !== doneColumnId)
     .sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority) || a.id - b.id);
   const openTask = tasks.find((t) => t.id === openTaskId);
+  useGoneNotice(projectId, 'task', openTaskId);
 
   const { actionError, dismissError } = board;
   useEffect(() => {

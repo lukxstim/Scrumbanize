@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../hooks/useAuth';
+import { useAllPresence } from '../../hooks/useCollaboration';
 import { useProjects } from '../../hooks/useProjects';
 import type { Project } from '../../types/project';
 import { requestNewProject } from '../../utils/appEvents';
@@ -8,6 +9,7 @@ import { sectionPath, type Section } from '../../utils/paths';
 import { can, ROLE_LABELS } from '../../utils/permissions';
 import { colorDot, countLabel, KIND_WORDS, ofKind } from '../../utils/projects';
 import { CheckIcon, ChevronDownIcon, PencilIcon, PlusIcon, UsersIcon } from '../icons';
+import PresenceAvatars from '../PresenceAvatars';
 import { menuItemClass, popoverClass } from '../ui/styles';
 import ManageProjectDialogs, { type ManageDialog } from './ManageProjectDialogs';
 import NotebookSymbol from './NotebookSymbol';
@@ -38,6 +40,8 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
   const projects = ofKind(all, kind);
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  // Who is in which project right now (US-24).
+  const presenceIn = useAllPresence();
   // Members and roles only exist with login (US-21); the desktop app has one user.
   const withMembers = useAuth().session?.mode === 'required';
   const [dialog, setDialog] = useState<OpenDialog>(null);
@@ -162,6 +166,7 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
                     {withMembers && project.role !== 'owner' && ` · ${ROLE_LABELS[project.role]}`}
                   </span>
                 </span>
+                <PresenceAvatars people={presenceIn(project.id)} what="gerade hier" size="sm" />
                 {project.id === active.id && <CheckIcon className="size-4 shrink-0 text-accent-text" />}
               </button>
             ))}

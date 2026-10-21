@@ -6,6 +6,8 @@ export class HttpError extends Error {
     readonly status: number,
     readonly code: string,
     message: string,
+    /** More for the client next to code and message, e.g. the current state with a conflict (US-24). */
+    readonly details?: Record<string, unknown>,
   ) {
     super(message);
   }
@@ -19,7 +21,7 @@ export const apiNotFoundHandler: RequestHandler = (req, _res, next) => {
 
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err instanceof HttpError) {
-    res.status(err.status).json({ error: { code: err.code, message: err.message } });
+    res.status(err.status).json({ error: { ...err.details, code: err.code, message: err.message } });
     return;
   }
 

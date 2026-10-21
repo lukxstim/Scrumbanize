@@ -1,5 +1,6 @@
 import { Fragment, useEffect } from 'react';
 import { Navigate, Outlet, useMatch, useParams } from 'react-router';
+import { useShowProject } from '../../hooks/useCollaboration';
 import { useProjects } from '../../hooks/useProjects';
 import { paths } from '../../utils/paths';
 import { setLastProjectId } from '../../utils/projects';
@@ -18,6 +19,8 @@ export default function ProjectLayout() {
   const analyticsMatch = useMatch('/p/:projectId/analytics');
 
   const notebook = project?.kind === 'notebook';
+  // The others see who is in the project (US-24).
+  useShowProject(project ? project.id : null);
   // Notebooks are not "the last project": the logo and unknown addresses lead back to a project.
   useEffect(() => {
     if (project && project.kind === 'project') setLastProjectId(project.id);

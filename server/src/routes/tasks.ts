@@ -43,6 +43,10 @@ export function tasksRouter(tasks: TasksRepository, access: Access): Router {
     }
     if (result.reason === 'not_found') throw notFound('Task not found');
     if (result.reason === 'invalid_labels') throw new HttpError(400, 'invalid_input', 'A label belongs to another project');
+    // Title or description changed elsewhere since the edit started (US-24): the current task, and which fields.
+    if (result.reason === 'conflict') {
+      throw new HttpError(409, 'conflict', 'The task was changed in the meantime', { task: result.task, fields: result.fields });
+    }
     throw new HttpError(400, 'invalid_schedule', result.message);
   });
 

@@ -18,6 +18,8 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code: string,
     message: string,
+    /** The rest of the error, e.g. the current note or task with a conflict (409, US-24). */
+    readonly details: Record<string, unknown> = {},
   ) {
     super(message);
   }
@@ -34,7 +36,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     // Outside the login itself, a 401 means the session is over; the app shows the login.
     if (res.status === 401 && !path.startsWith('/auth/')) notifyUnauthorized();
     const body = await res.json().catch(() => null);
-    throw new ApiError(res.status, body?.error?.code ?? 'unknown', body?.error?.message ?? res.statusText);
+    throw new ApiError(res.status, body?.error?.code ?? 'unknown', body?.error?.message ?? res.statusText, body?.error ?? {});
   }
 
   return (res.status === 204 ? undefined : await res.json()) as T;
@@ -149,8 +151,9 @@ export const notesApi = {
   /** Into a folder of the note's project, or (null) to the top level. */
   moveToFolder: (id: number, folderId: number | null) =>
     request<Note>(`/notes/${id}/folder`, { method: 'PUT', body: JSON.stringify({ folderId }) }),
-  update: (id: number, input: NoteInput) =>
-    request<Note>(`/notes/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
+  /** `baseUpdatedAt`: the version the edit started from; changed elsewhere since, the save is refused (409, US-24). */
+  update: (id: number, input: NoteInput, baseUpdatedAt?: string) =>
+    request<Note>(`/notes/${id}`, { method: 'PUT', body: JSON.stringify({ ...input, baseUpdatedAt }) }),
   /** Moves the note to the trash. */
   remove: (id: number) => trashRequest<void>(`/notes/${id}`, { method: 'DELETE' }),
 };

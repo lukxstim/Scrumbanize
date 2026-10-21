@@ -74,7 +74,11 @@ export interface TaskInput {
 }
 
 /** Undefined keeps a value, null removes priority or a date; `labelIds` replaces the labels. */
-export type TaskPatch = Partial<Pick<Task, 'title' | 'description' | 'priority' | 'startDate' | 'dueDate'>> & { labelIds?: number[] };
+export type TaskPatch = Partial<Pick<Task, 'title' | 'description' | 'priority' | 'startDate' | 'dueDate'>> & {
+  labelIds?: number[];
+  /** Title and description as the edit found them (US-24): changed elsewhere since, the save is refused (409). */
+  base?: { title?: string; description?: string };
+};
 
 export interface BoardColumn {
   id: number;

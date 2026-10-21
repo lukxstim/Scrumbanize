@@ -1,5 +1,6 @@
 import { useDeferredValue, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { useGoneNotice } from '../../hooks/useCollaboration';
 import { useFolders } from '../../hooks/useFolders';
 import { useNotes } from '../../hooks/useNotes';
 import { useProjects } from '../../hooks/useProjects';
@@ -64,6 +65,7 @@ export default function AllNotesPage() {
   );
   const projectOf = (projectId: number) => projects.find((p) => p.id === projectId);
   const selectedNote = notes.find((note) => note.id === selectedId);
+  useGoneNotice('all', 'note', selectedId);
   const selectedProject = selectedNote && projectOf(selectedNote.projectId);
   // Viewers of the note's project read only (US-21).
   const canEdit = can(selectedProject?.role, 'edit');

@@ -113,7 +113,9 @@ export type UpdateResult =
   | { ok: true; task: Task }
   | { ok: false; reason: 'not_found' }
   | { ok: false; reason: 'invalid_labels' }
-  | { ok: false; reason: 'invalid_schedule'; message: string };
+  | { ok: false; reason: 'invalid_schedule'; message: string }
+  /** Title or description changed elsewhere since `patch.base` (US-24); `task` is the current state. */
+  | { ok: false; reason: 'conflict'; task: Task; fields: ('title' | 'description')[] };
 
 export type TasksRepository = ReturnType<typeof createTasksRepository>;
 
@@ -339,6 +341,12 @@ export function createTasksRepository(db: Db) {
     update: db.transaction((id: number, patch: TaskPatch): UpdateResult => {
       const before = selectTask.get(id);
       if (!before) return { ok: false, reason: 'not_found' };
+      // Only a real difference counts: a retry of a save that went through, or the same text typed twice, is fine.
+      const conflicts = (['title', 'description'] as const).filter((field) => {
+        const base = patch.base?.[field];
+        return patch[field] !== undefined && base !== undefined && before[field] !== base && before[field] !== patch[field];
+      });
+      if (conflicts.length) return { ok: false, reason: 'conflict', task: toTask(before), fields: conflicts };
       const names = patch.labelIds ? labelNames(before.project_id, patch.labelIds) : undefined;
       if (patch.labelIds && !names) return { ok: false, reason: 'invalid_labels' };
       const labelsBefore = selectTaskLabels.all(id).map((l) => l.id);
