@@ -3,7 +3,9 @@ import http from 'node:http';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
+import { io as connect } from 'socket.io-client';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { openDatabase } from '../src/database.js';
 import { startServer, type RunningServer } from '../src/start.js';
 
 let dataDir: string;
@@ -94,6 +96,33 @@ describe('startServer', () => {
     await new Promise<void>((resolve) => http.get({ host: '127.0.0.1', port: server.port, path: '/api/health', agent }, (res) => res.resume().on('end', () => resolve())));
     await server.close(); // would hang without closeAllConnections()
     agent.destroy();
+  });
+
+  it("closes even while the app window's live connection is open (US-24)", async () => {
+    const server = await start();
+    const socket = connect(server.url, { transports: ['websocket'], forceNew: true });
+    await new Promise<void>((resolve, reject) => {
+      socket.once('connect', resolve);
+      socket.once('connect_error', reject);
+    });
+    // The page tries to reconnect, which must not keep the server open.
+    await server.close();
+    socket.disconnect();
+  });
+
+  it('closeNow: closes the database at once, for a computer that is shutting down', async () => {
+    const server = await start();
+    const socket = connect(server.url, { transports: ['websocket'], forceNew: true });
+    await new Promise<void>((resolve) => socket.once('connect', () => resolve()));
+
+    server.closeNow();
+    // Without waiting: the database is closed and checkpointed, so another connection sees no WAL left over.
+    expect(fs.existsSync(`${server.dbFile}-wal`) ? fs.statSync(`${server.dbFile}-wal`).size : 0).toBe(0);
+    const db = openDatabase(server.dbFile);
+    expect(db.prepare('SELECT COUNT(*) AS n FROM projects').get()).toMatchObject({ n: expect.any(Number) });
+    db.close();
+    await server.close(); // afterwards a no-op
+    socket.disconnect();
   });
 
   it('requires host 127.0.0.1 for localOnly', async () => {

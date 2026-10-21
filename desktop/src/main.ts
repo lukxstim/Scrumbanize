@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeTheme, Notification, screen, shell, type IpcMainInvokeEvent, type Tray } from 'electron';
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeTheme, Notification, powerMonitor, screen, shell, type IpcMainInvokeEvent, type Tray } from 'electron';
 import { startServer, type RunningServer } from '../../server/src/start.js';
 import { IPC, type DesktopSettingsPatch, type DesktopSettingsView, type UpdateSettingsResult } from './bridge.js';
 import { isValidAccelerator } from './hotkey.js';
@@ -69,6 +69,14 @@ let settings: DesktopSettings = loadSettings(app.getPath('userData'));
 let hotkeyActive = false;
 /** Set once quitting has begun, so closing the window no longer hides it (notification area, macOS Dock). */
 let quitting = false;
+/**
+ * The computer shuts down, restarts or logs out: quitting must not wait for anything, or macOS (and Windows) see an
+ * app that refuses to quit and stop the shutdown.
+ */
+let systemQuitting = false;
+
+/** How long a normal quit waits for the server to stop before it quits anyway. */
+const STOP_TIMEOUT_MS = 3000;
 
 // One instance per user: a second start brings the running window to the front instead of starting a
 // second server on the same database.
@@ -96,6 +104,14 @@ async function start(): Promise<void> {
     auth: 'local',
   });
   log(`Scrumbanize ${app.getVersion()} started: ${server.url}, database ${server.dbFile}`);
+  // macOS: restarting, shutting down or logging out is announced before the app is asked to quit (see before-quit).
+  // No preventDefault() here: that would delay the shutdown.
+  powerMonitor.on('shutdown', () => {
+    log('System is shutting down');
+    systemQuitting = true;
+    quitting = true;
+    app.quit();
+  });
   if (server.port !== PREFERRED_PORT) log(`Port ${PREFERRED_PORT} was busy; settings stored in the browser start fresh on this port.`);
 
   registerIpc(server.url);
@@ -160,6 +176,7 @@ function createWindow(url: string, visible: boolean): void {
   });
   // Signing out or shutting down Windows must not be held up by a window that only hides.
   window.on('session-end', () => {
+    systemQuitting = true;
     quitting = true;
   });
 
@@ -330,15 +347,37 @@ let shutdownDone = false;
 app.on('before-quit', (event) => {
   quitting = true;
   if (shutdownDone || !server) return;
-  event.preventDefault();
   reminders?.stop();
   const running = server;
   server = undefined;
-  running
-    .close()
-    .then(() => log('Server stopped, database closed'))
+
+  // The computer shuts down: close everything at once and let the quit go on. Holding it up with preventDefault()
+  // tells macOS the app refuses to quit, which can cancel the shutdown.
+  if (systemQuitting) {
+    shutdownDone = true;
+    try {
+      running.closeNow();
+      log('Server stopped, database closed (system shutdown)');
+    } catch (error) {
+      log(`Error while stopping: ${String(error)}`);
+    }
+    return;
+  }
+
+  // Quit by the user (⌘Q, menu, tray): wait for open requests, but never longer than STOP_TIMEOUT_MS.
+  event.preventDefault();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<void>((resolve) => {
+    timer = setTimeout(() => {
+      log(`Server did not stop within ${STOP_TIMEOUT_MS} ms; closing at once`);
+      running.closeNow();
+      resolve();
+    }, STOP_TIMEOUT_MS);
+  });
+  Promise.race([running.close().then(() => log('Server stopped, database closed')), timeout])
     .catch((error: unknown) => log(`Error while stopping: ${String(error)}`))
     .finally(() => {
+      clearTimeout(timer);
       shutdownDone = true;
       app.quit();
     });

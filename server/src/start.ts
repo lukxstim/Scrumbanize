@@ -50,6 +50,11 @@ export interface RunningServer {
   dbFile: string;
   /** Stops accepting requests, ends open connections and closes the database. Safe to call twice. */
   close: () => Promise<void>;
+  /**
+   * The same at once, without waiting for anything (a daily backup still being written is abandoned): for a computer
+   * that is shutting down, which must not be held up. Also finishes a `close()` that is still waiting.
+   */
+  closeNow: () => void;
 }
 
 export { DB_FILE_NAME, UPLOADS_DIR_NAME } from './database.js';
@@ -118,6 +123,12 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   const live = attachRealtime(server, { db, hub: realtime, auth: options.auth, allowedOrigins: options.allowedOrigins, trustedHosts });
   const daily = options.backups ? startDailyBackups({ db, uploadsDir, backupsDir, schedule: options.backups }) : undefined;
 
+  let dbClosed = false;
+  const closeDb = () => {
+    if (dbClosed) return;
+    dbClosed = true;
+    db.close(); // also checkpoints the WAL into the database file
+  };
   let closing: Promise<void> | undefined;
   const close = () =>
     (closing ??= new Promise<void>((resolve) => {
@@ -125,15 +136,23 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       server.close(() => {
         // A backup still being written finishes before the database closes.
         void (daily?.stop() ?? Promise.resolve()).then(() => {
-          db.close(); // also checkpoints the WAL into the database file
+          closeDb();
           resolve();
         });
       });
       // Keep-alive connections (e.g. of the app window) would otherwise keep the server open.
       server.closeAllConnections();
     }));
+  const closeNow = () => {
+    live.close();
+    server.close();
+    server.closeAllConnections();
+    void daily?.stop();
+    closeDb();
+    closing ??= Promise.resolve();
+  };
 
-  return { url: `http://${urlHost}:${actualPort}`, port: actualPort, dbFile, close };
+  return { url: `http://${urlHost}:${actualPort}`, port: actualPort, dbFile, close, closeNow };
 }
 
 function listen(app: ReturnType<typeof createApp>, port: number, host: string | undefined): Promise<Server> {
