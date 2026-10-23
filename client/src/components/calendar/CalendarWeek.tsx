@@ -6,6 +6,7 @@ import type { CalendarBar } from '../../utils/calendarLayout';
 import { dueState, formatDateLong, formatDayMonth, formatWeekday, isoWeek, sameMonth } from '../../utils/dates';
 import { PRIORITY_LABELS, PRIORITY_STYLES } from '../../utils/priority';
 import { hiddenPerDay } from '../../utils/calendarLayout';
+import { touchHitAreaClass } from '../ui/styles';
 import { PlusIcon } from '../icons';
 
 const BAR_ROW_HEIGHT = '1.625rem';
@@ -150,7 +151,7 @@ function CalendarDay({
             onClick={onAdd}
             aria-label={`Task fällig am ${formatDateLong(day)} anlegen`}
             title="Task an diesem Tag anlegen"
-            className="grid size-5 place-items-center rounded text-fg-subtle opacity-0 transition-opacity hover:bg-surface-hover hover:text-fg focus-visible:opacity-100 group-hover/day:opacity-100 [@media(hover:none)]:opacity-100"
+            className={`grid size-5 place-items-center rounded text-fg-subtle opacity-0 transition-opacity hover:bg-surface-hover hover:text-fg focus-visible:opacity-100 group-hover/day:opacity-100 [@media(hover:none)]:opacity-100 ${touchHitAreaClass}`}
           >
             <PlusIcon className="size-3.5" />
           </button>
@@ -199,7 +200,7 @@ function CalendarBarItem({ bar, today, done, onOpen }: { bar: CalendarBar; today
         else listeners?.onKeyDown?.(event);
       }}
       style={{ gridColumn: `${bar.start + 1} / span ${bar.span}`, gridRow: bar.row + 2 }}
-      className={`relative z-10 my-0.5 flex min-w-0 cursor-grab touch-manipulation select-none items-center gap-1.5 overflow-hidden border px-1.5 text-xs font-medium transition-[border-color,box-shadow,opacity] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent ${
+      className={`relative z-10 my-0.5 flex min-w-0 cursor-grab touch-manipulation select-none items-center [-webkit-touch-callout:none] gap-1.5 overflow-hidden border px-1.5 text-xs font-medium transition-[border-color,box-shadow,opacity] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent ${
         BAR_LOOK[look]
       } ${bar.continuesBefore ? 'rounded-l-none border-l-0' : 'ml-1 rounded-l-md'} ${
         bar.continuesAfter ? 'rounded-r-none border-r-0' : 'mr-1 rounded-r-md'
@@ -215,7 +216,7 @@ function CalendarBarItem({ bar, today, done, onOpen }: { bar: CalendarBar; today
 /** The bar as it follows the pointer while dragging. */
 export function CalendarBarGhost({ task }: { task: Task }) {
   return (
-    <div className="flex h-6 max-w-64 cursor-grabbing items-center gap-1.5 rounded-md border border-accent-line bg-surface px-2 text-xs font-medium text-fg shadow-popover ring-1 ring-accent-line">
+    <div className="flex h-6 max-w-64 scale-105 cursor-grabbing items-center gap-1.5 rounded-md border border-accent-line bg-surface px-2 text-xs font-medium text-fg opacity-95 shadow-popover ring-1 ring-accent-line">
       {task.priority && <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${PRIORITY_STYLES[task.priority].dot}`} />}
       <span className="truncate">{task.title}</span>
     </div>

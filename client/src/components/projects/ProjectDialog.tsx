@@ -5,7 +5,7 @@ import { KIND_WORDS, PROJECT_COLORS } from '../../utils/projects';
 import NotebookSymbol, { NOTEBOOK_ICON_LABELS } from './NotebookSymbol';
 import Button from '../ui/Button';
 import Dialog from '../ui/Dialog';
-import { fieldClass, labelClass } from '../ui/styles';
+import { dialogTitleClass, fieldClass, labelClass, stickyDialogActionsClass } from '../ui/styles';
 
 interface ProjectDialogProps {
   mode: 'create' | 'edit';
@@ -60,13 +60,15 @@ export default function ProjectDialog({
           void submit();
         }}
       >
-        <h2 id="project-dialog-title" className="text-base font-semibold text-fg">
+        <h2 id="project-dialog-title" className={dialogTitleClass}>
           {mode === 'create' ? word.new : `${word.one} bearbeiten`}
         </h2>
 
         <label className={`mt-5 ${labelClass}`}>
           Name
           <input
+            autoComplete="off"
+            enterKeyHint="done"
             value={name}
             onChange={(event) => setName(event.target.value)}
             required
@@ -126,7 +128,7 @@ export default function ProjectDialog({
           </p>
         )}
 
-        <div className="mt-7 flex items-center gap-2">
+        <div className={`mt-7 flex items-center gap-2 ${stickyDialogActionsClass}`}>
           {onDelete && (
             // The wrapper shows the reason as tooltip; disabled buttons do not receive hover.
             <span title={deleteDisabledReason}>

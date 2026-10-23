@@ -108,6 +108,8 @@ export default function TemplateDialog({ projectId, template, board, onSaved, on
               Name der Vorlage
             </label>
             <input
+              autoComplete="off"
+              enterKeyHint="next"
               id="template-name"
               data-autofocus
               value={name}
@@ -136,6 +138,8 @@ export default function TemplateDialog({ projectId, template, board, onSaved, on
             Titel {kind === 'note' ? 'der Notiz' : 'des Tasks'}
           </label>
           <input
+            autoComplete="off"
+            enterKeyHint="next"
             id="template-title-field"
             value={title}
             onChange={(e) => setTitle(e.target.value)}

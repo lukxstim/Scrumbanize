@@ -5,7 +5,7 @@ import { ACCEPT, canPreview, fileLabel, fileProblem, fileUrl, formatSize, isImag
 import { formatDate } from '../../utils/format';
 import ConfirmDialog from '../ConfirmDialog';
 import { PaperclipIcon } from '../icons';
-import { labelClass } from '../ui/styles';
+import { labelClass, touchHitAreaBeforeClass } from '../ui/styles';
 import Lightbox from './Lightbox';
 
 interface AttachmentsPanelProps {
@@ -183,7 +183,7 @@ export default function AttachmentsPanel({ owner, attachments, onUpdate, readOnl
                   onClick={() => setRemoving(image)}
                   aria-label={`„${image.fileName}“ entfernen`}
                   title="Entfernen"
-                  className="absolute top-1 right-1 grid size-6 place-items-center rounded-md bg-surface/90 text-fg-muted opacity-0 shadow-card transition-opacity hover:text-danger-text focus-visible:opacity-100 group-hover/att:opacity-100 [@media(hover:none)]:opacity-100"
+                  className={`absolute top-1 right-1 grid size-6 place-items-center rounded-md bg-surface/90 text-fg-muted opacity-0 shadow-card transition-opacity hover:text-danger-text focus-visible:opacity-100 group-hover/att:opacity-100 [@media(hover:none)]:opacity-100 ${touchHitAreaBeforeClass}`}
                 >
                   ×
                 </button>

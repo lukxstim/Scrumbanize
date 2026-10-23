@@ -1,4 +1,5 @@
 import {
+  AutoScrollActivator,
   DndContext,
   DragOverlay,
   KeyboardSensor,
@@ -12,6 +13,8 @@ import {
   type KeyboardCoordinateGetter,
 } from '@dnd-kit/core';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useBoardCompact } from '../../hooks/useBoardCompact';
+import { useIsMobile } from '../../hooks/useMediaQuery';
 import { useLocation, useMatch, useNavigate, useParams } from 'react-router';
 import { useBoard } from '../../hooks/useBoard';
 import { useGoneNotice } from '../../hooks/useCollaboration';
@@ -38,7 +41,7 @@ import {
   type Cells,
 } from '../../utils/board';
 import { isCreateRequest } from '../../utils/appEvents';
-import { columnWidth, columnWidthVar, COMPACT_COLUMN_WIDTH, DEFAULT_COLUMN_WIDTH, fitWidth } from '../../utils/columnWidths';
+import { BOARD_PADDING_X, columnWidth, columnWidthVar, COMPACT_COLUMN_WIDTH, DEFAULT_COLUMN_WIDTH, fitWidth } from '../../utils/columnWidths';
 import { columnDropIndex, columnStep, dropPosition, type CellGeometry } from '../../utils/dropPosition';
 import { todayIso } from '../../utils/dates';
 import { exportUrls, startDownload, trashApi } from '../../utils/api';
@@ -56,9 +59,12 @@ import { TaskCardBody } from './TaskCard';
 import TaskDetailDialog from './TaskDetailDialog';
 import Button from '../ui/Button';
 import Skeleton from '../ui/Skeleton';
+import ColumnJumpBar, { jumpColumnAt, scrollToColumn } from './ColumnJumpBar';
+import { haptic, isTouchActivation } from '../../utils/haptics';
 
 const CARD_GAP = 8;
-const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean';
+const isOpenLanes = (value: unknown): value is Record<string, boolean> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value) && Object.values(value).every((v) => typeof v === 'boolean');
 const isIdList = (value: unknown): value is number[] => Array.isArray(value) && value.every((v) => typeof v === 'number');
 
 type Dragging = { type: 'task'; id: number } | { type: 'column'; id: number } | null;
@@ -103,8 +109,12 @@ export default function BoardPage() {
   const taskMatch = useMatch('/p/:projectId/tasks/:taskId');
   const openTaskId = taskMatch ? Number(taskMatch.params.taskId) : null;
 
-  const [compact, setCompact] = useStoredState('scrumbanize.boardCompact', false, isBoolean);
+  const [compact, setCompact] = useBoardCompact();
   const [collapsedLanes, setCollapsedLanes] = useStoredState<number[]>('scrumbanize.collapsedLanes', [], isIdList);
+  // Phones (US-25): one column as wide as the screen at a time, and only the first lane open until others are opened.
+  const mobile = useIsMobile();
+  const [openLanes, setOpenLanes] = useStoredState<Record<string, boolean>>('scrumbanize.openLanes.mobile', {}, isOpenLanes);
+  const [boardWidth, setBoardWidth] = useState(0);
   // Sorting and filters are remembered per project in this browser; they never change the saved order.
   const [view, setView] = useStoredState(`scrumbanize.boardView.${projectId}`, DEFAULT_VIEW, isTaskView);
   const [deleting, setDeleting] = useState<{ kind: 'column' | 'lane'; id: number } | null>(null);
@@ -117,6 +127,25 @@ export default function BoardPage() {
   const [dragColumns, setDragColumns] = useState<BoardColumn[] | null>(null);
   const dragColumnsRef = useRef<BoardColumn[] | null>(null);
   const [liveMessage, setLiveMessage] = useState('');
+  // Touch drags (US-25): vibration at pick-up, at each new column and at the drop; the jump bar chip under the finger.
+  const touchDrag = useRef(false);
+  const lastTargetColumn = useRef<number | null>(null);
+  const jumpTarget = useRef<number | null>(null);
+  // Where the finger is now. dnd-kit adds the board's scrolling to the drag's delta, so while the board scrolls (to a
+  // chosen column, or near an edge) a position from the delta would wander off with the content under a still finger.
+  const finger = useRef<{ x: number; y: number } | null>(null);
+  useEffect(() => {
+    if (!dragging) return;
+    const onTouchMove = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (touch) finger.current = { x: touch.clientX, y: touch.clientY };
+    };
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    return () => {
+      window.removeEventListener('touchmove', onTouchMove);
+      finger.current = null;
+    };
+  }, [dragging]);
   const boardRef = useRef<HTMLDivElement>(null);
   const headerRowRef = useRef<HTMLDivElement>(null);
 
@@ -131,7 +160,7 @@ export default function BoardPage() {
   // Viewers only look; members move and edit tasks; owners also shape the board (US-21).
   const canEdit = useCan('edit');
   const canManage = useCan('manageBoard');
-  const widthOf = (column: BoardColumn) => columnWidth(column, compact);
+  const widthOf = (column: BoardColumn) => (mobile && boardWidth > 0 ? boardWidth - 2 * BOARD_PADDING_X : columnWidth(column, compact));
   // One CSS variable per column width on the board; headers and cells read it, a resize handle changes it while dragging.
   const widthVars = Object.fromEntries(columns.map((c) => [columnWidthVar(c.id), `${widthOf(c)}px`])) as CSSProperties;
   const hasCustomWidths = board.columns.some((c) => c.width !== null);
@@ -154,6 +183,15 @@ export default function BoardPage() {
     observer.observe(row);
     return () => observer.disconnect();
   }, [ready]);
+
+  // The visible width of the board, for the one column phones show (without the scrollbar's gutter).
+  useEffect(() => {
+    const container = boardRef.current;
+    if (!mobile || !container) return;
+    const observer = new ResizeObserver(() => setBoardWidth(container.clientWidth));
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [mobile, ready]);
 
   const showDragCells = (next: Cells | null) => {
     dragCellsRef.current = next;
@@ -281,8 +319,12 @@ export default function BoardPage() {
   const cellLabel = (columnId: number, laneId: number) =>
     showLanes ? `„${columnName(columnId)}“, Swimlane „${laneName(laneId)}“` : `„${columnName(columnId)}“`;
 
-  function handleDragStart({ active }: DragStartEvent) {
+  function handleDragStart({ active, activatorEvent }: DragStartEvent) {
     setLiveMessage('');
+    touchDrag.current = isTouchActivation(activatorEvent);
+    lastTargetColumn.current = null;
+    jumpTarget.current = null;
+    if (touchDrag.current) haptic('pickUp');
     if (active.data.current?.type === 'column') {
       const id = Number(String(active.id).slice('column:'.length));
       setDragging({ type: 'column', id });
@@ -295,6 +337,7 @@ export default function BoardPage() {
 
   /** The pointer for mouse and touch; the dragged item's centre for the keyboard. */
   function pointerOf({ activatorEvent, delta, active }: DragMoveEvent): { x: number; y: number } | null {
+    if (touchDrag.current && finger.current) return finger.current;
     const start =
       activatorEvent instanceof MouseEvent
         ? activatorEvent
@@ -323,6 +366,24 @@ export default function BoardPage() {
 
     const current = dragCellsRef.current;
     if (!current) return;
+
+    // Phones (US-25): a card dragged onto a chip of the jump bar goes to the end of that column, in its lane, and the
+    // board scrolls there, so the finger can still place it exactly.
+    const chip = mobile ? jumpColumnAt(pointer.x, pointer.y) : null;
+    if (chip !== null) {
+      const at = placementOf(current, dragging.id);
+      if (!at || jumpTarget.current === chip) return;
+      jumpTarget.current = chip;
+      if (boardRef.current) scrollToColumn(boardRef.current, chip);
+      if (chip === at.columnId) return;
+      const end = cellTasks(current, chip, at.laneId).filter((t) => t.id !== dragging.id).length;
+      showDragCells(applyMove(current, dragging.id, chip, at.laneId, end));
+      noteTargetColumn(chip);
+      setLiveMessage(`${cellLabel(chip, at.laneId)}, Position ${end + 1}.`);
+      return;
+    }
+    jumpTarget.current = null;
+
     // Positions are measured on the shown cards and mapped to the full cell (see dropIndexInCell).
     const target = dropPosition(pointer.x, pointer.y, measureCells(dragging.id));
     const now = placementOf(current, dragging.id);
@@ -337,7 +398,16 @@ export default function BoardPage() {
     if (target.columnId === now.columnId && target.laneId === now.laneId && index === now.index) return;
 
     showDragCells(applyMove(current, dragging.id, target.columnId, target.laneId, index));
+    noteTargetColumn(target.columnId);
     setLiveMessage(`${cellLabel(target.columnId, target.laneId)}, Position ${target.index + 1}.`);
+  }
+
+  /** A short vibration whenever a touch drag reaches another column. */
+  function noteTargetColumn(columnId: number) {
+    if (lastTargetColumn.current === columnId) return;
+    const first = lastTargetColumn.current === null;
+    lastTargetColumn.current = columnId;
+    if (touchDrag.current && !first) haptic('target');
   }
 
   function endDrag() {
@@ -364,6 +434,7 @@ export default function BoardPage() {
         original &&
         (dropped.columnId !== original.columnId || dropped.laneId !== original.laneId || dropped.index !== original.index);
       if (changed) void board.moveTask(dragging.id, dropped.columnId, dropped.laneId, dropped.index);
+      if (changed && touchDrag.current) haptic('drop');
       return;
     }
     endDrag();
@@ -400,7 +471,13 @@ export default function BoardPage() {
     if (index !== -1) move(id, index + direction);
   }
 
-  function toggleLane(id: number) {
+  const isCollapsed = (id: number, index: number) => (mobile ? !(openLanes[id] ?? index === 0) : collapsedLanes.includes(id));
+
+  function toggleLane(id: number, index: number) {
+    if (mobile) {
+      setOpenLanes({ ...openLanes, [id]: isCollapsed(id, index) });
+      return;
+    }
     setCollapsedLanes(collapsedLanes.includes(id) ? collapsedLanes.filter((l) => l !== id) : [...collapsedLanes, id]);
   }
 
@@ -476,7 +553,8 @@ export default function BoardPage() {
           triggerClassName="grid size-7 place-items-center rounded-md text-base leading-none text-fg-muted hover:bg-surface-strong hover:text-fg"
           items={[
             // Column widths apply to everyone in the project, so only owners change them.
-            ...(canManage
+            // On phones every column is as wide as the screen (US-25).
+            ...(canManage && !mobile
               ? [
                   { label: 'An Fenster anpassen', onSelect: fitToWindow },
                   {
@@ -491,8 +569,20 @@ export default function BoardPage() {
         />
       </div>
 
+      {mobile && (
+        <ColumnJumpBar
+          columns={columns}
+          counts={columns.map((c) => columnCount(cells, c.id))}
+          dropColumnId={activeTask?.columnId}
+          boardRef={boardRef}
+        />
+      )}
+
       <DndContext
         sensors={sensors}
+        // Phones (US-25): the lifted card is almost as wide as the board, so its edges always touch the board's and it
+        // would scroll on its own; there the finger decides, close to an edge.
+        autoScroll={mobile ? { activator: AutoScrollActivator.Pointer, threshold: { x: 0.12, y: 0.15 } } : undefined}
         accessibility={{
           announcements,
           screenReaderInstructions: {
@@ -510,7 +600,8 @@ export default function BoardPage() {
           ref={boardRef}
           data-board
           style={{ '--board-header-height': '0px', ...widthVars } as CSSProperties}
-          className="flex min-h-0 flex-1 flex-col overflow-auto [scrollbar-gutter:stable]"
+          // Phones snap to one column at a time; not while dragging, or the board would jump back under the card.
+          className={`flex min-h-0 flex-1 flex-col overflow-auto [scrollbar-gutter:stable] ${dragging ? '' : 'max-md:snap-x max-md:snap-mandatory max-md:scroll-px-4'}`}
         >
           <div className="flex min-w-full shrink-0 grow flex-col gap-3 self-start px-4 pb-4">
             {/* Column headers stay visible while scrolling down. */}
@@ -530,13 +621,14 @@ export default function BoardPage() {
                   onMove={(direction) => step(board.columns, column.id, direction, board.moveColumn)}
                   onDelete={() => setDeleting({ kind: 'column', id: column.id })}
                   manage={canManage}
+                  isDropTarget={activeTask?.columnId === column.id}
                 />
               ))}
               {canManage && <AddItemButton label="Spalte" placeholder="Name der Spalte …" onAdd={board.addColumn} className="w-56 shrink-0" />}
             </div>
 
             {lanes.map((lane, laneIndex) => {
-              const collapsed = showLanes && collapsedLanes.includes(lane.id);
+              const collapsed = showLanes && isCollapsed(lane.id, laneIndex);
               return (
                 // A single lane grows to the bottom of the board, so its cells are drop targets down there too.
                 <section
@@ -549,7 +641,7 @@ export default function BoardPage() {
                       lane={lane}
                       count={laneCount(cells, lane.id)}
                       collapsed={collapsed}
-                      onToggle={() => toggleLane(lane.id)}
+                      onToggle={() => toggleLane(lane.id, laneIndex)}
                       isFirst={laneIndex === 0}
                       isLast={laneIndex === lanes.length - 1}
                       onRename={(name) => void board.renameLane(lane.id, name)}

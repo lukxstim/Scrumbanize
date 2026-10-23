@@ -4,7 +4,7 @@ import { formatDateLong } from '../../utils/dates';
 import { PriorityPicker } from '../tasks/ScheduleFields';
 import Button from '../ui/Button';
 import Dialog from '../ui/Dialog';
-import { fieldClass, labelClass } from '../ui/styles';
+import { dialogActionsClass, dialogTitleClass, fieldClass, labelClass } from '../ui/styles';
 
 interface NewDatedTaskDialogProps {
   day: string;
@@ -40,7 +40,7 @@ export default function NewDatedTaskDialog({ day, lanes, onCreate, onClose }: Ne
           void submit();
         }}
       >
-        <h2 id="new-dated-task-title" className="text-base font-semibold text-fg">
+        <h2 id="new-dated-task-title" className={dialogTitleClass}>
           Neuer Task
         </h2>
         <p className="mt-1 text-sm text-fg-subtle">Fällig am {formatDateLong(day)}, angelegt in der ersten Spalte.</p>
@@ -48,6 +48,8 @@ export default function NewDatedTaskDialog({ day, lanes, onCreate, onClose }: Ne
         <label className={`mt-5 ${labelClass}`}>
           Titel
           <input
+            autoComplete="off"
+            enterKeyHint="done"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             required
@@ -83,7 +85,7 @@ export default function NewDatedTaskDialog({ day, lanes, onCreate, onClose }: Ne
           </p>
         )}
 
-        <div className="mt-6 flex justify-end gap-2">
+        <div className={dialogActionsClass}>
           <Button variant="ghost" disabled={submitting} onClick={onClose}>
             Abbrechen
           </Button>

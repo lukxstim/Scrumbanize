@@ -163,7 +163,7 @@ export default function MindmapDialog({ title, markdown, onClose }: MindmapDialo
             )}
           </svg>
           <p className="border-t border-line px-5 py-2 text-xs text-fg-subtle">
-            Klick auf einen Knoten klappt seine Zweige ein und aus · Mausrad zoomt · Ziehen verschiebt · Der Export zeigt die
+            Klick auf einen Knoten klappt seine Zweige ein und aus · Mausrad oder zwei Finger zoomen · Ziehen verschiebt · Der Export zeigt die
             ganze Mindmap so, wie sie gerade aufgeklappt ist.
           </p>
         </>
@@ -321,11 +321,23 @@ function MindmapNodeView({
   );
 }
 
-/** Wheel zoom around the pointer and drag to pan; clicks after a drag are ignored. */
+/** The view scaled to `k` (within the limits), keeping the point (px, py) of the SVG where it is. */
+function zoomAround(t: Transform, k: number, px: number, py: number): Transform {
+  const next = Math.min(4, Math.max(0.15, k));
+  return { k: next, x: px - ((px - t.x) * next) / t.k, y: py - ((py - t.y) * next) / t.k };
+}
+
+/**
+ * Wheel zoom around the pointer, pinch zoom with two fingers (US-25) and drag to pan; clicks after a drag or a
+ * pinch are ignored.
+ */
 function useZoomPan(svgRef: React.RefObject<SVGSVGElement | null>, layout: MindmapLayout | null) {
   const [transform, setTransform] = useState<Transform>({ k: 1, x: 0, y: 0 });
   const drag = useRef<{ x: number; y: number; moved: boolean; pointer: number } | null>(null);
   const dragged = useRef(false);
+  // The fingers on the map, and while two of them pinch, their distance a moment ago.
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<number | null>(null);
 
   const fit = () => {
     const svg = svgRef.current;
@@ -354,10 +366,7 @@ function useZoomPan(svgRef: React.RefObject<SVGSVGElement | null>, layout: Mindm
       const rect = svg.getBoundingClientRect();
       const px = event.clientX - rect.left;
       const py = event.clientY - rect.top;
-      setTransform((t) => {
-        const k = Math.min(4, Math.max(0.15, t.k * Math.exp(-event.deltaY * 0.0015)));
-        return { k, x: px - ((px - t.x) * k) / t.k, y: py - ((py - t.y) * k) / t.k };
-      });
+      setTransform((t) => zoomAround(t, t.k * Math.exp(-event.deltaY * 0.0015), px, py));
     };
     svg.addEventListener('wheel', onWheel, { passive: false });
     return () => svg.removeEventListener('wheel', onWheel);
@@ -366,10 +375,31 @@ function useZoomPan(svgRef: React.RefObject<SVGSVGElement | null>, layout: Mindm
   const handlers = {
     onPointerDown: (event: ReactPointerEvent<SVGSVGElement>) => {
       if (event.button !== 0) return;
+      pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (pointers.current.size === 2) {
+        // A second finger: pinch instead of pan.
+        const [a, b] = [...pointers.current.values()] as [{ x: number; y: number }, { x: number; y: number }];
+        pinch.current = Math.hypot(a.x - b.x, a.y - b.y);
+        drag.current = null;
+        dragged.current = true;
+        return;
+      }
       drag.current = { x: event.clientX, y: event.clientY, moved: false, pointer: event.pointerId };
       dragged.current = false;
     },
     onPointerMove: (event: ReactPointerEvent<SVGSVGElement>) => {
+      if (pointers.current.has(event.pointerId)) pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (pinch.current !== null && pointers.current.size === 2) {
+        const [a, b] = [...pointers.current.values()] as [{ x: number; y: number }, { x: number; y: number }];
+        const distance = Math.hypot(a.x - b.x, a.y - b.y);
+        const factor = pinch.current > 0 ? distance / pinch.current : 1;
+        pinch.current = distance;
+        const rect = event.currentTarget.getBoundingClientRect();
+        const px = (a.x + b.x) / 2 - rect.left;
+        const py = (a.y + b.y) / 2 - rect.top;
+        setTransform((t) => zoomAround(t, t.k * factor, px, py));
+        return;
+      }
       const current = drag.current;
       if (!current) return;
       const dx = event.clientX - current.x;
@@ -381,8 +411,19 @@ function useZoomPan(svgRef: React.RefObject<SVGSVGElement | null>, layout: Mindm
       current.y = event.clientY;
       setTransform((t) => ({ ...t, x: t.x + dx, y: t.y + dy }));
     },
-    onPointerUp: () => {
+    onPointerUp: (event: ReactPointerEvent<SVGSVGElement>) => {
+      pointers.current.delete(event.pointerId);
+      if (pinch.current !== null) {
+        // The pinch ends with its last finger, and lifting none of them is a click.
+        if (pointers.current.size === 0) pinch.current = null;
+        return;
+      }
       dragged.current = drag.current?.moved ?? false;
+      drag.current = null;
+    },
+    onPointerCancel: (event: ReactPointerEvent<SVGSVGElement>) => {
+      pointers.current.delete(event.pointerId);
+      if (pointers.current.size === 0) pinch.current = null;
       drag.current = null;
     },
   };

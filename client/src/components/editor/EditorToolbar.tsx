@@ -261,6 +261,12 @@ function LinkBar({ editor, onClose }: { editor: Editor; onClose: () => void }) {
       }}
     >
       <input
+        inputMode="url"
+        autoComplete="url"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        enterKeyHint="done"
         autoFocus
         value={href}
         onChange={(event) => setHref(event.target.value)}

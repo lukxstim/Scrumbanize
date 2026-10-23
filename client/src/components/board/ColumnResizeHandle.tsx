@@ -78,7 +78,7 @@ export default function ColumnResizeHandle({ columnId, columnName, width, onResi
         event.stopPropagation();
         onResize(null);
       }}
-      className="group/resize absolute inset-y-0 -right-3 z-10 flex w-3 cursor-col-resize touch-none justify-center focus-visible:outline-none"
+      className="group/resize absolute inset-y-0 -right-3 z-10 flex w-3 cursor-col-resize touch-none justify-center focus-visible:outline-none max-md:hidden"
     >
       <span
         aria-hidden="true"

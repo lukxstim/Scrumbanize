@@ -32,6 +32,8 @@ export default function InlineName({ name, label, editing, onEditingChange, onRe
   if (editing) {
     return (
       <input
+        autoComplete="off"
+        enterKeyHint="done"
         value={text}
         autoFocus
         maxLength={40}

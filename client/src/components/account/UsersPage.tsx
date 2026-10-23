@@ -11,7 +11,7 @@ import Button from '../ui/Button';
 import BackToProjects from './BackToProjects';
 import Dialog from '../ui/Dialog';
 import Section from '../ui/Section';
-import { fieldClass, iconButtonClass, labelClass } from '../ui/styles';
+import { dialogActionsClass, dialogTitleClass, fieldClass, iconButtonClass, labelClass } from '../ui/styles';
 
 const ERRORS: Record<string, string> = {
   email_taken: 'Für diese E-Mail-Adresse gibt es schon ein Konto.',
@@ -129,6 +129,8 @@ export default function UsersPage() {
             }}
           >
             <input
+              autoComplete="off"
+              enterKeyHint="send"
               type="email"
               required
               value={email}
@@ -258,7 +260,7 @@ function LinkDialog({ link, onClose }: { link: ShownLink; onClose: () => void })
   const [copied, setCopied] = useState(false);
   return (
     <Dialog onClose={onClose} labelledBy="link-dialog-title" className="max-w-lg p-6" closeOnBackdrop>
-      <h2 id="link-dialog-title" className="text-base font-semibold text-fg">
+      <h2 id="link-dialog-title" className={dialogTitleClass}>
         {link.title}
       </h2>
       <p className="mt-1 text-sm text-fg-subtle">{link.text}</p>
@@ -274,7 +276,7 @@ function LinkDialog({ link, onClose }: { link: ShownLink; onClose: () => void })
         </Button>
       </div>
       <p className="mt-2 text-xs text-fg-subtle">Gültig bis {formatDate(link.expiresAt)}. Der Link wird nur jetzt angezeigt.</p>
-      <div className="mt-6 flex justify-end">
+      <div className={dialogActionsClass}>
         <Button variant="ghost" onClick={onClose}>
           Fertig
         </Button>
@@ -297,7 +299,7 @@ function HandOverDialog({
   const [toId, setToId] = useState(candidates[0]?.id);
   const to = candidates.find((c) => c.id === toId);
   return (
-    <Dialog onClose={onClose} labelledBy="handover-title" className="max-w-md p-6">
+    <Dialog onClose={onClose} labelledBy="handover-title" mobile="compact" className="max-w-md p-6">
       <h2 id="handover-title" className="text-base font-semibold text-fg">
         Projekte von {account.name} übergeben
       </h2>

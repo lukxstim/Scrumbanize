@@ -275,6 +275,8 @@ export default function TaskDetailDialog({
         onBlur={() => lock.blur(() => !!document.activeElement?.closest('[data-locked-text]'), flush)}
       >
         <input
+          autoComplete="off"
+          enterKeyHint="next"
           id="task-detail-title"
           data-locked-text
           value={title}

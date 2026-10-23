@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import { MAX_TAG_LENGTH, normalizeTag } from '../../utils/tags';
+import { touchHitAreaClass } from '../ui/styles';
 
 interface TagInputProps {
   tags: string[];
@@ -39,7 +40,7 @@ export default function TagInput({ tags, suggestions, onChange }: TagInputProps)
           <button
             type="button"
             aria-label={`Tag „${tag}“ entfernen`}
-            className="rounded-full px-1 leading-none text-accent-text/60 hover:bg-accent-muted hover:text-accent-text"
+            className={`rounded-full px-1 leading-none text-accent-text/60 hover:bg-accent-muted hover:text-accent-text ${touchHitAreaClass}`}
             onClick={() => onChange(tags.filter((t) => t !== tag))}
           >
             ×
@@ -47,6 +48,9 @@ export default function TagInput({ tags, suggestions, onChange }: TagInputProps)
         </span>
       ))}
       <input
+        autoComplete="off"
+        autoCapitalize="none"
+        enterKeyHint="done"
         value={text}
         list={listId}
         maxLength={MAX_TAG_LENGTH}

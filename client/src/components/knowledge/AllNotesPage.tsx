@@ -18,6 +18,7 @@ import NoteList from '../notes/NoteList';
 import SearchBar from '../notes/SearchBar';
 import { NotebookGlyph } from '../projects/NotebookSymbol';
 import Button from '../ui/Button';
+import MobileBackLink from '../ui/MobileBackLink';
 import Skeleton from '../ui/Skeleton';
 
 /** The project or notebook a note belongs to, as a small label. */
@@ -99,7 +100,8 @@ export default function AllNotesPage() {
 
   return (
     <div className="flex min-h-0 flex-1">
-      <aside className="flex w-72 shrink-0 flex-col border-r border-line bg-surface xl:w-80">
+      {/* Phones (US-25) show the list or the open note, never both; the back bar returns to the list. */}
+      <aside className={`flex w-72 shrink-0 flex-col border-r border-line bg-surface max-md:w-full max-md:border-r-0 xl:w-80 ${selectedId !== null ? 'max-md:hidden' : ''}`}>
         <div className="space-y-3 border-b border-line p-4">
           <div className="flex items-center gap-2">
             <h1 className="text-sm font-semibold text-fg">Alle Notizen</h1>
@@ -161,11 +163,12 @@ export default function AllNotesPage() {
         </div>
       </aside>
 
-      <main className="flex min-w-0 flex-1 flex-col bg-surface">
+      <main className={`flex min-w-0 flex-1 flex-col bg-surface ${selectedId === null ? 'max-md:hidden' : ''}`}>
+        <MobileBackLink to={allNotesPath(undefined, activeTags)} label="Alle Notizen" />
         {selectedNote ? (
           <>
             {/* Where the note lives, and the way there (with its folders, templates and graph). */}
-            <div className="flex items-center gap-2 border-b border-line px-6 py-1.5 text-xs text-fg-subtle">
+            <div className="flex items-center gap-2 border-b border-line px-6 py-1.5 text-xs text-fg-subtle max-md:px-4">
               <span>Aus</span>
               <NotePlace project={selectedProject} />
               <Link to={paths.notes(selectedNote.projectId, selectedNote.id)} className="ml-auto text-accent-text hover:underline">

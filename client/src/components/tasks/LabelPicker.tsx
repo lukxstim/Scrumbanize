@@ -84,6 +84,8 @@ export default function LabelPicker({ labels, selected, onChange, onCreate }: La
           }}
         >
           <input
+            autoComplete="off"
+            enterKeyHint="done"
             ref={inputRef}
             value={query}
             onChange={(event) => setQuery(event.target.value)}

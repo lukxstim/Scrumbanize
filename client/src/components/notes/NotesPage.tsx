@@ -25,6 +25,7 @@ import { ChevronDownIcon, FolderPlusIcon, NoteIcon, PlusIcon } from '../icons';
 import { iconButtonClass } from '../ui/styles';
 import Button from '../ui/Button';
 import Kbd, { modKey } from '../ui/Kbd';
+import MobileBackLink from '../ui/MobileBackLink';
 import Skeleton from '../ui/Skeleton';
 import FolderTree, { type FolderActions } from './FolderTree';
 import MoveToFolderDialog from './MoveToFolderDialog';
@@ -206,7 +207,8 @@ export default function NotesPage() {
 
   return (
     <div className="flex min-h-0 flex-1">
-      <aside className="flex w-80 shrink-0 flex-col border-r border-line bg-surface">
+      {/* Phones (US-25) show the list or the open note, never both; the back bar returns to the list. */}
+      <aside className={`flex w-80 shrink-0 flex-col border-r border-line bg-surface max-md:w-full max-md:border-r-0 ${selectedId !== null ? 'max-md:hidden' : ''}`}>
         <div className="space-y-3 border-b border-line p-4">
           <div className="flex items-center gap-2">
             <h1 className="text-sm font-semibold text-fg">Notizen</h1>
@@ -296,29 +298,32 @@ export default function NotesPage() {
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 bg-surface">
+      <main className={`min-w-0 flex-1 bg-surface max-md:flex max-md:flex-col ${selectedId === null ? 'max-md:hidden' : ''}`}>
+        <MobileBackLink to={paths.notes(projectId)} label="Notizen" />
         {selectedNote ? (
-          <NoteEditor
-            key={selectedNote.id}
-            note={selectedNote}
-            remoteEdit={remoteEdits[selectedNote.id]}
-            tagSuggestions={tagCounts.map((t) => t.name)}
-            autoFocusTitle={selectedNote.id === newNoteId}
-            onSave={saveNote}
-            onDelete={handleDelete}
-            onCreateTask={createTaskFromNote}
-            onDiscardTask={discardTask}
-            onUpdateAttachments={updateAttachments}
-            readOnly={!canEdit}
-            folders={folders}
-            onMove={async (folderId) => {
-              await moveNote(selectedNote.id, folderId);
-              if (folderId !== null) openFolders([folderId]);
-            }}
-            onSaveAsTemplate={(input) =>
-              setTemplateDraft({ kind: 'note', scope: 'project', name: input.title || 'Neue Vorlage', title: input.title, content: input.content, defaults: { tags: input.tags } })
-            }
-          />
+          <div className="h-full max-md:h-auto max-md:min-h-0 max-md:flex-1">
+            <NoteEditor
+              key={selectedNote.id}
+              note={selectedNote}
+              remoteEdit={remoteEdits[selectedNote.id]}
+              tagSuggestions={tagCounts.map((t) => t.name)}
+              autoFocusTitle={selectedNote.id === newNoteId}
+              onSave={saveNote}
+              onDelete={handleDelete}
+              onCreateTask={createTaskFromNote}
+              onDiscardTask={discardTask}
+              onUpdateAttachments={updateAttachments}
+              readOnly={!canEdit}
+              folders={folders}
+              onMove={async (folderId) => {
+                await moveNote(selectedNote.id, folderId);
+                if (folderId !== null) openFolders([folderId]);
+              }}
+              onSaveAsTemplate={(input) =>
+                setTemplateDraft({ kind: 'note', scope: 'project', name: input.title || 'Neue Vorlage', title: input.title, content: input.content, defaults: { tags: input.tags } })
+              }
+            />
+          </div>
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
             <div className="grid size-12 place-items-center rounded-xl bg-surface-muted text-fg-subtle ring-1 ring-line">

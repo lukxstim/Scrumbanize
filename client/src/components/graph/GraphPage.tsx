@@ -51,7 +51,7 @@ export default function GraphPage() {
               aria-pressed={filter[key]}
               disabled={key === 'done' && !filter.tasks}
               onClick={() => setFilter({ ...filter, [key]: !filter[key] })}
-              className={`h-6 rounded-full px-2.5 text-xs font-medium ring-1 ring-inset transition-colors focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50 ${
+              className={`h-6 rounded-full px-2.5 text-xs font-medium ring-1 ring-inset pointer-coarse:h-11 transition-colors focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50 ${
                 filter[key] ? 'bg-accent-muted text-accent-text ring-accent-line' : 'text-fg-subtle ring-line hover:text-fg'
               }`}
             >
@@ -123,7 +123,8 @@ function GraphLegend() {
   return (
     <ul
       aria-label="Legende"
-      className="pointer-events-none absolute bottom-3 left-3 flex flex-col gap-1 rounded-lg border border-line bg-surface/90 px-3 py-2 text-xs text-fg-muted shadow-card backdrop-blur"
+      // Phones (US-25) need the little room for the graph itself.
+      className="pointer-events-none absolute bottom-3 left-3 flex flex-col gap-1 rounded-lg max-md:hidden border border-line bg-surface/90 px-3 py-2 text-xs text-fg-muted shadow-card backdrop-blur"
     >
       <li className="flex items-center gap-2">
         <span aria-hidden="true" className="size-2.5 rounded-full bg-chart-1" /> Notiz

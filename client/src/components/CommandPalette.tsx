@@ -3,7 +3,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useProjects } from '../hooks/useProjects';
 import { useTemplates } from '../hooks/useTemplates';
-import { useStoredState } from '../hooks/useStoredState';
+import { useBoardCompact } from '../hooks/useBoardCompact';
+import { useIsMobile } from '../hooks/useMediaQuery';
 import { useTheme, type ThemeSetting } from '../hooks/useTheme';
 import type { Project } from '../types/project';
 import { notesApi, searchApi, type SearchResults } from '../utils/api';
@@ -60,7 +61,6 @@ const SEARCH_DELAY_MS = 150;
 const MAX_TAG_ITEMS = 6;
 /** Views a notebook does not have (US-22). */
 const BOARD_VIEWS = ['go-board', 'go-calendar', 'go-analytics'];
-const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean';
 
 /** ⌘K / Ctrl+K: jump to projects, notes, tasks and views, and run actions. */
 export default function CommandPalette({ open, onClose, activeProject }: CommandPaletteProps) {
@@ -69,7 +69,9 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
   const { projects } = useProjects();
   const { templates } = useTemplates(open ? activeProject?.id : undefined);
   const { setting: themeSetting, setTheme } = useTheme();
-  const [compact, setCompact] = useStoredState('scrumbanize.boardCompact', false, isBoolean);
+  const [compact, setCompact] = useBoardCompact();
+  // The tour points at the header of wide screens; phones have none (US-25).
+  const mobile = useIsMobile();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResults | null>(null);
   // The tags of all notes the user can see (US-22), fresh every time the palette opens.
@@ -307,13 +309,17 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
   groups.push({
     heading: 'Einstellungen',
     items: [
-      {
-        id: 'tour',
-        label: 'Einführung erneut starten',
-        keywords: 'einführung tour hilfe onboarding rundgang erklärung',
-        icon: <InfoIcon />,
-        run: requestTourStart,
-      },
+      ...(mobile
+        ? []
+        : [
+            {
+              id: 'tour',
+              label: 'Einführung erneut starten',
+              keywords: 'einführung tour hilfe onboarding rundgang erklärung',
+              icon: <InfoIcon />,
+              run: requestTourStart,
+            },
+          ]),
       ...(['light', 'dark', 'system'] as const).map((value) => ({
         id: `theme-${value}`,
         label: `Farbschema: ${THEME_LABELS[value]}`,
@@ -410,7 +416,8 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
       closeOnBackdrop
       className="mt-[12vh] mb-auto max-w-xl overflow-hidden"
     >
-      <Command label="Befehlspalette" shouldFilter={false} loop value={selected} onValueChange={setSelected}>
+      {/* On phones the palette fills the screen (US-25): the list takes the room above the keyboard. */}
+      <Command label="Befehlspalette" shouldFilter={false} loop value={selected} onValueChange={setSelected} className="max-sm:flex max-sm:h-full max-sm:flex-col">
         <span id="command-palette-label" className="sr-only">
           Befehlspalette
         </span>
@@ -421,11 +428,21 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
             onValueChange={setQuery}
             data-autofocus
             placeholder="Suchen oder Befehl eingeben …"
+            inputMode="search"
+            enterKeyHint="go"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
             className="h-12 flex-1 bg-transparent text-sm text-fg placeholder:text-fg-faint focus:outline-none"
           />
-          <Kbd>Esc</Kbd>
+          <span className="pointer-coarse:hidden">
+            <Kbd>Esc</Kbd>
+          </span>
+          <button type="button" onClick={onClose} className="hidden text-sm font-medium text-accent-text pointer-coarse:block pointer-coarse:min-h-11">
+            Abbrechen
+          </button>
         </div>
-        <Command.List className="max-h-[min(60vh,28rem)] overflow-y-auto overscroll-contain p-2">
+        <Command.List className="max-h-[min(60vh,28rem)] overflow-y-auto overscroll-contain p-2 max-sm:max-h-none max-sm:min-h-0 max-sm:flex-1">
           <Command.Empty className="px-3 py-8 text-center text-sm text-fg-subtle">
             Keine Treffer für „{trimmed}“.
           </Command.Empty>
@@ -442,7 +459,7 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
                     key={item.id}
                     value={item.id}
                     onSelect={() => run(item.run)}
-                    className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm text-fg-muted transition-colors duration-75 data-[selected=true]:bg-surface-hover data-[selected=true]:text-fg [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-fg-subtle"
+                    className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 pointer-coarse:min-h-11 text-sm text-fg-muted transition-colors duration-75 data-[selected=true]:bg-surface-hover data-[selected=true]:text-fg [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-fg-subtle"
                   >
                     {item.icon}
                     <span className="min-w-0 flex-1">{item.label}</span>
@@ -452,7 +469,8 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
               </Command.Group>
             ))}
         </Command.List>
-        <div className="flex items-center gap-4 border-t border-line bg-surface-muted px-4 py-2 text-xs text-fg-subtle">
+        {/* Keyboard hints; touch screens have no keyboard to press them on. */}
+        <div className="flex items-center gap-4 border-t border-line bg-surface-muted px-4 py-2 text-xs text-fg-subtle pointer-coarse:hidden">
           <span className="flex items-center gap-1">
             <Kbd>↑</Kbd>
             <Kbd>↓</Kbd> auswählen

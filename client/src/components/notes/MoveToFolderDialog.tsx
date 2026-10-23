@@ -4,6 +4,7 @@ import { flattenFolders } from '../../utils/folders';
 import { FolderIcon } from '../icons';
 import Button from '../ui/Button';
 import Dialog from '../ui/Dialog';
+import { dialogActionsClass, dialogTitleClass } from '../ui/styles';
 
 interface MoveToFolderDialogProps {
   /** e.g. "„Einkaufsliste“ verschieben" */
@@ -43,7 +44,7 @@ export default function MoveToFolderDialog({ title, folders, current, isDisabled
           void submit();
         }}
       >
-        <h2 id="move-folder-title" className="truncate text-base font-semibold text-fg">
+        <h2 id="move-folder-title" className={`truncate ${dialogTitleClass}`}>
           {title}
         </h2>
         <fieldset className="mt-4">
@@ -81,7 +82,7 @@ export default function MoveToFolderDialog({ title, folders, current, isDisabled
             Das Verschieben hat nicht geklappt.
           </p>
         )}
-        <div className="mt-6 flex justify-end gap-2">
+        <div className={dialogActionsClass}>
           <Button variant="ghost" disabled={busy} onClick={onClose}>
             Abbrechen
           </Button>

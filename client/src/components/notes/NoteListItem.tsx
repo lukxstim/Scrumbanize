@@ -1,4 +1,5 @@
-import type { DragEvent, ReactNode } from 'react';
+import type { DraggableSyntheticListeners } from '@dnd-kit/core';
+import type { ReactNode } from 'react';
 import { useItemViewers } from '../../hooks/useCollaboration';
 import type { Note } from '../../types/note';
 import { formatDate, snippet } from '../../utils/format';
@@ -11,13 +12,13 @@ interface NoteListItemProps {
   onSelect: (id: number) => void;
   /** In the folder tree (US-22): the depth of its folder, for the indent. */
   depth?: number;
-  /** Makes the note draggable onto folders. */
-  dragProps?: { onDragStart: (event: DragEvent) => void; onDragEnd: () => void };
+  /** Makes the note draggable onto folders (the folder tree's useDraggable). */
+  drag?: { setNodeRef: (element: HTMLElement | null) => void; listeners: DraggableSyntheticListeners; isDragging: boolean; className: string };
   /** In "Alle Notizen" (US-22): the project or notebook the note belongs to. */
   place?: ReactNode;
 }
 
-export default function NoteListItem({ note, selected, onSelect, depth = 0, dragProps, place }: NoteListItemProps) {
+export default function NoteListItem({ note, selected, onSelect, depth = 0, drag, place }: NoteListItemProps) {
   const preview = snippet(note.content);
   // Who has the note open right now (US-24).
   const viewers = useItemViewers(note.projectId, { type: 'note', id: note.id });
@@ -28,12 +29,12 @@ export default function NoteListItem({ note, selected, onSelect, depth = 0, drag
         type="button"
         aria-current={selected || undefined}
         onClick={() => onSelect(note.id)}
-        draggable={dragProps !== undefined}
-        {...dragProps}
+        ref={drag?.setNodeRef}
+        {...drag?.listeners}
         style={depth > 0 ? { paddingLeft: `${2.25 + (depth - 1) * 0.875}rem` } : undefined}
         className={`block w-full border-l-2 px-4 ${depth > 0 ? 'py-2' : 'py-3'} text-left transition-colors duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${
           selected ? 'border-accent bg-accent-muted' : 'border-transparent hover:bg-surface-hover'
-        }`}
+        } ${drag?.className ?? ''} ${drag?.isDragging ? 'opacity-50' : ''}`}
       >
         <div className={`truncate text-sm font-medium ${note.title ? 'text-fg' : 'italic text-fg-subtle'}`}>
           {note.title || UNTITLED_NOTE}

@@ -38,7 +38,7 @@ export default function DeleteProjectDialog({ project, onConfirm, onClose }: Del
   }
 
   return (
-    <Dialog onClose={onClose} dismissible={!deleting} labelledBy="delete-project-title" className="max-w-md p-6">
+    <Dialog onClose={onClose} dismissible={!deleting} labelledBy="delete-project-title" mobile="compact" className="max-w-md p-6">
       <h2 id="delete-project-title" className="text-base font-semibold text-fg">
         {word.one} löschen?
       </h2>

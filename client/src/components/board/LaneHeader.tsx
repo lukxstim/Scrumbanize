@@ -4,6 +4,7 @@ import { countLabel } from '../../utils/projects';
 import { ChevronDownIcon } from '../icons';
 import Menu from '../Menu';
 import InlineName from './InlineName';
+import { touchHitAreaClass } from '../ui/styles';
 
 interface LaneHeaderProps {
   lane: Lane;
@@ -37,7 +38,7 @@ export default function LaneHeader({ lane, count, collapsed, onToggle, isFirst, 
           onClick={onToggle}
           aria-expanded={!collapsed}
           aria-label={`Swimlane „${lane.name}“ ${collapsed ? 'ausklappen' : 'einklappen'}`}
-          className="grid size-6 place-items-center rounded-md text-fg-subtle hover:bg-surface-strong hover:text-fg"
+          className={`grid size-6 place-items-center rounded-md text-fg-subtle hover:bg-surface-strong hover:text-fg ${touchHitAreaClass}`}
         >
           <ChevronDownIcon className={`size-4 transition-transform ${collapsed ? '-rotate-90' : ''}`} />
         </button>
@@ -56,7 +57,7 @@ export default function LaneHeader({ lane, count, collapsed, onToggle, isFirst, 
             label={`Swimlane „${lane.name}“: Aktionen`}
             trigger={<span aria-hidden="true">⋯</span>}
             align="left"
-            triggerClassName="grid size-6 place-items-center rounded-md text-base leading-none text-fg-subtle hover:bg-surface-strong hover:text-fg"
+            triggerClassName={`grid size-6 place-items-center rounded-md text-base leading-none text-fg-subtle hover:bg-surface-strong hover:text-fg ${touchHitAreaClass}`}
             items={[
               { label: 'Umbenennen', onSelect: () => setRenaming(true) },
               { label: 'Nach oben', onSelect: () => onMove(-1), disabledReason: isFirst ? 'Schon ganz oben' : undefined },

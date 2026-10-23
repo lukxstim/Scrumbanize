@@ -74,6 +74,8 @@ export default function NewTaskForm({ onCreate, templates = [], onCreateFromTemp
       }}
     >
       <input
+        autoComplete="off"
+        enterKeyHint="done"
         value={title}
         onChange={(event) => setTitle(event.target.value)}
         disabled={saving}

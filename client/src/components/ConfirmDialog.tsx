@@ -12,7 +12,7 @@ interface ConfirmDialogProps {
 
 export default function ConfirmDialog({ open, title, message, confirmLabel, onConfirm, onCancel }: ConfirmDialogProps) {
   return (
-    <Dialog open={open} onClose={onCancel} labelledBy="confirm-dialog-title" closeOnBackdrop className="max-w-sm p-6">
+    <Dialog open={open} onClose={onCancel} labelledBy="confirm-dialog-title" mobile="compact" closeOnBackdrop className="max-w-sm p-6">
       <h2 id="confirm-dialog-title" className="text-base font-semibold text-fg">
         {title}
       </h2>

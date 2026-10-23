@@ -18,7 +18,7 @@ export default function UnscheduledPanel({ tasks, onOpenTask }: UnscheduledPanel
     <aside
       ref={setNodeRef}
       aria-labelledby="unscheduled-heading"
-      className={`flex w-64 shrink-0 flex-col overflow-hidden rounded-xl border transition-colors ${
+      className={`flex w-64 shrink-0 flex-col overflow-hidden rounded-xl border transition-colors max-md:max-h-[40%] max-md:w-full ${
         isOver ? 'border-accent-line bg-accent-muted' : 'border-line bg-surface'
       }`}
     >
@@ -54,7 +54,7 @@ function UnscheduledItem({ task, onOpen }: { task: Task; onOpen: (id: number) =>
           if (event.key === 'Enter') onOpen(task.id);
           else listeners?.onKeyDown?.(event);
         }}
-        className={`relative flex cursor-grab touch-manipulation select-none items-center gap-2 overflow-hidden rounded-md border border-line bg-surface py-1.5 pr-2 pl-3 text-xs font-medium text-fg shadow-card transition-[border-color,opacity] hover:border-line-strong focus-visible:outline-2 focus-visible:outline-accent ${
+        className={`relative flex cursor-grab touch-manipulation select-none items-center [-webkit-touch-callout:none] gap-2 overflow-hidden rounded-md border border-line bg-surface py-1.5 pr-2 pl-3 text-xs font-medium text-fg shadow-card transition-[border-color,opacity] hover:border-line-strong focus-visible:outline-2 focus-visible:outline-accent ${
           isDragging ? 'opacity-40' : ''
         }`}
       >

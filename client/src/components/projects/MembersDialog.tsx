@@ -10,7 +10,7 @@ import { Avatar } from '../auth/UserMenu';
 import ConfirmDialog from '../ConfirmDialog';
 import Button from '../ui/Button';
 import Dialog from '../ui/Dialog';
-import { fieldClass, labelClass } from '../ui/styles';
+import { dialogActionsClass, dialogTitleClass, fieldClass, labelClass } from '../ui/styles';
 
 const ROLES: ProjectRole[] = ['owner', 'member', 'viewer'];
 
@@ -97,7 +97,7 @@ export default function MembersDialog({ project, onClose }: { project: Project; 
 
   return (
     <Dialog onClose={onClose} dismissible={!busy} labelledBy="members-dialog-title" className="max-w-lg p-6">
-      <h2 id="members-dialog-title" className="text-base font-semibold text-fg">
+      <h2 id="members-dialog-title" className={dialogTitleClass}>
         Mitglieder von „{project.name}“
       </h2>
       <p className="mt-1 text-sm text-fg-subtle">
@@ -158,6 +158,8 @@ export default function MembersDialog({ project, onClose }: { project: Project; 
           <p className={labelClass}>Person hinzufügen</p>
           <div className="mt-1 flex gap-2">
             <input
+              autoComplete="off"
+              enterKeyHint="send"
               type="email"
               required
               value={email}
@@ -188,7 +190,7 @@ export default function MembersDialog({ project, onClose }: { project: Project; 
         </p>
       )}
 
-      <div className="mt-6 flex justify-end">
+      <div className={dialogActionsClass}>
         <Button variant="ghost" disabled={busy} onClick={onClose}>
           Schließen
         </Button>

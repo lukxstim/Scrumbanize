@@ -49,6 +49,7 @@ import { iconButtonClass } from '../ui/styles';
 import CalendarWeek, { CalendarBarGhost } from './CalendarWeek';
 import NewDatedTaskDialog from './NewDatedTaskDialog';
 import UnscheduledPanel from './UnscheduledPanel';
+import { haptic, isTouchActivation } from '../../utils/haptics';
 
 const NO_SENSORS: ReturnType<typeof useSensors> = [];
 
@@ -134,6 +135,8 @@ export default function CalendarPage() {
     const task = active.data.current?.task as Task | undefined;
     if (!task) return;
     setDragged(task);
+    // A short vibration when a finger picks the bar up (US-25).
+    if (isTouchActivation(activatorEvent)) haptic('pickUp');
     const rect = active.rect.current.initial;
     const point =
       activatorEvent instanceof MouseEvent
@@ -154,12 +157,13 @@ export default function CalendarPage() {
     return days === 0 ? undefined : shiftTask(task, days);
   }
 
-  function handleDragEnd({ active, over }: DragEndEvent) {
+  function handleDragEnd({ active, over, activatorEvent }: DragEndEvent) {
     const task = active.data.current?.task as Task | undefined;
     setDragged(null);
     if (!task) return;
     const dates = datesForDrop(task, over ? String(over.id) : undefined);
     if (dates) void board.rescheduleTask(task.id, dates);
+    if (dates && isTouchActivation(activatorEvent)) haptic('drop');
   }
 
   const describeDates = (dates: { startDate: string | null; dueDate: string | null }) =>
@@ -213,7 +217,7 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-3 p-4 max-md:p-2">
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" onClick={() => setAnchor(today)}>
           Heute
@@ -260,10 +264,11 @@ export default function CalendarPage() {
         onDragEnd={handleDragEnd}
         onDragCancel={() => setDragged(null)}
       >
-        <div className="flex min-h-0 flex-1 gap-3">
-          <div ref={calendarRef} className="flex min-w-0 flex-1 flex-col overflow-auto rounded-xl border border-line bg-surface">
+        <div className="flex min-h-0 flex-1 gap-3 max-md:flex-col">
+          {/* Phones (US-25): the seven days keep a readable width, and the calendar scrolls sideways under the finger. */}
+          <div ref={calendarRef} className="flex min-w-0 flex-1 flex-col overflow-auto overscroll-contain rounded-xl border border-line bg-surface">
             {mode === 'month' && (
-              <div className="sticky top-0 z-20 flex border-b border-line bg-surface">
+              <div className="sticky top-0 z-20 flex border-b border-line bg-surface max-md:min-w-[44rem]">
                 <div className="w-9 shrink-0 border-r border-line" />
                 <div className="grid flex-1 grid-cols-7">
                   {weeks[0]!.map((day) => (
@@ -274,7 +279,7 @@ export default function CalendarPage() {
                 </div>
               </div>
             )}
-            <div className="flex flex-1 flex-col">
+            <div className="flex flex-1 flex-col max-md:min-w-[44rem]">
               {weeks.map((days) => (
                 <CalendarWeek
                   key={days[0]}

@@ -82,6 +82,8 @@ export default function LabelsDialog({ labels, onCreate, onUpdate, onMove, onDel
         >
           <div className="flex gap-2">
             <input
+              autoComplete="off"
+              enterKeyHint="done"
               value={name}
               onChange={(event) => setName(event.target.value)}
               maxLength={30}
@@ -147,6 +149,8 @@ function LabelRow({ label, first, last, onRename, onRecolor, onUp, onDown, onDel
     <li className="space-y-2 py-3">
       <div className="flex items-center gap-2">
         <input
+          autoComplete="off"
+          enterKeyHint="done"
           value={name}
           onChange={(event) => setName(event.target.value)}
           onBlur={save}

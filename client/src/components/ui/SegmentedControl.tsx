@@ -24,7 +24,7 @@ export default function SegmentedControl<T extends string>({ label, value, onCha
             title={option.iconOnly ? option.label : undefined}
             onClick={() => onChange(option.value)}
             className={`flex items-center gap-1.5 rounded-md font-medium transition-[color,background-color,box-shadow] duration-150 focus-visible:outline-2 focus-visible:outline-accent ${
-              size === 'sm' ? 'h-6 px-2 text-xs' : 'h-7 px-2.5 text-sm'
+              size === 'sm' ? 'h-6 px-2 text-xs pointer-coarse:h-11 pointer-coarse:min-w-11 pointer-coarse:justify-center' : 'h-7 px-2.5 text-sm pointer-coarse:h-11'
             } ${option.iconOnly ? '!px-1.5' : ''} ${
               active ? 'bg-surface text-fg shadow-card' : 'text-fg-subtle hover:text-fg'
             }`}

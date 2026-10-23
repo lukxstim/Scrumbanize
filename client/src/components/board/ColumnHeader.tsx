@@ -8,6 +8,7 @@ import ColumnResizeHandle from './ColumnResizeHandle';
 import InlineName from './InlineName';
 import { isolate } from './isolate';
 import WipLimitControl from './WipLimitControl';
+import { touchHitAreaClass } from '../ui/styles';
 
 export const columnDragId = (columnId: number) => `column:${columnId}`;
 
@@ -30,6 +31,8 @@ interface ColumnHeaderProps {
   onDelete: () => void;
   /** Owners (US-21): drag, rename, WIP limit, width, menu. Others only see the header. */
   manage?: boolean;
+  /** A dragged card would land in this column (US-25): the header lights up, too. */
+  isDropTarget?: boolean;
 }
 
 /** Drag the header (or press Space on it) to reorder columns. `data-column-header` is measured while dragging. */
@@ -46,6 +49,7 @@ export default function ColumnHeader({
   onMove,
   onDelete,
   manage = true,
+  isDropTarget = false,
 }: ColumnHeaderProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: columnDragId(column.id),
@@ -66,12 +70,14 @@ export default function ColumnHeader({
       aria-label={`Spalte „${column.name}“`}
       // The board sets the variable from the saved widths; a resize handle changes it while dragging.
       style={{ width: `var(${columnWidthVar(column.id)}, ${width}px)` }}
-      className={`relative flex shrink-0 ${manage ? 'cursor-grab' : ''} touch-manipulation select-none items-center gap-2 rounded-lg px-3 py-2 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+      className={`relative flex shrink-0 ${manage ? 'cursor-grab' : ''} touch-manipulation select-none [-webkit-touch-callout:none] max-md:snap-start items-center gap-2 rounded-lg px-3 py-2 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
         isDragging
           ? 'border border-dashed border-accent-line bg-accent-muted [&>*]:invisible'
           : overLimit
             ? 'bg-danger-muted text-danger-text ring-1 ring-danger-line'
-            : 'bg-surface-strong text-fg-muted'
+            : isDropTarget
+              ? 'bg-accent-muted text-accent-text ring-2 ring-accent'
+              : 'bg-surface-strong text-fg-muted'
       }`}
     >
       <InlineName
@@ -98,7 +104,7 @@ export default function ColumnHeader({
           <Menu
             label={`Spalte „${column.name}“: Aktionen`}
             trigger={<span aria-hidden="true">⋯</span>}
-            triggerClassName="grid size-6 place-items-center rounded-md text-base leading-none text-fg-subtle hover:bg-surface/70 hover:text-fg"
+            triggerClassName={`grid size-6 place-items-center rounded-md text-base leading-none text-fg-subtle hover:bg-surface/70 hover:text-fg ${touchHitAreaClass}`}
             items={[
               { label: 'Umbenennen', onSelect: () => setRenaming(true) },
               { label: 'WIP-Limit ändern', onSelect: () => setEditingWip(true) },

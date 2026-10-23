@@ -44,6 +44,8 @@ export default function WipLimitControl({ count, limit, columnLabel, onChange, e
   if (editing) {
     return (
       <input
+        inputMode="numeric"
+        enterKeyHint="done"
         type="number"
         min={1}
         max={999}

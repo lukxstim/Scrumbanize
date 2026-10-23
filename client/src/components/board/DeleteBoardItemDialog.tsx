@@ -29,7 +29,7 @@ export default function DeleteBoardItemDialog({ kind, name, taskCount, targets, 
   }
 
   return (
-    <Dialog onClose={onClose} dismissible={!deleting} labelledBy="delete-board-item-title" className="max-w-sm p-6">
+    <Dialog onClose={onClose} dismissible={!deleting} labelledBy="delete-board-item-title" mobile="compact" className="max-w-sm p-6">
       <form
         onSubmit={(event) => {
           event.preventDefault();

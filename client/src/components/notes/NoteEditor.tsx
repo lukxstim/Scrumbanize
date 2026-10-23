@@ -291,6 +291,8 @@ export default function NoteEditor({
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-3 px-8 py-8">
           <input
+            autoComplete="off"
+            enterKeyHint="next"
             value={draft.title}
             readOnly={!editable}
             onChange={(event) => change({ title: event.target.value })}

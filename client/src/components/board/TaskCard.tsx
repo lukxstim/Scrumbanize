@@ -54,7 +54,9 @@ export function DraggableTaskCard({ task, previous, next, compact, done = false,
         if (event.key === 'Enter') onOpen(task.id);
         else listeners?.onKeyDown?.(event);
       }}
-      className="group touch-manipulation select-none rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      // Touch (US-25): holding a finger on the card picks it up, so the card gives in a little meanwhile, and iOS shows
+      // no callout or text selection for the long press.
+      className="group touch-manipulation select-none rounded-lg transition-transform duration-200 [-webkit-touch-callout:none] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent pointer-coarse:active:scale-[0.98]"
     >
       <TaskCardBody task={task} compact={compact} done={done} placeholder={isDragging} flash={flash} remote={remote}>
         <div className="flex gap-0.5">
@@ -85,7 +87,7 @@ function QuickMoveButton({ label, onClick, children }: { label: string; onClick:
       }}
       aria-label={`Nach „${label}“ verschieben`}
       title={`Nach „${label}“`}
-      className="grid size-6 place-items-center rounded-md text-fg-subtle hover:bg-surface-hover hover:text-fg-muted focus-visible:bg-surface-hover focus-visible:text-fg-muted focus-visible:outline-none"
+      className="grid size-6 place-items-center rounded-md text-fg-subtle hover:bg-surface-hover hover:text-fg-muted focus-visible:bg-surface-hover focus-visible:text-fg-muted focus-visible:outline-none pointer-coarse:size-11"
     >
       {children}
     </button>
@@ -124,7 +126,7 @@ export function TaskCardBody({
   remote,
 }: TaskCardBodyProps) {
   const look = lifted
-    ? 'cursor-grabbing border-accent-line shadow-popover ring-1 ring-accent-line rotate-[1.5deg] scale-[1.02]'
+    ? 'cursor-grabbing border-accent-line opacity-95 shadow-popover ring-1 ring-accent-line rotate-[1.5deg] scale-[1.04]'
     : placeholder
       ? 'border-dashed border-accent-line bg-accent-muted [&>*]:invisible'
       : 'cursor-grab border-line shadow-card hover:-translate-y-px hover:border-line-strong hover:shadow-card-hover';
@@ -174,7 +176,7 @@ export function TaskCardBody({
         >
           {task.title}
         </h3>
-        <div className="relative flex h-6 w-12 shrink-0 items-center justify-end">
+        <div className="relative flex h-6 w-12 shrink-0 items-center justify-end pointer-coarse:h-11 pointer-coarse:w-auto pointer-coarse:min-w-12">
           <span
             className={`font-mono text-[11px] text-fg-subtle ${
               children ? 'group-hover:invisible group-focus-within:invisible group-focus-visible:invisible [@media(hover:none)]:invisible' : ''

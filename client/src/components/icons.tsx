@@ -238,3 +238,12 @@ export const SettingsIcon = (props: SVGProps<SVGSVGElement>) => (
     <circle cx="12" cy="12" r="3" />
   </Icon>
 );
+
+/** Three dots in a row: "Mehr" in the bottom navigation of phones (US-25). */
+export const MoreIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon fill="currentColor" stroke="none" {...props}>
+    <circle cx="3" cy="8" r="1.4" />
+    <circle cx="8" cy="8" r="1.4" />
+    <circle cx="13" cy="8" r="1.4" />
+  </Icon>
+);

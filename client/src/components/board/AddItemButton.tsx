@@ -50,6 +50,8 @@ export default function AddItemButton({ label, placeholder, onAdd, className = '
       }}
     >
       <input
+        autoComplete="off"
+        enterKeyHint="done"
         value={name}
         autoFocus
         maxLength={40}

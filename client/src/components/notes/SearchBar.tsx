@@ -13,6 +13,9 @@ export default function SearchBar({ value, onChange, placeholder = 'Notizen durc
     <div className="relative">
       <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-fg-faint" />
       <input
+        inputMode="search"
+        enterKeyHint="search"
+        autoComplete="off"
         type="search"
         value={value}
         onChange={(event) => onChange(event.target.value)}

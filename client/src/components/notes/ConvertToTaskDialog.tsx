@@ -5,7 +5,7 @@ import type { TaskDraft } from '../../utils/taskFromNote';
 import { DateField, PriorityPicker } from '../tasks/ScheduleFields';
 import Button from '../ui/Button';
 import Dialog from '../ui/Dialog';
-import { fieldClass, labelClass } from '../ui/styles';
+import { dialogActionsClass, dialogTitleClass, fieldClass, labelClass } from '../ui/styles';
 
 interface ConvertToTaskDialogProps {
   /** Pre-filled values; the dialog is open while it is mounted. */
@@ -46,7 +46,7 @@ export default function ConvertToTaskDialog({ initial, fromSelection, projects, 
           void submit();
         }}
       >
-        <h2 id="convert-to-task-title" className="text-base font-semibold text-fg">
+        <h2 id="convert-to-task-title" className={dialogTitleClass}>
           {fromSelection ? 'Auswahl in Task umwandeln' : 'Notiz in Task umwandeln'}
         </h2>
         <p className="mt-1 text-sm text-fg-subtle">
@@ -103,7 +103,7 @@ export default function ConvertToTaskDialog({ initial, fromSelection, projects, 
           </p>
         )}
 
-        <div className="mt-6 flex justify-end gap-2">
+        <div className={dialogActionsClass}>
           <Button variant="ghost" disabled={submitting} onClick={onCancel}>
             Abbrechen
           </Button>

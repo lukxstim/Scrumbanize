@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom';
 import { Link, Navigate, NavLink, Route, Routes, useLocation, useMatch, useNavigate, useParams, useSearchParams } from 'react-router';
 import BoardPage from './components/board/BoardPage';
 import CommandPalette from './components/CommandPalette';
+import MobileNav from './components/MobileNav';
 import ActivityDrawer from './components/activity/ActivityDrawer';
 import UserMenu from './components/auth/UserMenu';
 import CalendarPage from './components/calendar/CalendarPage';
@@ -21,6 +22,7 @@ import PresenceAvatars from './components/PresenceAvatars';
 import ThemeSwitcher from './components/ThemeSwitcher';
 import Kbd, { modKey } from './components/ui/Kbd';
 import { useProjectPresence } from './hooks/useCollaboration';
+import { useIsMobile } from './hooks/useMediaQuery';
 import { desktopBridge } from './hooks/useDesktopSettings';
 import { useRealtimeStatus } from './hooks/useRealtime';
 import { useProjects } from './hooks/useProjects';
@@ -126,13 +128,15 @@ export default function App() {
   const tourOffered = useRef(false);
   // Not in a notebook: the tour shows the board and its tabs.
   const hasProject = activeProject?.kind === 'project';
+  // It points at the header of wide screens, so phones (US-25) never get it.
+  const mobile = useIsMobile();
   useEffect(() => {
-    if (!hasProject || tourOffered.current || tourState.status === 'done') return;
+    if (!hasProject || mobile || tourOffered.current || tourState.status === 'done') return;
     tourOffered.current = true;
     // A moment after the page appeared, so the tour points at a settled header.
     const timer = setTimeout(() => setTourOpen(true), 700);
     return () => clearTimeout(timer);
-  }, [hasProject, tourState.status]);
+  }, [hasProject, mobile, tourState.status]);
   useEffect(() => onTourStartRequest(() => setTourOpen(true)), []);
 
   // Desktop app only: every few weeks a reminder to look for a new version (it cannot check by itself, the
@@ -186,9 +190,11 @@ export default function App() {
       {/*
         The header gets compact in steps, so it never overflows: below xl (1280 px) the tabs show only icons and the
         wordmark goes (the names of the two areas stay), below lg (1024 px, the desktop app's minimum width) the search
-        and the area switch are icons.
+        and the area switch are icons. Below md (768 px, phones, US-25) it keeps logo, project, search and account; the
+        tabs, the areas and the tools move to the bottom navigation (MobileNav). The top padding keeps it clear of the
+        notch of an installed app.
       */}
-      <header className="relative z-20 flex h-13 shrink-0 items-center gap-2 border-b border-line bg-surface/80 px-3 backdrop-blur-md lg:gap-3 lg:px-4">
+      <header className="relative z-20 flex h-[calc(3.25rem+env(safe-area-inset-top))] shrink-0 items-center gap-2 border-b border-line bg-surface/80 px-3 pt-[env(safe-area-inset-top)] backdrop-blur-md lg:gap-3 lg:px-4">
         {/* The logo leads back to the last project used, e.g. from the profile or the user management. */}
         <Link
           to="/"
@@ -200,7 +206,7 @@ export default function App() {
           <span className="sr-only text-sm font-semibold tracking-tight xl:not-sr-only">Scrumbanize</span>
         </Link>
         {/* The two areas (US-22), always in the same place: projects (with board) and Wissen (notebooks). */}
-        <nav className="inline-flex shrink-0 rounded-lg bg-surface-muted p-0.5 ring-1 ring-line ring-inset lg:ml-1" aria-label="Bereiche" data-tour="areas">
+        <nav className="inline-flex shrink-0 rounded-lg bg-surface-muted p-0.5 ring-1 ring-line ring-inset max-md:hidden lg:ml-1" aria-label="Bereiche" data-tour="areas">
           <Link
             to={projectsTarget}
             aria-current={inProjects ? 'page' : undefined}
@@ -222,10 +228,10 @@ export default function App() {
         </nav>
         {activeProject && inProjects && (
           <>
-            <span className="h-5 w-px shrink-0 bg-line" aria-hidden="true" />
+            <span className="h-5 w-px shrink-0 bg-line max-md:hidden" aria-hidden="true" />
             <ProjectSwitcher active={activeProject} section={section} />
             <nav
-              className="inline-flex shrink-0 rounded-lg bg-surface-muted p-0.5 ring-1 ring-line ring-inset lg:ml-2"
+              className="inline-flex shrink-0 rounded-lg bg-surface-muted p-0.5 ring-1 ring-line ring-inset max-md:hidden lg:ml-2"
               aria-label="Hauptnavigation"
             >
               <NavLink to={paths.notes(activeProject.id)} className={({ isActive }) => tabClass(isActive || onGraph)} data-tour="tab-notes" title="Notizen">
@@ -258,7 +264,7 @@ export default function App() {
             <span className="sr-only lg:not-sr-only">Verbindung wird wiederhergestellt …</span>
           </span>
         )}
-        <PresenceAvatars people={others} what="gerade in diesem Projekt" max={4} />
+        <PresenceAvatars people={others} what="gerade in diesem Projekt" max={4} className="max-md:hidden" />
         <button
           type="button"
           onClick={() => setPaletteOpen(true)}
@@ -273,9 +279,11 @@ export default function App() {
             <Kbd>K</Kbd>
           </span>
         </button>
-        <ThemeSwitcher />
+        <div className="contents max-md:hidden">
+          <ThemeSwitcher />
+        </div>
         {activeProject && (
-          <div className="flex shrink-0 items-center gap-1" data-tour="header-tools">
+          <div className="flex shrink-0 items-center gap-1 max-md:hidden" data-tour="header-tools">
             <Link
               to={paths.trash(activeProject.id)}
               className={headerIconClass(onTrash)}
@@ -388,7 +396,7 @@ export default function App() {
       )}
 
       {/* The tour points at the header of a project, so it waits while Wissen is shown. */}
-      {tourOpen && !paletteOpen && inProjects && (
+      {tourOpen && !paletteOpen && inProjects && !mobile && (
         <Tour
           onClose={(dontShowAgain) => {
             setTourOpen(false);
@@ -396,6 +404,16 @@ export default function App() {
           }}
         />
       )}
+
+      <MobileNav
+        activeProject={activeProject}
+        section={section}
+        onKnowledge={onKnowledge}
+        knowledgeTarget={knowledgeTarget}
+        trashCount={trashCount}
+        pathname={location.pathname}
+        search={location.search}
+      />
 
       <NewProjectHost />
 

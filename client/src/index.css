@@ -188,6 +188,63 @@ dialog[data-placement='drawer'][open] {
     opacity: 1;
   }
 }
+/*
+ * Phones (US-25): below sm, dialogs fill the screen. The notch and the home indicator get borders in the surface
+ * color, so content stays clear of them; headings and action bars stay in view (dialogTitleClass,
+ * dialogActionsClass). Unlayered, so it wins over the width and height a dialog sets for larger screens.
+ */
+@media (width < 40rem) {
+  dialog[data-mobile='fullscreen'] {
+    margin: 0;
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 0;
+    border: 0;
+    border-top: env(safe-area-inset-top) solid var(--color-surface);
+    border-bottom: env(safe-area-inset-bottom) solid var(--color-surface);
+    transform: translateY(24px);
+  }
+  dialog[data-mobile='fullscreen'][open] {
+    transform: none;
+  }
+  @starting-style {
+    dialog[data-mobile='fullscreen'][open] {
+      transform: translateY(24px);
+    }
+  }
+}
+
+/*
+ * Touch screens (US-25): iOS zooms into any field with text smaller than 16 px when it gets focus, and does not
+ * zoom back out. Unlayered, so it wins over text-sm and text-xs on fields.
+ */
+@media (pointer: coarse) {
+  input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file']),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+/* Sheets slide up from the bottom edge (US-25). */
+dialog[data-placement='sheet'] {
+  transform: translateY(100%);
+  opacity: 1;
+}
+dialog[data-placement='sheet'][open] {
+  transform: none;
+}
+@starting-style {
+  dialog[data-placement='sheet'][open] {
+    transform: translateY(100%);
+    opacity: 1;
+  }
+}
+
 dialog::backdrop {
   background-color: rgb(9 9 11 / 0);
   backdrop-filter: blur(0);
@@ -363,8 +420,11 @@ mark[data-color],
 .rich-text .content-link-ok {
   cursor: pointer;
 }
-.rich-text .content-link-ok:hover {
-  text-decoration: underline;
+/* Only where a pointer can hover: on touch screens the underline would stay after a tap (US-25). */
+@media (hover: hover) {
+  .rich-text .content-link-ok:hover {
+    text-decoration: underline;
+  }
 }
 .rich-text .content-link-forbidden,
 .rich-text .content-link-trashed {
