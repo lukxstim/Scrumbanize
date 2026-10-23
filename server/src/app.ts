@@ -52,6 +52,9 @@ import { searchRouter } from './routes/search.js';
 import { tasksRouter } from './routes/tasks.js';
 import { trashRouter } from './routes/trash.js';
 
+/** Files of the built client that browsers must check with the server on every load (US-25). */
+const ALWAYS_REVALIDATE = new Set(['index.html', 'sw.js', 'manifest.webmanifest']);
+
 export interface DesktopInfo {
   version: string;
   releasesUrl: string;
@@ -187,9 +190,21 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
 
   const { clientDist } = options;
   if (clientDist && fs.existsSync(path.join(clientDist, 'index.html'))) {
-    app.use(express.static(clientDist, { index: false }));
+    // The desktop app updates with itself and never uses the service worker of the web app (US-25). Without the
+    // file, a worker registered by mistake removes itself at its next update check.
+    if (options.desktop) app.get('/sw.js', (_req, res) => void res.sendStatus(404));
+    // Asked again on every load, so an installed web app (US-25) finds a new version right away; the files in
+    // assets/ have their content hash in the name and may be cached.
+    app.use(
+      express.static(clientDist, {
+        index: false,
+        setHeaders: (res, file) => {
+          if (ALWAYS_REVALIDATE.has(path.relative(clientDist, file))) res.setHeader('Cache-Control', 'no-cache');
+        },
+      }),
+    );
     app.get('/{*path}', (_req, res) => {
-      res.sendFile(path.join(clientDist, 'index.html'));
+      res.sendFile(path.join(clientDist, 'index.html'), { headers: { 'Cache-Control': 'no-cache' } });
     });
   }
 

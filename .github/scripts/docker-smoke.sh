@@ -33,6 +33,21 @@ if [[ "$mode" == local ]]; then
   echo "health: $health"
   jq -e '.status == "ok" and .database == "ok" and .backups == "ok" and (.version | type == "string")' <<<"$health" >/dev/null || fail "health: $health"
 
+  # The installable web app (US-25): page, service worker and manifest are checked with the server on every load.
+  for file in / /sw.js /manifest.webmanifest; do
+    headers=$(curl -fsS -o /dev/null -D - "$base$file") || fail "GET $file"
+    grep -qi '^cache-control: no-cache' <<<"$headers" || fail "$file without Cache-Control: no-cache"
+  done
+  curl -fsS "$base/manifest.webmanifest" | jq -e '.name == "Scrumbanize" and .display == "standalone" and (.icons | length) == 3' >/dev/null \
+    || fail "manifest"
+  sw=$(curl -fsS "$base/sw.js")
+  # The service worker stores the app shell, and never answers the API or live updates (US-24) with it.
+  grep -q 'index.html' <<<"$sw" || fail "sw.js without index.html in the precache"
+  grep -q 'denylist' <<<"$sw" && grep -q 'api' <<<"$sw" && grep -q 'socket' <<<"$sw" || fail "sw.js without the API and socket.io excluded"
+  for icon in pwa-192x192.png pwa-512x512.png maskable-icon-512x512.png apple-touch-icon-180x180.png; do
+    curl -fsS -o /dev/null "$base/$icon" || fail "no $icon"
+  done
+
   # The setup code is only in the server's output.
   code=""
   for _ in $(seq 1 30); do

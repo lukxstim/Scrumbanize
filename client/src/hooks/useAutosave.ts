@@ -2,6 +2,18 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type SaveStatus = 'saved' | 'pending' | 'saving' | 'error';
 
+/** Every mounted autosave: saves what is pending and says whether everything arrived. */
+const mounted = new Set<() => Promise<boolean>>();
+
+/**
+ * Saves the pending changes of every open editor right away, e.g. before the page reloads for a new version (US-25).
+ * False if a save failed, so the page should not reload.
+ */
+export async function flushPendingSaves(): Promise<boolean> {
+  const results = await Promise.all([...mounted].map((flushOne) => flushOne()));
+  return results.every(Boolean);
+}
+
 /**
  * Debounced saving: `schedule(value)` saves `value` once no newer value arrives for `delay` ms.
  * Saves run one after another, so an older save never overwrites a newer one.
@@ -56,6 +68,14 @@ export function useAutosave<T>(save: (value: T) => Promise<void>, delay = 1000) 
     pending.current = null;
     setStatus((current) => (current === 'saving' ? current : 'saved'));
   }, []);
+
+  useEffect(() => {
+    const flushOne = () => flush().then(() => pending.current === null);
+    mounted.add(flushOne);
+    return () => {
+      mounted.delete(flushOne);
+    };
+  }, [flush]);
 
   useEffect(() => {
     const onVisibilityChange = () => {

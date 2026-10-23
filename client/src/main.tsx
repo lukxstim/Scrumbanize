@@ -6,6 +6,7 @@ import { InvitePage, ResetPage } from './components/auth/LinkPages';
 import LoginPage from './components/auth/LoginPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import SetupPage from './components/auth/SetupPage';
+import UpdatePrompt from './components/UpdatePrompt';
 import { AuthProvider } from './hooks/useAuth';
 import { ProjectsProvider } from './hooks/useProjects';
 import { RealtimeProvider } from './hooks/useRealtime';
@@ -16,6 +17,8 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <ToastProvider>
+        {/* New versions of the installable web app (US-25), also on the login page. */}
+        <UpdatePrompt />
         <AuthProvider>
           {/* Login and setup stand alone; the app with its projects only after logging in (US-21). */}
           <Routes>

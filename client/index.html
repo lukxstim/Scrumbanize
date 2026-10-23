@@ -2,10 +2,20 @@
 <html lang="de">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover: the page reaches under the notch (safe-area insets); the on-screen keyboard shrinks it. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     <title>Scrumbanize</title>
+    <meta name="description" content="Notizen und Scrumban-Board" />
+    <!-- --color-surface of the light and the dark theme (src/index.css). -->
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#171719" media="(prefers-color-scheme: dark)" />
+    <!-- Installed on the home screen of iOS (US-25); the manifest link is added by vite-plugin-pwa. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Scrumbanize" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="icon" type="image/png" href="/scrumbanize-logo.png" />
-    <link rel="apple-touch-icon" href="/scrumbanize-logo.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
     <script>
       // Apply the theme before the first paint, so the page never flashes in the wrong colors.
       // Keep in sync with client/src/hooks/useTheme.tsx.

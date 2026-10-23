@@ -8,7 +8,7 @@ export interface ToastOptions {
   tone?: ToastTone;
   /** E.g. "Rückgängig"; the toast closes after the action runs. */
   action?: { label: string; onClick: () => void | Promise<void> };
-  /** Milliseconds until it disappears; errors stay a little longer by default. */
+  /** Milliseconds until it disappears; errors stay a little longer by default. `Infinity` keeps it until closed. */
   duration?: number;
 }
 
@@ -39,7 +39,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       const id = nextId.current++;
       // At most three at a time; the oldest goes first.
       setToasts((current) => [...current.slice(-2), { id, message, tone, action }]);
-      setTimeout(() => dismiss(id), duration ?? (tone === 'error' ? 7000 : action ? 8000 : 4000));
+      const ms = duration ?? (tone === 'error' ? 7000 : action ? 8000 : 4000);
+      // setTimeout would fire right away for Infinity.
+      if (Number.isFinite(ms)) setTimeout(() => dismiss(id), ms);
     },
     [dismiss],
   );
