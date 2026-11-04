@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clampWidth, columnWidth, fitWidth, widthForKey } from './columnWidths';
+import { autoColumnWidth, clampWidth, columnWidth, fitWidth, widthForKey } from './columnWidths';
 
 describe('column widths', () => {
   it('stay between 200 and 600 whole pixels', () => {
@@ -34,5 +34,25 @@ describe('column widths', () => {
     expect(widthForKey(288, 'End', false)).toBe(600);
     expect(widthForKey(288, 'Enter', false)).toBeNull();
     expect(widthForKey(288, 'a', false)).toBeUndefined();
+  });
+});
+
+describe('columns on wide screens (US-28)', () => {
+  const free = (n: number) => Array.from({ length: n }, () => ({ width: null }));
+
+  it('share the free space among the columns without a saved width', () => {
+    // 2000 px: 2 × 16 padding, 224 "+ Spalte", 4 × 12 gaps leave 1696 for 4 columns.
+    expect(autoColumnWidth(free(4), 2000, false)).toBe(424);
+    // A saved width keeps its size; the others share the rest.
+    expect(autoColumnWidth([{ width: 300 }, ...free(3)], 2000, false)).toBe(440);
+    expect(columnWidth({ width: 300 }, false, 440)).toBe(300);
+    expect(columnWidth({ width: null }, false, 424)).toBe(424);
+  });
+
+  it('never get narrower than the default nor wider than the cap', () => {
+    expect(autoColumnWidth(free(8), 1200, false)).toBe(288);
+    expect(autoColumnWidth(free(2), 3000, false)).toBe(440);
+    expect(autoColumnWidth(free(2), 3000, true)).toBe(340);
+    expect(autoColumnWidth(free(3), 0, true)).toBe(224);
   });
 });

@@ -12,6 +12,7 @@ import { checklistProgress } from '../../utils/checklist';
 import { linkSummary, noteLinkSummary, openBlockers } from '../../utils/links';
 import { PRIORITY_LABELS, PRIORITY_STYLES } from '../../utils/priority';
 import { UNTITLED_NOTE } from '../../utils/taskFromNote';
+import type { TaskFamily } from '../../utils/taskView';
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, LinkIcon, NoteIcon, PaperclipIcon } from '../icons';
 import { DueBadge, PriorityBadge } from '../tasks/TaskBadges';
 import { NotebookGlyph } from '../projects/NotebookSymbol';
@@ -20,6 +21,8 @@ import { isolate } from './isolate';
 
 interface TaskCardProps {
   task: Task;
+  /** Its parent task and how far its own subtasks are (US-28). */
+  family?: TaskFamily;
   /** The columns left and right, for the quick move buttons. */
   previous?: BoardColumn;
   next?: BoardColumn;
@@ -38,7 +41,7 @@ interface TaskCardProps {
 }
 
 /** A draggable card: Space picks it up with the keyboard, Enter or a click opens the details. */
-export function DraggableTaskCard({ task, previous, next, compact, done = false, flash = false, remote, onOpen, onMoveTo, readOnly = false }: TaskCardProps) {
+export function DraggableTaskCard({ task, family, previous, next, compact, done = false, flash = false, remote, onOpen, onMoveTo, readOnly = false }: TaskCardProps) {
   // The card stays in place as a placeholder; the DragOverlay follows the pointer.
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id, data: { type: 'task' }, disabled: readOnly });
 
@@ -58,7 +61,7 @@ export function DraggableTaskCard({ task, previous, next, compact, done = false,
       // no callout or text selection for the long press.
       className="group touch-manipulation select-none rounded-lg transition-transform duration-200 [-webkit-touch-callout:none] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent pointer-coarse:active:scale-[0.98]"
     >
-      <TaskCardBody task={task} compact={compact} done={done} placeholder={isDragging} flash={flash} remote={remote}>
+      <TaskCardBody task={task} family={family} compact={compact} done={done} placeholder={isDragging} flash={flash} remote={remote}>
         <div className="flex gap-0.5">
           {previous && !readOnly && (
             <QuickMoveButton label={previous.name} onClick={() => onMoveTo(task.id, previous.id)}>
@@ -96,6 +99,7 @@ function QuickMoveButton({ label, onClick, children }: { label: string; onClick:
 
 interface TaskCardBodyProps {
   task: Task;
+  family?: TaskFamily;
   compact?: boolean;
   done?: boolean;
   /** Controls that take the place of the task number while the card is hovered or focused. */
@@ -117,6 +121,7 @@ const metaBadge =
 /** The card's visible content, shared by the board and the drag preview. */
 export function TaskCardBody({
   task,
+  family,
   compact = false,
   done = false,
   children,
@@ -147,7 +152,9 @@ export function TaskCardBody({
     task.linkedNotes.length > 0 ||
     task.attachments.length > 0 ||
     checklist.total > 0 ||
+    family?.subtasks !== undefined ||
     task.labels.length > 0;
+  const subtasks = family?.subtasks;
 
   return (
     <article
@@ -169,6 +176,12 @@ export function TaskCardBody({
           title={PRIORITY_LABELS[task.priority]}
           className={`absolute inset-y-0 left-0 w-1 ${PRIORITY_STYLES[task.priority].stripe}`}
         />
+      )}
+      {family?.parent && (
+        <p className="mb-0.5 truncate text-[11px] text-fg-subtle" title={`Unteraufgabe von #${family.parent.id} ${family.parent.title}`}>
+          <span aria-hidden="true">↳ </span>
+          <span className="sr-only">Unteraufgabe von </span>#{family.parent.id} {family.parent.title}
+        </p>
       )}
       <div className="flex items-start gap-2">
         <h3
@@ -219,6 +232,16 @@ export function TaskCardBody({
               <NoteIcon className="size-3" />
               {task.linkedNotes.length}
               <span className="sr-only">{task.linkedNotes.length === 1 ? ' verlinkte Notiz' : ' verlinkte Notizen'}</span>
+            </span>
+          )}
+          {subtasks && (
+            <span
+              className={`${metaBadge} ${subtasks.done === subtasks.total ? 'text-success-text' : ''}`}
+              title={`Unteraufgaben: ${subtasks.done} von ${subtasks.total} erledigt`}
+            >
+              <span aria-hidden="true">↳</span>
+              {subtasks.done}/{subtasks.total}
+              <span className="sr-only"> Unteraufgaben erledigt</span>
             </span>
           )}
           {checklist.total > 0 && (

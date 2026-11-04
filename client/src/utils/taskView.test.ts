@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Task } from '../types/task';
 import { groupByCell } from './board';
 import { priorityRank } from './priority';
-import { applyView, DEFAULT_VIEW, dropIndexInCell, isTaskView, matchesView, sortTasks } from './taskView';
+import { applyView, DEFAULT_VIEW, dropIndexInCell, isTaskView, matchesView, sortTasks, taskFamilies } from './taskView';
 
 let nextId = 1;
 const task = (fields: Partial<Task>): Task => ({
@@ -13,6 +13,7 @@ const task = (fields: Partial<Task>): Task => ({
   title: 'T',
   description: '',
   position: nextId,
+  parentId: null,
   sourceNote: null,
   linkedNotes: [],
   priority: null,
@@ -114,5 +115,43 @@ describe('dropIndexInCell', () => {
     const shown = applyView(cells, view, today, 2);
     expect(dropIndexInCell(cells, shown, view, a.id, { columnId: 1, laneId: 1, index: 2 })).toBeUndefined();
     expect(dropIndexInCell(cells, shown, view, a.id, { columnId: 2, laneId: 1, index: 0 })).toBe(1);
+  });
+});
+
+describe('done tasks and subtasks (US-28)', () => {
+  it('hides the tasks of the done column on request', () => {
+    const open = task({ columnId: 1 });
+    const finished = task({ columnId: 2 });
+    const cells = groupByCell([open, finished]);
+    const shown = applyView(cells, { ...DEFAULT_VIEW, hideDone: true }, today, 2);
+    expect(Object.values(shown).flat().map((t) => t.id)).toEqual([open.id]);
+    expect(Object.values(applyView(cells, DEFAULT_VIEW, today, 2)).flat()).toHaveLength(2);
+  });
+
+  it('lists subtasks after the ordinary tasks of a cell when they get a row of their own', () => {
+    const parent = task({ position: 1 });
+    const sub = task({ position: 2, parentId: parent.id });
+    const other = task({ position: 3 });
+    // The parent of this one is in the trash: an ordinary task.
+    const orphan = task({ position: 4, parentId: 999 });
+    const cells = groupByCell([parent, sub, other, orphan]);
+    const ids = (view: typeof DEFAULT_VIEW) => Object.values(applyView(cells, view, today, 2)).flat().map((t) => t.id);
+    expect(ids(DEFAULT_VIEW)).toEqual([parent.id, sub.id, other.id, orphan.id]);
+    expect(ids({ ...DEFAULT_VIEW, subtasks: 'row' })).toEqual([parent.id, other.id, orphan.id, sub.id]);
+  });
+
+  it('knows the parent of each subtask and how far the subtasks of a task are', () => {
+    const parent = task({ title: 'Release' });
+    const a = task({ parentId: parent.id, columnId: 2 });
+    const b = task({ parentId: parent.id, columnId: 1 });
+    const families = taskFamilies(groupByCell([parent, a, b]), 2);
+    expect(families.get(parent.id)).toEqual({ subtasks: { total: 2, done: 1 } });
+    expect(families.get(a.id)).toEqual({ parent: { id: parent.id, title: 'Release' } });
+  });
+
+  it('accepts views stored before, and the new options', () => {
+    expect(isTaskView({ sort: 'manual', priorities: [], due: 'all' })).toBe(true);
+    expect(isTaskView({ ...DEFAULT_VIEW, hideDone: true, subtasks: 'row' })).toBe(true);
+    expect(isTaskView({ ...DEFAULT_VIEW, subtasks: 'sideways' })).toBe(false);
   });
 });

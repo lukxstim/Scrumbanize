@@ -12,6 +12,7 @@ import type { Schedule } from '../../utils/schedule';
 import { UNTITLED_NOTE } from '../../utils/taskFromNote';
 import ScheduleFields from '../tasks/ScheduleFields';
 import TaskLinks from '../tasks/TaskLinks';
+import TaskSubtasks from '../tasks/TaskSubtasks';
 import AttachmentsPanel from '../attachments/AttachmentsPanel';
 import Backlinks from '../notes/Backlinks';
 import type { Attachment } from '../../types/attachment';
@@ -44,6 +45,8 @@ interface TaskDetailDialogProps {
   /** The project's labels, and creating one from the picker. */
   labels: Label[];
   onCreateLabel: (name: string, color: ProjectColor) => Promise<Label | undefined>;
+  /** Creates a subtask of the task (US-28); without it, subtasks are listed but not added here. */
+  onCreateSubtask?: (title: string) => Promise<unknown>;
   /** Opens the template editor with this task as starting point; without it, the button is not shown. */
   onSaveAsTemplate?: (task: Task) => void;
   /** Viewers (US-21): everything visible, links and files open, nothing changes. */
@@ -68,6 +71,7 @@ export default function TaskDetailDialog({
   labels,
   onCreateLabel,
   onSaveAsTemplate,
+  onCreateSubtask,
   readOnly = false,
 }: TaskDetailDialogProps) {
   const [title, setTitle] = useState(task.title);
@@ -332,6 +336,16 @@ export default function TaskDetailDialog({
           candidates={linkCandidates(task, allTasks)}
           onAdd={(kind, targetId) => onAddLink(task.id, targetId, kind)}
           onRemove={(linkId) => onRemoveLink(task.id, linkId)}
+          onOpen={onOpenTask}
+          readOnly={readOnly}
+        />
+
+        <TaskSubtasks
+          task={task}
+          allTasks={allTasks}
+          columns={columns}
+          onSetParent={(parentTaskId) => onSave(task.id, { parentTaskId })}
+          onCreate={onCreateSubtask}
           onOpen={onOpenTask}
           readOnly={readOnly}
         />

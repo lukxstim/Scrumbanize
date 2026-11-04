@@ -10,7 +10,9 @@ import {
   DUE_FILTER_LABELS,
   isFiltered,
   SORT_LABELS,
+  SUBTASK_LAYOUT_LABELS,
   type DueFilter,
+  type SubtaskLayout,
   type PriorityFilter,
   type TaskSort,
   type TaskView,
@@ -101,7 +103,35 @@ export default function BoardViewBar({ view, onChange, labels, onManageLabels, s
         </select>
       </div>
 
-      {(isFiltered(view) || view.sort !== 'manual') && (
+      <button
+        type="button"
+        aria-pressed={view.hideDone === true}
+        onClick={() => onChange({ ...view, hideDone: !view.hideDone })}
+        title="Tasks der letzten Spalte ein- oder ausblenden"
+        className={`flex h-6 items-center gap-1 rounded-full px-2 font-medium ring-1 ring-inset transition-colors ${
+          view.hideDone ? 'bg-accent-muted text-accent-text ring-accent-line' : 'text-fg-subtle ring-line hover:bg-surface-hover hover:text-fg'
+        }`}
+      >
+        Erledigte ausblenden
+      </button>
+
+      <div className="flex items-center gap-1.5">
+        <label htmlFor="board-subtasks">Unteraufgaben</label>
+        <select
+          id="board-subtasks"
+          value={view.subtasks ?? 'inline'}
+          onChange={(event) => onChange({ ...view, subtasks: event.target.value as SubtaskLayout })}
+          className={selectClass}
+        >
+          {Object.entries(SUBTASK_LAYOUT_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {(isFiltered(view) || view.sort !== 'manual' || view.subtasks === 'row') && (
         <div className="flex items-center gap-2">
           {isFiltered(view) && (
             <span aria-live="polite">

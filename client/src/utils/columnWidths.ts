@@ -21,8 +21,28 @@ export function clampWidth(px: number): number {
   return Math.round(Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, px)));
 }
 
-export function columnWidth(column: { width: number | null }, compact: boolean): number {
-  return column.width ?? (compact ? COMPACT_COLUMN_WIDTH : DEFAULT_COLUMN_WIDTH);
+/** `auto`: the width of columns without a saved width on this screen (see autoColumnWidth); else the default. */
+export function columnWidth(column: { width: number | null }, compact: boolean, auto?: number): number {
+  return column.width ?? auto ?? (compact ? COMPACT_COLUMN_WIDTH : DEFAULT_COLUMN_WIDTH);
+}
+
+/** Columns without a saved width grow up to this on wide screens (US-28), so cards stay easy to read. */
+export const AUTO_MAX_COLUMN_WIDTH = 440;
+export const AUTO_MAX_COMPACT_COLUMN_WIDTH = 340;
+
+/**
+ * The width of the columns without a saved width (US-28): they share what the saved ones, the gaps and the "+ Spalte"
+ * button leave of the visible board, never narrower than the default (then the board scrolls) and never wider than
+ * the cap. Saved widths (US-19) stay as they are.
+ */
+export function autoColumnWidth(columns: { width: number | null }[], boardWidth: number, compact: boolean): number {
+  const base = compact ? COMPACT_COLUMN_WIDTH : DEFAULT_COLUMN_WIDTH;
+  const cap = compact ? AUTO_MAX_COMPACT_COLUMN_WIDTH : AUTO_MAX_COLUMN_WIDTH;
+  const auto = columns.filter((c) => c.width === null).length;
+  if (auto === 0 || boardWidth <= 0) return base;
+  const fixed = columns.reduce((sum, c) => sum + (c.width ?? 0), 0);
+  const available = boardWidth - 2 * BOARD_PADDING_X - ADD_COLUMN_WIDTH - columns.length * COLUMN_GAP - fixed;
+  return Math.max(base, Math.min(cap, Math.floor(available / auto)));
 }
 
 /** The CSS variable that holds a column's width on the board, so dragging a handle can change it without rendering. */

@@ -2,12 +2,17 @@ import type { ReactNode } from 'react';
 import type { RemoteMark } from '../../hooks/useBoard';
 import type { BoardColumn, Task } from '../../types/task';
 import { columnWidthVar } from '../../utils/columnWidths';
+import type { TaskFamily } from '../../utils/taskView';
 import { DraggableTaskCard } from './TaskCard';
 
 interface BoardCellProps {
   column: BoardColumn;
   laneId: number;
+  /** US-28: the cell's row of subtasks ("sub") is the second half of the same cell. */
+  section?: 'main' | 'sub';
   tasks: Task[];
+  /** Parent and subtask progress per task (US-28). */
+  families?: Map<number, TaskFamily>;
   previous?: BoardColumn;
   next?: BoardColumn;
   compact: boolean;
@@ -34,7 +39,9 @@ interface BoardCellProps {
 export default function BoardCell({
   column,
   laneId,
+  section = 'main',
   tasks,
+  families,
   previous,
   next,
   compact,
@@ -54,6 +61,7 @@ export default function BoardCell({
     <div
       data-cell-column={column.id}
       data-cell-lane={laneId}
+      data-cell-section={section}
       style={{ width: `var(${columnWidthVar(column.id)}, ${width}px)` }}
       className={`flex shrink-0 flex-col gap-2 rounded-xl border p-2 transition-colors duration-150 ${minHeightClass} ${
         isDropTarget ? 'border-accent-line bg-accent-muted' : 'bg-surface-muted'
@@ -63,6 +71,7 @@ export default function BoardCell({
         <DraggableTaskCard
           key={task.id}
           task={task}
+          family={families?.get(task.id)}
           previous={previous}
           next={next}
           compact={compact}

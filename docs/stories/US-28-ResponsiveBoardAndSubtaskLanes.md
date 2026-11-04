@@ -15,8 +15,8 @@ Auf breiten Desktop-Bildschirmen bleibt Platz ungenutzt, und mit vielen erledigt
 ## Akzeptanzkriterien
 
 ### 1. Responsive Layout
-- [ ] Das Board-Grid passt sich dynamisch an breite Desktop-Bildschirme an.
+- [x] Das Board-Grid passt sich dynamisch an breite Desktop-Bildschirme an.
 
 ### 2. Filter & Unteraufgaben
-- [ ] Erledigte Aufgaben lassen sich über einen Filter-Toggle ein- und ausblenden.
-- [ ] Unteraufgaben können optional in einen eigenen Board-Abschnitt bzw. eine Unterzeile einsortiert werden.
+- [x] Erledigte Aufgaben lassen sich über einen Filter-Toggle ein- und ausblenden.
+- [x] Unteraufgaben können optional in einen eigenen Board-Abschnitt bzw. eine Unterzeile einsortiert werden.

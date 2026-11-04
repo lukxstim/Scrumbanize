@@ -41,13 +41,21 @@ import {
   type Cells,
 } from '../../utils/board';
 import { isCreateRequest } from '../../utils/appEvents';
-import { BOARD_PADDING_X, columnWidth, columnWidthVar, COMPACT_COLUMN_WIDTH, DEFAULT_COLUMN_WIDTH, fitWidth } from '../../utils/columnWidths';
+import {
+  autoColumnWidth,
+  BOARD_PADDING_X,
+  columnWidth,
+  columnWidthVar,
+  COMPACT_COLUMN_WIDTH,
+  DEFAULT_COLUMN_WIDTH,
+  fitWidth,
+} from '../../utils/columnWidths';
 import { columnDropIndex, columnStep, dropPosition, type CellGeometry } from '../../utils/dropPosition';
 import { todayIso } from '../../utils/dates';
 import { exportUrls, startDownload, trashApi } from '../../utils/api';
 import Menu from '../Menu';
 import { paths } from '../../utils/paths';
-import { applyView, DEFAULT_VIEW, dropIndexInCell, isTaskView } from '../../utils/taskView';
+import { applyView, boardTaskIds, DEFAULT_VIEW, dropIndexInCell, isSubtaskOn, isTaskView, taskFamilies } from '../../utils/taskView';
 import AddItemButton from './AddItemButton';
 import BoardCell from './BoardCell';
 import BoardViewBar from './BoardViewBar';
@@ -160,7 +168,14 @@ export default function BoardPage() {
   // Viewers only look; members move and edit tasks; owners also shape the board (US-21).
   const canEdit = useCan('edit');
   const canManage = useCan('manageBoard');
-  const widthOf = (column: BoardColumn) => (mobile && boardWidth > 0 ? boardWidth - 2 * BOARD_PADDING_X : columnWidth(column, compact));
+  // Wide screens (US-28): columns without a saved width share the free space, up to a readable maximum.
+  const autoWidth = autoColumnWidth(columns, boardWidth, compact);
+  const widthOf = (column: BoardColumn) =>
+    mobile && boardWidth > 0 ? boardWidth - 2 * BOARD_PADDING_X : columnWidth(column, compact, autoWidth);
+  // Subtasks (US-28): which task a card belongs to, how far a task's subtasks are, and whether they get a row of their own.
+  const families = taskFamilies(cells, doneColumnId);
+  const onBoard = boardTaskIds(cells);
+  const subtaskRows = view.subtasks === 'row';
   // One CSS variable per column width on the board; headers and cells read it, a resize handle changes it while dragging.
   const widthVars = Object.fromEntries(columns.map((c) => [columnWidthVar(c.id), `${widthOf(c)}px`])) as CSSProperties;
   const hasCustomWidths = board.columns.some((c) => c.width !== null);
@@ -184,14 +199,15 @@ export default function BoardPage() {
     return () => observer.disconnect();
   }, [ready]);
 
-  // The visible width of the board, for the one column phones show (without the scrollbar's gutter).
+  // The visible width of the board (without the scrollbar's gutter): the one column phones show, and how wide the
+  // columns without a saved width are on wide screens (US-28).
   useEffect(() => {
     const container = boardRef.current;
-    if (!mobile || !container) return;
+    if (!container) return;
     const observer = new ResizeObserver(() => setBoardWidth(container.clientWidth));
     observer.observe(container);
     return () => observer.disconnect();
-  }, [mobile, ready]);
+  }, [ready]);
 
   const showDragCells = (next: Cells | null) => {
     dragCellsRef.current = next;
@@ -202,14 +218,20 @@ export default function BoardPage() {
     setDragColumns(next);
   };
 
-  /** Reads the cells' positions and their cards' middles from the page, leaving out the dragged card. */
+  /**
+   * Reads the cells' positions and their cards' middles from the page, leaving out the dragged card. A subtask row
+   * (US-28) is the second half of its cell: the cards of the task row above count as lying before every drop there.
+   */
   function measureCells(excludeId: number): CellGeometry[] {
-    const elements = boardRef.current?.querySelectorAll<HTMLElement>('[data-cell-column]') ?? [];
-    return [...elements].map((cell) => {
+    const elements = [...(boardRef.current?.querySelectorAll<HTMLElement>('[data-cell-column]') ?? [])];
+    const cardsIn = (cell: HTMLElement) =>
+      [...cell.querySelectorAll<HTMLElement>('[data-task-id]')].filter((card) => Number(card.dataset.taskId) !== excludeId);
+    const key = (cell: HTMLElement) => `${cell.dataset.cellColumn}:${cell.dataset.cellLane}`;
+    const mainCounts = new Map(elements.filter((cell) => cell.dataset.cellSection !== 'sub').map((cell) => [key(cell), cardsIn(cell).length]));
+    return elements.map((cell) => {
       const rect = cell.getBoundingClientRect();
-      const cards = [...cell.querySelectorAll<HTMLElement>('[data-task-id]')].filter(
-        (card) => Number(card.dataset.taskId) !== excludeId,
-      );
+      const cards = cardsIn(cell);
+      const before = cell.dataset.cellSection === 'sub' ? Array<number>(mainCounts.get(key(cell)) ?? 0).fill(-Infinity) : [];
       return {
         columnId: Number(cell.dataset.cellColumn),
         laneId: Number(cell.dataset.cellLane),
@@ -217,10 +239,13 @@ export default function BoardPage() {
         right: rect.right,
         top: rect.top,
         bottom: rect.bottom,
-        cardMiddles: cards.map((card) => {
-          const r = card.getBoundingClientRect();
-          return r.top + r.height / 2;
-        }),
+        cardMiddles: [
+          ...before,
+          ...cards.map((card) => {
+            const r = card.getBoundingClientRect();
+            return r.top + r.height / 2;
+          }),
+        ],
       };
     });
   }
@@ -629,6 +654,70 @@ export default function BoardPage() {
 
             {lanes.map((lane, laneIndex) => {
               const collapsed = showLanes && isCollapsed(lane.id, laneIndex);
+              // Subtasks in a row of their own (US-28): the lane's cells split into ordinary tasks and subtasks.
+              const inLane = (column: BoardColumn) => cellTasks(shown, column.id, lane.id);
+              const hasSubtaskRow = subtaskRows && columns.some((column) => inLane(column).some((t) => isSubtaskOn(t, onBoard)));
+              // Without lanes, the last row grows to the bottom, so its cells are drop targets down there too.
+              const grows = (section: 'main' | 'sub') => !showLanes && (section === 'sub') === hasSubtaskRow;
+              const row = (section: 'main' | 'sub') => (
+                <div className={`flex gap-3 ${grows(section) ? 'grow' : ''}`}>
+                  {columns.map((column, columnIndex) => {
+                    const { previous, next } = neighbours(columns, column.id);
+                    const all = inLane(column);
+                    const tasks = !subtaskRows ? all : all.filter((t) => isSubtaskOn(t, onBoard) === (section === 'sub'));
+                    // Done tasks hidden (US-28): how many, so the column does not look empty by mistake.
+                    const hiddenDone =
+                      section === 'main' && view.hideDone && column.id === doneColumnId ? cellTasks(cells, column.id, lane.id).length : 0;
+                    return (
+                      <BoardCell
+                        key={column.id}
+                        column={column}
+                        laneId={lane.id}
+                        section={section}
+                        tasks={tasks}
+                        families={families}
+                        previous={previous}
+                        next={next}
+                        compact={compact}
+                        done={column.id === doneColumnId}
+                        flashId={board.flashId}
+                        remoteMarks={board.remoteMarks}
+                        width={widthOf(column)}
+                        minHeightClass={section === 'sub' ? 'min-h-16' : showLanes ? 'min-h-28' : 'min-h-40'}
+                        isDropTarget={dropCell === `${column.id}:${lane.id}`}
+                        overLimit={wipState(columnCount(cells, column.id), column.wipLimit) === 'over-limit'}
+                        onOpenTask={(id) => navigate(paths.task(projectId, id))}
+                        onMoveTask={(id, columnId) => moveToCellEnd(id, columnId)}
+                        readOnly={!canEdit}
+                        footer={
+                          <>
+                            {hiddenDone > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setView({ ...view, hideDone: false })}
+                                className="rounded-md px-2 py-1 text-left text-xs text-fg-subtle hover:bg-surface-hover hover:text-fg"
+                              >
+                                {hiddenDone === 1 ? '1 erledigter Task ausgeblendet' : `${hiddenDone} erledigte Tasks ausgeblendet`} · Zeigen
+                              </button>
+                            )}
+                            {section === 'main' && columnIndex === 0 && canEdit && (
+                              <NewTaskForm
+                                key={laneIndex === 0 ? newTaskRequest : 0}
+                                defaultOpen={laneIndex === 0 && newTaskRequest > 0}
+                                onCreate={(title) => board.createTask(title, lane.id)}
+                                templates={taskTemplates}
+                                onCreateFromTemplate={(template, title) => createFromTemplate(template, lane.id, title)}
+                              />
+                            )}
+                          </>
+                        }
+                      />
+                    );
+                  })}
+                  {/* Keeps the cells aligned with the headers, which end with the add-column button. */}
+                  <div className="w-56 shrink-0" aria-hidden="true" />
+                </div>
+              );
               return (
                 // A single lane grows to the bottom of the board, so its cells are drop targets down there too.
                 <section
@@ -650,46 +739,15 @@ export default function BoardPage() {
                       manage={canManage}
                     />
                   )}
-                  {!collapsed && (
-                    <div className={`flex gap-3 ${showLanes ? '' : 'grow'}`}>
-                      {columns.map((column, columnIndex) => {
-                        const { previous, next } = neighbours(columns, column.id);
-                        return (
-                          <BoardCell
-                            key={column.id}
-                            column={column}
-                            laneId={lane.id}
-                            tasks={cellTasks(shown, column.id, lane.id)}
-                            previous={previous}
-                            next={next}
-                            compact={compact}
-                            done={column.id === doneColumnId}
-                            flashId={board.flashId}
-                            remoteMarks={board.remoteMarks}
-                            width={widthOf(column)}
-                            minHeightClass={showLanes ? 'min-h-28' : 'min-h-40'}
-                            isDropTarget={dropCell === `${column.id}:${lane.id}`}
-                            overLimit={wipState(columnCount(cells, column.id), column.wipLimit) === 'over-limit'}
-                            onOpenTask={(id) => navigate(paths.task(projectId, id))}
-                            onMoveTask={(id, columnId) => moveToCellEnd(id, columnId)}
-                            readOnly={!canEdit}
-                            footer={
-                              columnIndex === 0 && canEdit ? (
-                                <NewTaskForm
-                                  key={laneIndex === 0 ? newTaskRequest : 0}
-                                  defaultOpen={laneIndex === 0 && newTaskRequest > 0}
-                                  onCreate={(title) => board.createTask(title, lane.id)}
-                                  templates={taskTemplates}
-                                  onCreateFromTemplate={(template, title) => createFromTemplate(template, lane.id, title)}
-                                />
-                              ) : undefined
-                            }
-                          />
-                        );
-                      })}
-                      {/* Keeps the cells aligned with the headers, which end with the add-column button. */}
-                      <div className="w-56 shrink-0" aria-hidden="true" />
-                    </div>
+                  {!collapsed && row('main')}
+                  {!collapsed && hasSubtaskRow && (
+                    <>
+                      <h3 className="sticky left-4 flex w-fit items-center gap-1.5 text-xs font-medium text-fg-subtle">
+                        <span aria-hidden="true">↳</span>
+                        Unteraufgaben{showLanes ? ` · ${lane.name}` : ''}
+                      </h3>
+                      {row('sub')}
+                    </>
                   )}
                 </section>
               );
@@ -700,7 +758,7 @@ export default function BoardPage() {
         </div>
 
         <DragOverlay>
-          {activeTask && <TaskCardBody task={activeTask} compact={compact} done={activeTask.columnId === doneColumnId} lifted />}
+          {activeTask && <TaskCardBody task={activeTask} family={families.get(activeTask.id)} compact={compact} done={activeTask.columnId === doneColumnId} lifted />}
           {activeColumn && <ColumnHeaderGhost column={activeColumn} width={widthOf(activeColumn)} />}
         </DragOverlay>
       </DndContext>
@@ -773,6 +831,7 @@ export default function BoardPage() {
           labels={board.labels}
           onCreateLabel={board.createLabel}
           onSaveAsTemplate={saveTaskAsTemplate}
+          onCreateSubtask={(title) => board.createTask(title, openTask.laneId, { parentTaskId: openTask.id })}
           onOpenTask={(id) => navigate(paths.task(projectId, id))}
           onDelete={async (id) => {
             await board.deleteTask(id);

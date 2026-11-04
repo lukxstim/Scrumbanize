@@ -40,6 +40,8 @@ export interface Task {
   description: string;
   /** Order within the task's cell (column × lane), ascending. */
   position: number;
+  /** The task this one is a subtask of (US-28), one level deep; it may be in the trash (then not on the board). */
+  parentId: number | null;
   /** The note the task was created from, with its tags; null if it was created elsewhere or the note was deleted. */
   /** May live in another project or notebook (US-22); `restricted`: the user may not see it (no title, no tags). */
   sourceNote: { id: number; projectId: number; title: string; tags: string[]; restricted: boolean } | null;
@@ -68,6 +70,8 @@ export interface TaskInput {
   /** The column to create the task in; the first column if omitted. */
   columnId?: number;
   labelIds?: number[];
+  /** A subtask of this task (US-28). */
+  parentTaskId?: number;
   priority?: TaskPriority | null;
   startDate?: string | null;
   dueDate?: string | null;
@@ -76,6 +80,8 @@ export interface TaskInput {
 /** Undefined keeps a value, null removes priority or a date; `labelIds` replaces the labels. */
 export type TaskPatch = Partial<Pick<Task, 'title' | 'description' | 'priority' | 'startDate' | 'dueDate'>> & {
   labelIds?: number[];
+  /** Makes the task a subtask of another one (US-28), or (null) an ordinary task again. */
+  parentTaskId?: number | null;
   /** Title and description as the edit found them (US-24): changed elsewhere since, the save is refused (409). */
   base?: { title?: string; description?: string };
 };

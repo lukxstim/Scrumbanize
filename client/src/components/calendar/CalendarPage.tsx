@@ -335,6 +335,7 @@ export default function CalendarPage() {
           onUpdateAttachments={board.updateAttachments}
           labels={board.labels}
           onCreateLabel={board.createLabel}
+          onCreateSubtask={(title) => board.createTask(title, openTask.laneId, { parentTaskId: openTask.id })}
           onOpenTask={setOpenTaskId}
           onMove={(id, columnId, laneId) =>
             void board.moveTask(id, columnId, laneId, cellTasks(board.cells, columnId, laneId).filter((t) => t.id !== id).length)

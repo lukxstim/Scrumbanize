@@ -26,6 +26,7 @@ function task(id: number, columnId: number, laneId: number, position: number): T
     title: `T${id}`,
     description: '',
     position,
+    parentId: null,
     sourceNote: null,
     linkedNotes: [],
     priority: null,
