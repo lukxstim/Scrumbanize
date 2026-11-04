@@ -1,9 +1,12 @@
 import Highlight from '@tiptap/extension-highlight';
 import Link from '@tiptap/extension-link';
 import { TaskItem, TaskList } from '@tiptap/extension-list';
-import { TableKit } from '@tiptap/extension-table';
+import { Extension, type Editor } from '@tiptap/core';
+import { TableCell, TableHeader, TableKit } from '@tiptap/extension-table';
 import { Placeholder } from '@tiptap/extensions';
 import { Markdown } from '@tiptap/markdown';
+import { TextSelection } from '@tiptap/pm/state';
+import { isInTable, selectedRect } from '@tiptap/pm/tables';
 import StarterKit from '@tiptap/starter-kit';
 import { HIGHLIGHT_COLORS, type HighlightColor } from '../../utils/highlight';
 import { renderLinkMarkdown } from './markdownEscaping';
@@ -74,6 +77,64 @@ const MarkdownLink = Link.extend({
   isAllowedUri: (url, { defaultValidate }) => /^(note|task):\d+$/.test(url) || defaultValidate(url),
 });
 
+export type ColumnAlign = 'left' | 'center' | 'right' | null;
+
+/**
+ * Tables (US-26) as Markdown (GFM) stores them: one line of text per cell, the first row is the header, alignment
+ * per column. Enter moves to the cell below (a new row at the end), like in a spreadsheet; a line break would end up
+ * as <br>, which only the source view can keep.
+ */
+const SingleLineCell = TableCell.extend({ content: 'paragraph' });
+const SingleLineHeader = TableHeader.extend({ content: 'paragraph' });
+const TableKeys = Extension.create({
+  name: 'tableKeys',
+  priority: 1000,
+  addKeyboardShortcuts() {
+    return {
+      Enter: ({ editor }) => {
+        if (!isInTable(editor.state)) return false;
+        if (selectedRect(editor.state).bottom === selectedRect(editor.state).map.height) editor.commands.addRowAfter();
+        const { state } = editor;
+        const rect = selectedRect(state);
+        const below = rect.tableStart + rect.map.positionAt(rect.bottom, rect.left, rect.table);
+        editor.view.dispatch(state.tr.setSelection(TextSelection.near(state.doc.resolve(below + 1))).scrollIntoView());
+        return true;
+      },
+      'Shift-Enter': ({ editor }) => isInTable(editor.state),
+    };
+  },
+});
+
+/** Whether the cursor is in the header row, which has to stay first (it may not be deleted or get a row above). */
+export function inHeaderRow(editor: Editor): boolean {
+  return isInTable(editor.state) && selectedRect(editor.state).top === 0;
+}
+
+/** The alignment of the column the cursor is in (Markdown keeps one per column). */
+export function columnAlign(editor: Editor): ColumnAlign {
+  if (!isInTable(editor.state)) return null;
+  const { map, table, left } = selectedRect(editor.state);
+  const align: unknown = table.nodeAt(map.positionAt(0, left, table))?.attrs.align;
+  return align === 'left' || align === 'center' || align === 'right' ? align : null;
+}
+
+/** Aligns the selected columns, every cell of them, so the view shows what Markdown keeps. */
+export function alignColumns(editor: Editor, align: ColumnAlign) {
+  const { state } = editor;
+  if (!isInTable(state)) return;
+  const rect = selectedRect(state);
+  const { tr } = state;
+  for (let row = 0; row < rect.map.height; row += 1) {
+    for (let col = rect.left; col < rect.right; col += 1) {
+      const pos = rect.tableStart + rect.map.positionAt(row, col, rect.table);
+      const cell = tr.doc.nodeAt(pos);
+      if (cell) tr.setNodeMarkup(pos, undefined, { ...cell.attrs, align });
+    }
+  }
+  editor.view.dispatch(tr);
+  editor.commands.focus();
+}
+
 /**
  * Everything the editor understands. Kept to what Markdown (GFM) can store, so a note survives being opened
  * and saved: no underline (Markdown has none), links without opening on click (editing comes first).
@@ -88,7 +149,10 @@ export function editorExtensions(placeholder = '') {
     MarkdownLink,
     TaskList,
     TaskItem.configure({ nested: true }),
-    TableKit.configure({ table: { resizable: false } }),
+    TableKit.configure({ table: { resizable: false, renderWrapper: true }, tableCell: false, tableHeader: false }),
+    SingleLineCell,
+    SingleLineHeader,
+    TableKeys,
     ColoredHighlight,
     Markdown,
     ...(placeholder ? [Placeholder.configure({ placeholder })] : []),

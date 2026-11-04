@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { HIGHLIGHT_COLORS, type HighlightColor } from '../../utils/highlight';
 import { modKey } from '../ui/Kbd';
 import { fieldClass, popoverClass } from '../ui/styles';
+import { alignColumns, columnAlign, inHeaderRow, type ColumnAlign } from './extensions';
 
 const buttonClass = (active: boolean) =>
   `grid h-7 min-w-7 place-items-center rounded-md px-1.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40 ${
@@ -60,6 +61,8 @@ export default function EditorToolbar({ editor, trailing }: { editor: Editor; tr
       blockquote: e.isActive('blockquote'),
       codeBlock: e.isActive('codeBlock'),
       link: e.isActive('link'),
+      table: e.isActive('table'),
+      canInsertTable: e.can().insertTable(),
       canUndo: e.can().undo(),
       canRedo: e.can().redo(),
     }),
@@ -128,6 +131,14 @@ export default function EditorToolbar({ editor, trailing }: { editor: Editor; tr
         <ToolButton label="Link" active={state.link} onClick={() => setLinkOpen((open) => !open)}>
           <span className="text-xs underline">Link</span>
         </ToolButton>
+        <ToolButton
+          label="Tabelle einfügen"
+          active={state.table}
+          disabled={!state.canInsertTable}
+          onClick={() => chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+        >
+          <TableGlyph />
+        </ToolButton>
         <Divider />
         <ToolButton label="Rückgängig" shortcut={`${modKey}+Z`} disabled={!state.canUndo} onClick={() => chain().undo().run()}>
           ↶
@@ -137,7 +148,72 @@ export default function EditorToolbar({ editor, trailing }: { editor: Editor; tr
         </ToolButton>
         {trailing && <div className="ml-auto pl-2">{trailing}</div>}
       </div>
+      {state.table && <TableBar editor={editor} />}
       {linkOpen && <LinkBar editor={editor} onClose={() => setLinkOpen(false)} />}
+    </div>
+  );
+}
+
+function TableGlyph() {
+  return (
+    <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
+      <rect x="2" y="2.5" width="12" height="11" rx="1.5" />
+      <path d="M2 6.5h12M2 10h12M6.5 6.5v7" />
+    </svg>
+  );
+}
+
+const ALIGNMENTS: { value: Exclude<ColumnAlign, null>; label: string; glyph: string }[] = [
+  { value: 'left', label: 'Spalte linksbündig', glyph: 'M2 4h12M2 8h8M2 12h10' },
+  { value: 'center', label: 'Spalte zentriert', glyph: 'M2 4h12M4 8h8M3 12h10' },
+  { value: 'right', label: 'Spalte rechtsbündig', glyph: 'M2 4h12M6 8h8M4 12h10' },
+];
+
+/** While the cursor is in a table (US-26): rows, columns and their alignment. The header row always stays first. */
+function TableBar({ editor }: { editor: Editor }) {
+  const state = useEditorState({
+    editor,
+    selector: ({ editor: e }) => ({
+      header: inHeaderRow(e),
+      align: columnAlign(e),
+      canDeleteRow: e.can().deleteRow(),
+      canDeleteColumn: e.can().deleteColumn(),
+    }),
+  });
+  const chain = () => editor.chain().focus();
+  const textButton = (text: string, label: string, onClick: () => void, disabled = false) => (
+    <ToolButton label={label} disabled={disabled} onClick={onClick}>
+      <span className="text-xs">{text}</span>
+    </ToolButton>
+  );
+  const groupLabel = (text: string) => <span className="pr-0.5 pl-1.5 text-xs font-medium text-fg-subtle">{text}</span>;
+
+  return (
+    <div role="toolbar" aria-label="Tabelle" className="flex flex-wrap items-center gap-0.5 border-t border-line px-1 py-1">
+      {groupLabel('Zeile')}
+      {textButton('+ oben', 'Zeile oberhalb einfügen', () => chain().addRowBefore().run(), state.header)}
+      {textButton('+ unten', 'Zeile unterhalb einfügen', () => chain().addRowAfter().run())}
+      {textButton('löschen', 'Zeile löschen', () => chain().deleteRow().run(), state.header || !state.canDeleteRow)}
+      <Divider />
+      {groupLabel('Spalte')}
+      {textButton('+ links', 'Spalte links einfügen', () => chain().addColumnBefore().run())}
+      {textButton('+ rechts', 'Spalte rechts einfügen', () => chain().addColumnAfter().run())}
+      {textButton('löschen', 'Spalte löschen', () => chain().deleteColumn().run(), !state.canDeleteColumn)}
+      <Divider />
+      {ALIGNMENTS.map((option) => (
+        <ToolButton
+          key={option.value}
+          label={option.label}
+          active={state.align === option.value}
+          onClick={() => alignColumns(editor, state.align === option.value ? null : option.value)}
+        >
+          <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" aria-hidden="true">
+            <path d={option.glyph} />
+          </svg>
+        </ToolButton>
+      ))}
+      <Divider />
+      {textButton('Tabelle löschen', 'Tabelle löschen', () => chain().deleteTable().run())}
     </div>
   );
 }

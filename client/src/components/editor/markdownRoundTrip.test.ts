@@ -29,6 +29,7 @@ describe('Markdown round trip', () => {
     ['quote', '> Zitat'],
     ['code block', '```ts\nconst a = 1;\n```'],
     ['highlight', 'Ein <mark data-color="green">grüner</mark> und <mark data-color="pink">rosa</mark> Text.'],
+    ['tables with alignment and formatting', '| Name  | **Menge** | Preis    |\n| :----- | :---------: | --------: |\n| Äpfel | 3         | `1,20 €` |'],
     ['plain text with symbols', 'Tom & Jerry, a < b > c, 5 * 3, snake_case, C:\\Pfad und #hashtag'],
   ])('keeps %s', (_name, markdown) => {
     expect(roundTrip(markdown)).toBe(markdown);
