@@ -88,7 +88,7 @@ function KnowledgeSidebar({
       className={
         inSheet
           ? 'flex flex-col px-2 pb-4'
-          : `flex shrink-0 flex-col overflow-y-auto border-r border-line bg-canvas px-2 pb-4 max-md:hidden ${tree ? 'w-64 xl:w-72' : 'w-52 xl:w-60'}`
+          : `flex shrink-0 flex-col overflow-y-auto border-r border-line bg-canvas px-2 pb-4 max-md:hidden ${tree ? 'w-60 xl:w-64' : 'w-52 xl:w-60'}`
       }
     >
       <div className="pt-3">
@@ -164,7 +164,7 @@ function KnowledgeSidebar({
                     </div>
                   )}
                 </div>
-                {/* The tree view (US-34): the notes page puts this notebook's folders and notes here. */}
+                {/* The notebook view (US-34): the notes page puts this notebook's sections here. */}
                 {tree && active && <div ref={onSlot} className="pl-3" />}
               </li>
             );

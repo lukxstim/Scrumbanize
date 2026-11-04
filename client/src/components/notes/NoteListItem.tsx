@@ -4,7 +4,6 @@ import { useItemViewers } from '../../hooks/useCollaboration';
 import type { Note } from '../../types/note';
 import { formatDate, snippet } from '../../utils/format';
 import { UNTITLED_NOTE } from '../../utils/taskFromNote';
-import { NoteIcon } from '../icons';
 import PresenceAvatars from '../PresenceAvatars';
 
 interface NoteListItemProps {
@@ -17,41 +16,14 @@ interface NoteListItemProps {
   drag?: { setNodeRef: (element: HTMLElement | null) => void; listeners: DraggableSyntheticListeners; isDragging: boolean; className: string };
   /** In "Alle Notizen" (US-22): the project or notebook the note belongs to. */
   place?: ReactNode;
-  /** The tree view (US-34): one line with the title, like a page in OneNote. */
-  compact?: boolean;
   /** Whether the note's tags are shown (US-34). */
   showTags?: boolean;
 }
 
-export default function NoteListItem({ note, selected, onSelect, depth = 0, drag, place, compact = false, showTags = true }: NoteListItemProps) {
+export default function NoteListItem({ note, selected, onSelect, depth = 0, drag, place, showTags = true }: NoteListItemProps) {
   const preview = snippet(note.content);
   // Who has the note open right now (US-24).
   const viewers = useItemViewers(note.projectId, { type: 'note', id: note.id });
-
-  if (compact) {
-    return (
-      <li>
-        <button
-          type="button"
-          aria-current={selected || undefined}
-          onClick={() => onSelect(note.id)}
-          ref={drag?.setNodeRef}
-          {...drag?.listeners}
-          style={{ paddingLeft: `${depth > 0 ? 1.5 + (depth - 1) * 0.875 : 0.5}rem` }}
-          className={`flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-left text-sm transition-colors duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent pointer-coarse:min-h-11 ${
-            selected ? 'bg-accent-muted font-medium text-fg' : 'text-fg-muted hover:bg-surface-hover hover:text-fg'
-          } ${drag?.className ?? ''} ${drag?.isDragging ? 'opacity-50' : ''}`}
-        >
-          <NoteIcon className="size-3.5 shrink-0 text-fg-subtle" />
-          <span className={`min-w-0 flex-1 truncate ${note.title ? '' : 'italic text-fg-subtle'}`}>{note.title || UNTITLED_NOTE}</span>
-          {showTags && note.tags.length > 0 && (
-            <span className="max-w-24 shrink truncate text-[11px] text-fg-subtle">{note.tags.map((t) => `#${t}`).join(' ')}</span>
-          )}
-          <PresenceAvatars people={viewers} what="hat die Notiz gerade offen" size="sm" />
-        </button>
-      </li>
-    );
-  }
 
   return (
     <li>

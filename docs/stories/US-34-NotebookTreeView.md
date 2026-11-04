@@ -14,16 +14,18 @@ Seit US-26 liegen alle Notizen in Notizbüchern. Die Ansicht hat aber drei Spalt
 
 ## Akzeptanzkriterien
 
-### 1. Baumansicht (Standard)
-- [x] Links steht ein Baum: jedes Notizbuch mit Symbol (oder Farbpunkt) und Namen, aufklappbar; darunter seine Ordner und Notizen (Seiten), nur mit Titel.
-- [x] Daneben nur der Editor – keine mittlere Listenspalte.
-- [x] Aufgeklappte Notizbücher und Ordner merkt sich der Browser.
-- [ ] Notizen und Ordner lassen sich im Baum per Drag & Drop verschieben, auch in ein anderes Notizbuch.
-- [ ] Über „⋯“ am Notizbuch: Neue Seite, Neuer Ordner, Sortierung (Name, zuletzt geändert, erstellt), Bearbeiten, Mitglieder.
-- [ ] Notizbücher mit Board zeigen ein kleines Board-Symbol, ein Klick darauf öffnet das Board.
+### 1. Notizbuch-Ansicht wie OneNote (Standard, drei Spalten)
+- [x] Links: jedes Notizbuch mit Symbol (oder Farbpunkt) und Namen; unter dem offenen seine **Abschnitte** (= Ordner) mit Farbbalken, Unterabschnitte eingerückt, „Ohne Abschnitt“ für Seiten ohne Ordner und „+ Neuer Abschnitt“.
+- [x] Mitte: nur die **Seiten** des gewählten Abschnitts als Titel, darüber „Seite hinzufügen“ (mit Vorlagen) und Sortieren (zuletzt geändert, zuletzt erstellt, nach Titel; merkt sich der Browser).
+- [x] Rechts: die Seite im Editor. Ein Klick auf einen Abschnitt öffnet seine erste Seite.
+- [x] „⋯“ am Abschnitt: Neue Seite hier, Neuer Unterabschnitt, Umbenennen (auch Doppelklick), Verschieben nach …, Löschen.
+- [x] Seiten lassen sich per Drag & Drop auf einen Abschnitt verschieben.
+- [ ] Seiten in einen Abschnitt eines anderen Notizbuchs ziehen; Abschnitte per Drag & Drop umsortieren.
+- [ ] Mehrere Notizbücher gleichzeitig aufklappen.
+- [ ] Ein Klick auf das Board-Symbol eines Notizbuchs öffnet das Board.
 
 ### 2. Wählbare Darstellung
-- [x] Ein Umschalter oben im Baum (und in den Einstellungen) wählt die Darstellung: **Baum** (nur Titel) oder **Liste** (Titel mit Textanfang, Datum und Tags, wie bisher).
+- [x] Ein Umschalter oben im Baum (und in den Einstellungen) wählt die Darstellung: **Notizbuch** (wie OneNote) oder **Liste** (Titel mit Textanfang, Datum und Tags, wie bisher).
 - [x] Ebenfalls wählbar: Tags an der Notiz anzeigen oder ausblenden.
 - [ ] „Verlinkt von“ unter der Notiz aufgeklappt oder eingeklappt.
 - [ ] Die Wahl gilt je Person und bleibt nach dem Neuladen erhalten.
@@ -47,6 +49,6 @@ Seit US-26 liegen alle Notizen in Notizbüchern. Die Ansicht hat aber drei Spalt
 ---
 
 ## Entscheidungen (Klärung, 04.11.2026)
-1. Die Baumansicht ist Standard, die bisherige Liste mit Vorschau bleibt als wählbare Darstellung erhalten.
+1. Die Notizbuch-Ansicht (drei Spalten wie OneNote, nach Vorlage-Screenshot) ist Standard, die bisherige Liste mit Vorschau bleibt als wählbare Darstellung erhalten.
 2. Tags werden nicht entfernt, nur standardmäßig ausgeblendet und über ein Filtermenü erreichbar.
 3. Umsetzung vor US-26c (Sticky Notes), damit „Seite als Sticky Note öffnen“ im Baum-Menü landen kann.

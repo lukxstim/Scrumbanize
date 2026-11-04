@@ -1,6 +1,18 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  DndContext,
+  DragOverlay,
+  MouseSensor,
+  pointerWithin,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core';
 import { createPortal } from 'react-dom';
-import { useLocation, useNavigate, useParams } from 'react-router';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useGoneNotice } from '../../hooks/useCollaboration';
 import { useFolders } from '../../hooks/useFolders';
 import { useIsMobile } from '../../hooks/useMediaQuery';
@@ -11,7 +23,7 @@ import { useStoredState } from '../../hooks/useStoredState';
 import { useCan } from '../../hooks/useProjectRole';
 import { useProjects } from '../../hooks/useProjects';
 import { useTemplates } from '../../hooks/useTemplates';
-import type { Folder } from '../../types/note';
+import type { Folder, Note } from '../../types/note';
 import type { NoteTemplate, TemplateInput } from '../../types/template';
 import { canMoveFolder, buildFolderTree, folderPath, freeFolderName } from '../../utils/folders';
 import ConfirmDialog from '../ConfirmDialog';
@@ -38,8 +50,18 @@ import NoteList from './NoteList';
 import NotesViewSwitch from './NotesViewSwitch';
 import SearchBar from './SearchBar';
 import { ActiveTags, TagFilterButton } from './TagFilter';
+import NotebookSections from './NotebookSections';
+import PageList from './PageList';
+import { currentSection, isPageSort, PAGE_SORTS, pagesOf, SECTION_PARAM, sectionColor, sectionParam, type PageSort, type SectionId } from '../../utils/sections';
+import { UNTITLED_NOTE } from '../../utils/taskFromNote';
 
-const isIdList = (value: unknown): value is number[] => Array.isArray(value) && value.every((v) => typeof v === 'number');
+const SortIcon = () => (
+  <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 fill-none stroke-current stroke-[1.5]">
+    <path d="M4 3v10m0 0-2-2m2 2 2-2M8.5 4h5.5M8.5 8h4M8.5 12h2.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const isIdList =(value: unknown): value is number[] => Array.isArray(value) && value.every((v) => typeof v === 'number');
 
 export default function NotesPage() {
   const { projectId: projectParam, noteId } = useParams();
@@ -214,6 +236,51 @@ export default function NotesPage() {
     setSelectedTags(activeTags.includes(tag) ? activeTags.filter((t) => t !== tag) : [...activeTags, tag]);
   }
 
+  // The notebook view (US-34): the open page's section, or the one chosen while no page is open.
+  const [searchParams] = useSearchParams();
+  const [pageSort, setPageSort] = useStoredState<PageSort>('scrumbanize.pageSort', 'updated', isPageSort);
+  const section = currentSection(searchParams.get(SECTION_PARAM), selectedNote, folders, notes);
+  const sectionName = section === null ? 'Ohne Abschnitt' : (folders.find((f) => f.id === section)?.name ?? '');
+  const pages = useMemo(() => pagesOf(filterNotes(notes, '', activeTags), section, pageSort), [notes, activeTags, section, pageSort]);
+  const sectionPath = (s: SectionId) => `${paths.notes(projectId)}?${SECTION_PARAM}=${sectionParam(s)}`;
+
+  // Like OneNote, choosing a section opens its first page.
+  function selectSection(s: SectionId) {
+    const first = pagesOf(notes, s, pageSort)[0];
+    navigate(first ? paths.notes(projectId, first.id) : sectionPath(s));
+  }
+
+  async function createSection(parentId: number | null) {
+    try {
+      const folder = await createFolder(freeFolderName(folders, parentId, 'Neuer Abschnitt'), parentId);
+      navigate(sectionPath(folder.id));
+      setRenamingId(folder.id);
+    } catch (error) {
+      failed(error, 'Der Abschnitt konnte nicht angelegt werden.');
+    }
+  }
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    // A short hold, so a swipe still scrolls the list (US-25).
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+  );
+  const [draggedPage, setDraggedPage] = useState<Note | null>(null);
+  const [dropTarget, setDropTarget] = useState<SectionId | undefined>(undefined);
+  const sectionOf = (over: DragOverEvent['over']) => over?.data.current?.folderId as SectionId | undefined;
+  const onDragStart = ({ active }: DragStartEvent) => setDraggedPage(notes.find((n) => n.id === active.data.current?.noteId) ?? null);
+  const onDragOver = ({ over }: DragOverEvent) => setDropTarget(sectionOf(over));
+  function endDrag() {
+    setDraggedPage(null);
+    setDropTarget(undefined);
+  }
+  function onDragEnd({ over }: DragEndEvent) {
+    const page = draggedPage;
+    const target = sectionOf(over);
+    endDrag();
+    if (page && target !== undefined && target !== page.folderId) void folderActions.dropNote(page.id, target);
+  }
+
   const newFolderButton = canEdit && (
     <button
       type="button"
@@ -226,11 +293,12 @@ export default function NotesPage() {
     </button>
   );
   // One split button: "Neue Notiz" and, joined to it, the arrow for templates. Not for viewers (US-21).
-  const newNoteButton = canEdit && (
+  const newNoteButton = (folderId: number | null = null, label = 'Neue Notiz') =>
+    canEdit && (
     <div className="flex shrink-0 items-stretch rounded-md shadow-sm">
-      <Button variant="primary" size="sm" className="rounded-r-none !shadow-none active:!scale-100" onClick={() => void handleCreate()}>
+      <Button variant="primary" size="sm" className="rounded-r-none !shadow-none active:!scale-100" onClick={() => void handleCreate('', undefined, folderId)}>
         <PlusIcon className="size-3.5" />
-        Neue Notiz
+        {label}
       </Button>
       <Menu
         label="Neue Notiz aus Vorlage"
@@ -239,7 +307,7 @@ export default function NotesPage() {
         items={[
           ...noteTemplates.map((template) => ({
             label: `${template.name}${template.scope === 'global' ? '' : ' (Projekt)'}`,
-            onSelect: () => void handleCreate('', template),
+            onSelect: () => void handleCreate('', template, folderId),
           })),
           {
             label: 'Neue Vorlage …',
@@ -261,10 +329,10 @@ export default function NotesPage() {
     </>
   );
 
-  const content = (
+  const loadingOrError = (
     <>
       {status === 'loading' && (
-        <div className={`space-y-4 ${inTree ? 'px-2 py-2' : 'p-4'}`} aria-label="Lade Notizen …">
+        <div className="space-y-4 p-4" aria-label="Lade Notizen …">
           {[0, 1, 2, 3].map((i) => (
             <div key={i} className="space-y-2">
               <Skeleton className="h-4 w-2/3" />
@@ -281,6 +349,12 @@ export default function NotesPage() {
           </Button>
         </div>
       )}
+    </>
+  );
+
+  const content = (
+    <>
+      {loadingOrError}
       {status === 'ready' &&
         (filtering || (notes.length === 0 && folders.length === 0) ? (
           <NoteList
@@ -288,7 +362,6 @@ export default function NotesPage() {
             selectedId={selectedId}
             onSelect={(id) => navigate(paths.notes(projectId, id))}
             emptyMessage={notes.length === 0 ? 'Noch keine Notizen vorhanden.' : 'Keine Notizen gefunden.'}
-            compact={inTree}
             showTags={notesView.showTags}
           />
         ) : (
@@ -303,7 +376,6 @@ export default function NotesPage() {
             onRenamingChange={setRenamingId}
             canEdit={canEdit}
             actions={folderActions}
-            compact={inTree}
             showTags={notesView.showTags}
           />
         ))}
@@ -313,22 +385,75 @@ export default function NotesPage() {
   return (
     <div className="flex min-h-0 flex-1">
       {inTree ? (
-        // The tree view (US-34): search, buttons, folders and notes hang under the notebook in the sidebar.
-        slot &&
-        createPortal(
-          <div className="space-y-1.5 pt-1 pb-2">
-            {searchAndFilter}
-            <div className="flex items-center gap-1">
-              {newNoteButton}
-              {newFolderButton}
-              <div className="ml-auto">
+        // The notebook view (US-34, like OneNote): the sections under the notebook in the sidebar, the pages of the
+        // chosen one beside it. Pages are dragged onto a section to move them there.
+        <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={endDrag}>
+          {slot &&
+            createPortal(
+              <NotebookSections
+                folders={folders}
+                notes={notes}
+                current={section}
+                onSelect={selectSection}
+                onCreateSection={(parentId) => void createSection(parentId)}
+                canEdit={canEdit}
+                actions={folderActions}
+                renamingId={renamingId}
+                onRenamingChange={setRenamingId}
+                dropTarget={draggedPage === null ? undefined : dropTarget}
+              />,
+              slot,
+            )}
+          <aside aria-label="Seiten" className="flex w-60 shrink-0 flex-col border-r border-line bg-surface xl:w-64">
+            <div className="space-y-2 border-b border-line px-3 py-3">
+              <div className="flex items-center gap-2">
+                <span className={`h-4 w-1 shrink-0 rounded-full ${sectionColor(section)}`} aria-hidden="true" />
+                <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-fg">{sectionName}</h1>
                 <NotesViewSwitch projectId={projectId} view="list" compact />
               </div>
+              <div className="flex items-center gap-1">
+                {newNoteButton(section, 'Seite hinzufügen')}
+                <div className="ml-auto flex items-center gap-0.5">
+                  {notesView.showTags && (
+                    <TagFilterButton tags={tagCounts} selected={activeTags} onToggle={toggleTag} onClear={() => setSelectedTags([])} />
+                  )}
+                  <Menu
+                    label="Seiten sortieren"
+                    trigger={<SortIcon />}
+                    triggerClassName={iconButtonClass}
+                    items={PAGE_SORTS.map((option) => ({ label: `${option.value === pageSort ? '✓ ' : ''}${option.label}`, onSelect: () => setPageSort(option.value) }))}
+                  />
+                </div>
+              </div>
+              {notesView.showTags && <ActiveTags selected={activeTags} onRemove={toggleTag} />}
             </div>
-            {content}
-          </div>,
-          slot,
-        )
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {loadingOrError}
+              {status === 'ready' && (
+                <PageList
+                  pages={pages}
+                  selectedId={selectedId}
+                  onSelect={(id) => navigate(paths.notes(projectId, id))}
+                  canEdit={canEdit}
+                  showTags={notesView.showTags}
+                  empty={
+                    <p className="px-4 py-8 text-center text-sm text-fg-subtle">
+                      {activeTags.length > 0 ? 'Keine Seite mit diesen Tags in diesem Abschnitt.' : 'Noch keine Seiten in diesem Abschnitt.'}
+                    </p>
+                  }
+                />
+              )}
+            </div>
+          </aside>
+          <DragOverlay dropAnimation={null}>
+            {draggedPage && (
+              <div className="flex max-w-64 cursor-grabbing items-center gap-1.5 rounded-md border border-accent-line bg-surface px-2.5 py-1.5 text-sm font-medium text-fg shadow-popover">
+                <NoteIcon className="size-3.5 shrink-0 text-fg-subtle" />
+                <span className="truncate">{draggedPage.title || UNTITLED_NOTE}</span>
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
       ) : (
         // Phones (US-25) show the list or the open note, never both; the back bar returns to the list.
         <aside className={`flex w-80 shrink-0 flex-col border-r border-line bg-surface max-md:w-full max-md:border-r-0 ${selectedId !== null ? 'max-md:hidden' : ''}`}>
@@ -339,7 +464,7 @@ export default function NotesPage() {
               <NotesViewSwitch projectId={projectId} view="list" compact />
               <div className="ml-auto" />
               {newFolderButton}
-              {newNoteButton}
+              {newNoteButton()}
             </div>
             {searchAndFilter}
           </div>

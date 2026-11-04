@@ -5,8 +5,8 @@ import Popover from '../ui/Popover';
 import { iconButtonClass } from '../ui/styles';
 
 const LAYOUTS: { value: NotesLayout; label: string; hint: string }[] = [
-  { value: 'tree', label: 'Baum', hint: 'Seiten unter ihrem Notizbuch, nur mit Titel' },
-  { value: 'list', label: 'Liste', hint: 'Mit Textanfang und Datum neben den Notizbüchern' },
+  { value: 'tree', label: 'Notizbuch (wie OneNote)', hint: 'Abschnitte unter dem Notizbuch, daneben ihre Seiten' },
+  { value: 'list', label: 'Liste', hint: 'Alle Notizen mit Textanfang und Datum, Ordner als Baum' },
 ];
 
 /** The choices of the notes view (US-34), in the sidebar's menu and in the settings. */
