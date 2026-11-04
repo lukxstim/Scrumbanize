@@ -7,10 +7,11 @@ import { accessChanged, changed } from '../realtime/events.js';
 import { idParamSchema, projectInputSchema, projectPatchSchema } from '../validation.js';
 
 const nameTaken = () => new HttpError(409, 'name_taken', 'A project with this name already exists');
+const lastProject = () => new HttpError(409, 'last_project', 'The last board cannot be switched off');
 
 function unwrap(result: ProjectResult) {
   if (result.ok) return result.project;
-  throw result.reason === 'name_taken' ? nameTaken() : notFound('Project not found');
+  throw result.reason === 'name_taken' ? nameTaken() : result.reason === 'last_project' ? lastProject() : notFound('Project not found');
 }
 
 /** The projects of the logged-in user, each with their role (US-21); anyone may create one and owns it then. */

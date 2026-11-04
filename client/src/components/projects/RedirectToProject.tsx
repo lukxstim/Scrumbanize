@@ -28,10 +28,10 @@ export function ProjectsLoading() {
   );
 }
 
-/** Sends addresses without a (valid) project to the last project used, or the first one. */
+/** Sends addresses without a (valid) notebook to the last one used, or the first; board pages to one with a board. */
 export default function RedirectToProject({ section = 'notes' }: { section?: Section }) {
   const { projects, status, sampleProjectId } = useProjects();
-  const target = defaultProject(projects, sampleProjectId);
+  const target = defaultProject(projects, sampleProjectId, ['board', 'calendar', 'analytics'].includes(section));
 
   if (status === 'ready' && projects.length === 0) return <NoProjects />;
   if (status !== 'ready' || !target) return <ProjectsLoading />;

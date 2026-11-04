@@ -7,7 +7,7 @@ import type { Project } from '../../types/project';
 import { requestNewProject } from '../../utils/appEvents';
 import { sectionPath, type Section } from '../../utils/paths';
 import { can, ROLE_LABELS } from '../../utils/permissions';
-import { colorDot, countLabel, KIND_WORDS, ofKind } from '../../utils/projects';
+import { colorDot, countLabel, hasBoard } from '../../utils/projects';
 import { CheckIcon, ChevronDownIcon, PencilIcon, PlusIcon, UsersIcon } from '../icons';
 import PresenceAvatars from '../PresenceAvatars';
 import { menuItemClass, popoverClass } from '../ui/styles';
@@ -22,22 +22,18 @@ interface ProjectSwitcherProps {
 
 type OpenDialog = ManageDialog | null;
 
-/** A project's color dot, or a notebook's symbol (US-22). */
+/** A notebook's symbol (US-22), or its color dot without one. */
 export function ProjectMark({ project }: { project: Project }) {
-  return project.kind === 'notebook' ? (
+  return project.icon ? (
     <NotebookSymbol icon={project.icon} color={project.color} />
   ) : (
     <span className={`size-2.5 shrink-0 rounded-full ${colorDot(project.color)}`} aria-hidden="true" />
   );
 }
 
-/** Switches between projects, or – inside a notebook – between notebooks (US-22). */
+/** Switches between all notebooks, with board or without (US-26). */
 export default function ProjectSwitcher({ active, section }: ProjectSwitcherProps) {
-  const { projects: all, reload } = useProjects();
-  const kind = active.kind;
-  const notebook = kind === 'notebook';
-  const word = KIND_WORDS[kind];
-  const projects = ofKind(all, kind);
+  const { projects, reload } = useProjects();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   // Who is in which project right now (US-24).
@@ -103,8 +99,8 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
 
   function switchTo(project: Project) {
     closeMenu();
-    // Notebooks only have notes (and their graph, trash and settings).
-    const target = notebook && !['notes', 'graph', 'trash', 'settings'].includes(section) ? 'notes' : section;
+    // Without a board, only notes (and their graph, trash and settings).
+    const target = !hasBoard(project) && !['notes', 'graph', 'trash', 'settings'].includes(section) ? 'notes' : section;
     if (project.id !== active.id) navigate(sectionPath(project.id, target));
   }
 
@@ -120,7 +116,7 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
         type="button"
         aria-haspopup="menu"
         aria-expanded={menuOpen}
-        aria-label={`${word.one}: ${active.name}. ${word.one} wechseln`}
+        aria-label={`Notizbuch: ${active.name}. Notizbuch wechseln`}
         data-tour="project-switcher"
         onClick={() => setMenuOpen((open) => !open)}
         onKeyDown={(event) => {
@@ -140,12 +136,12 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
         <div
           ref={menuRef}
           role="menu"
-          aria-label={word.many}
+          aria-label="Notizbücher"
           onKeyDown={onMenuKeyDown}
           className={`absolute left-0 top-full z-30 mt-1 w-72 origin-top-left ${popoverClass}`}
         >
           <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-fg-subtle" aria-hidden="true">
-            {word.many}
+            Notizbücher
           </div>
           <div className="max-h-80 overflow-y-auto">
             {projects.map((project) => (
@@ -162,7 +158,7 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
                   <span className="block truncate text-sm font-medium text-fg">{project.name}</span>
                   <span className="block text-xs text-fg-subtle">
                     {countLabel(project.noteCount, 'Notiz', 'Notizen')}
-                    {!notebook && ` · ${countLabel(project.taskCount, 'Task', 'Tasks')}`}
+                    {hasBoard(project) && ` · ${countLabel(project.taskCount, 'Task', 'Tasks')}`}
                     {withMembers && project.role !== 'owner' && ` · ${ROLE_LABELS[project.role]}`}
                   </span>
                 </span>
@@ -177,12 +173,12 @@ export default function ProjectSwitcher({ active, section }: ProjectSwitcherProp
             role="menuitem"
             onClick={() => {
               closeMenu(false);
-              requestNewProject(kind);
+              requestNewProject('notebook');
             }}
             className={`py-2 ${menuItemClass}`}
           >
             <PlusIcon className="size-4 text-fg-subtle" />
-            {word.new}
+            Neues Notizbuch
           </button>
           {withMembers && (
             <button type="button" role="menuitem" onClick={() => openDialog('members')} className={`py-2 ${menuItemClass}`}>

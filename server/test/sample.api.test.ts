@@ -6,7 +6,7 @@ import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
 import { migrations, openDatabase, type Db } from '../src/database.js';
-import { SAMPLE_NOTEBOOK_NAME, seedSampleNotebookOnce } from '../src/sampleNotebook.js';
+import { SAMPLE_GUIDE_TITLE, SAMPLE_NOTEBOOK_NAME, seedSampleNotebookOnce } from '../src/sampleNotebook.js';
 import { SAMPLE_PROJECT_NAME, seedSampleProject } from '../src/sampleProject.js';
 import { createProjectsRepository } from '../src/repositories/projectsRepository.js';
 import { createUsersRepository } from '../src/repositories/usersRepository.js';
@@ -176,7 +176,7 @@ describe('sample notebook', () => {
     expect(folders.map((f) => f.name)).toEqual(['Rezepte']);
     const notes = (await api.get(`/api/projects/${id}/notes`)).body as { id: number; title: string; content: string; folderId: number | null; tags: string[] }[];
     const recipe = notes.find((n) => n.title === 'Pasta Carbonara')!;
-    const guide = notes.find((n) => n.title === 'So funktioniert Wissen')!;
+    const guide = notes.find((n) => n.title === SAMPLE_GUIDE_TITLE)!;
     expect(recipe).toMatchObject({ folderId: folders[0]!.id, tags: ['beispiel', 'rezept'] });
     expect(guide.folderId).toBeNull();
     expect(guide.content).toContain(`](note:${recipe.id})`);

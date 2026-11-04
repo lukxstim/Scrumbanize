@@ -57,11 +57,12 @@ describe('last project', () => {
     expect(defaultProject(projects, 5)?.id).toBe(1);
   });
 
-  it('never opens a notebook', () => {
-    const withNotebook = [{ ...project(0, 'Aaa Rezepte'), kind: 'notebook' as const, icon: 'utensils' as const }, ...projects];
+  it('opens the last notebook, but one with a board where the board is asked for (US-26)', () => {
+    const withNotebook = [{ ...project(3, 'Aaa Rezepte'), kind: 'notebook' as const, icon: 'utensils' as const }, ...projects];
     expect(defaultProject(withNotebook)?.id).toBe(1);
-    setLastProjectId(0);
-    expect(defaultProject(withNotebook)?.id).toBe(1);
+    setLastProjectId(3);
+    expect(defaultProject(withNotebook)?.id).toBe(3);
+    expect(defaultProject(withNotebook, null, true)?.id).toBe(1);
   });
 
   it('falls back to the first project if the last one is gone or unknown', () => {

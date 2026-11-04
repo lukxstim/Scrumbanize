@@ -1,7 +1,8 @@
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
-import { openDatabase, type Db } from '../src/database.js';
+import Database from 'better-sqlite3';
+import { migrations, openDatabase, type Db } from '../src/database.js';
 
 let db: Db;
 let api: ReturnType<typeof request>;
@@ -65,10 +66,11 @@ describe('notebooks', () => {
     expect((await api.post('/api/projects').send({ name: 'X', color: 'red', kind: 'notebook', icon: 'unicorn' })).status).toBe(400);
   });
 
-  it('share names with projects, but not with each other', async () => {
-    expect((await api.post('/api/projects').send({ name: 'Allgemein', color: 'red', kind: 'notebook' })).status).toBe(201);
-    expect((await api.post('/api/projects').send({ name: 'allgemein', color: 'red', kind: 'notebook' })).status).toBe(409);
-    expect((await api.post('/api/projects').send({ name: 'allgemein', color: 'red' })).status).toBe(409);
+  it('share no names, with each other or with projects (US-26: one area)', async () => {
+    expect((await api.post('/api/projects').send({ name: 'Allgemein', color: 'red', kind: 'notebook' })).status).toBe(409);
+    expect((await api.post('/api/projects').send({ name: 'Rezepte', color: 'red', kind: 'notebook' })).status).toBe(201);
+    expect((await api.post('/api/projects').send({ name: 'rezepte', color: 'red', kind: 'notebook' })).status).toBe(409);
+    expect((await api.post('/api/projects').send({ name: 'rezepte', color: 'red' })).status).toBe(409);
   });
 
   it('can all be deleted, while the last project stays', async () => {
@@ -144,10 +146,68 @@ describe('folders', () => {
   });
 });
 
-describe('all notes and tags of Wissen: notebooks only', () => {
+describe('the board of a notebook (US-26)', () => {
+  const board = (id: number) => api.get(`/api/projects/${id}/board`);
+
+  it('switches on with the default board, and off again keeping its tasks hidden', async () => {
+    const book = await newNotebook('Haus');
+    const on = await api.patch(`/api/projects/${book.id}`).send({ board: true });
+    expect(on.body).toMatchObject({ kind: 'project', icon: 'book' });
+    const columns = (await board(book.id)).body.columns as { id: number; name: string }[];
+    expect(columns.map((c) => c.name)).toHaveLength(5);
+    const task = (await api.post(`/api/projects/${book.id}/tasks`).send({ title: 'Dach prüfen', description: '' })).body as { id: number };
+
+    const off = await api.patch(`/api/projects/${book.id}`).send({ board: false });
+    expect(off.body).toMatchObject({ kind: 'notebook', taskCount: 1 });
+    expect((await board(book.id)).body.error.code).toBe('notebook');
+    expect((await api.get(`/api/tasks/${task.id}`)).status).toBe(404);
+    expect((await api.get('/api/search?q=Dach')).body.tasks ?? []).toHaveLength(0);
+
+    // On again: the same columns and the task where it was, no second default board.
+    await api.patch(`/api/projects/${book.id}`).send({ board: true });
+    const again = (await board(book.id)).body as { columns: { id: number }[]; tasks: { id: number }[] };
+    expect(again.columns.map((c) => c.id)).toEqual(columns.map((c) => c.id));
+    expect(again.tasks.map((t) => t.id)).toEqual([task.id]);
+    expect(await activities(book.id)).toEqual(
+      expect.arrayContaining(['Board von „Haus“ eingeschaltet', 'Board von „Haus“ ausgeschaltet (Aufgaben ausgeblendet)']),
+    );
+  });
+
+  it('cannot be switched off on the last board', async () => {
+    expect((await api.patch('/api/projects/1').send({ board: false })).body.error.code).toBe('last_project');
+    const book = await newNotebook();
+    await api.patch(`/api/projects/${book.id}`).send({ board: true });
+    expect((await api.patch('/api/projects/1').send({ board: false })).body).toMatchObject({ kind: 'notebook' });
+  });
+
+  it('renames notebooks that shared a name with a project before the update', () => {
+    const old = new Database(':memory:');
+    migrations.slice(0, -1).forEach((sql) => old.exec(sql));
+    const insert = old.prepare(`INSERT INTO projects (name, color, kind, created_at, updated_at) VALUES (?, 'red', ?, '', '')`);
+    // "Allgemein" (id 1) comes from an earlier migration.
+    insert.run('allgemein', 'notebook');
+    insert.run('Uni', 'project');
+    insert.run('Uni', 'notebook');
+    insert.run('Uni (Notizbuch)', 'notebook');
+    insert.run('Rezepte', 'notebook');
+    old.exec(migrations.at(-1)!);
+    const names = old.prepare(`SELECT id, name FROM projects ORDER BY id`).all();
+    expect(names).toEqual([
+      { id: 1, name: 'Allgemein' },
+      { id: 2, name: 'allgemein (Notizbuch)' },
+      { id: 3, name: 'Uni' },
+      { id: 4, name: 'Uni (4)' },
+      { id: 5, name: 'Uni (Notizbuch)' },
+      { id: 6, name: 'Rezepte' },
+    ]);
+    old.close();
+  });
+});
+
+describe('all notes and tags (US-26: of every notebook, with board or without)', () => {
   const titles = (notes: { title: string }[]) => notes.map((n) => n.title);
 
-  it('lists the notes of every notebook, newest first, filtered by text and tags; project notes stay out', async () => {
+  it('lists the notes of every notebook, newest first, filtered by text and tags', async () => {
     const studium = await newNotebook('Studium');
     const rezepte = await newNotebook('Rezepte');
     await api.post('/api/projects/1/notes').send({ title: 'Sprint', content: 'Retro', tags: ['meeting'] });
@@ -157,15 +217,15 @@ describe('all notes and tags of Wissen: notebooks only', () => {
     await api.delete(`/api/notes/${gone.id}`);
 
     const all = (await api.get('/api/notes')).body as { title: string; projectId: number }[];
-    expect(titles(all)).toEqual(['Vorlesung', 'Suppe']);
+    expect(titles(all)).toEqual(['Vorlesung', 'Suppe', 'Sprint']);
     expect(all[0]).toMatchObject({ projectId: studium.id, tags: ['meeting', 'uni'] });
 
-    expect(titles((await api.get('/api/notes?tag=meeting')).body)).toEqual(['Vorlesung', 'Suppe']);
+    expect(titles((await api.get('/api/notes?tag=meeting')).body)).toEqual(['Vorlesung', 'Suppe', 'Sprint']);
     expect(titles((await api.get('/api/notes?tag=meeting&tag=uni')).body)).toEqual(['Vorlesung']);
-    expect(titles((await api.get('/api/notes?q=retro')).body)).toEqual(['Vorlesung']);
+    expect(titles((await api.get('/api/notes?q=retro')).body)).toEqual(['Vorlesung', 'Sprint']);
   });
 
-  it('counts the tags of the notebooks only', async () => {
+  it('counts the tags of every notebook', async () => {
     const studium = await newNotebook('Studium');
     await api.post('/api/projects/1/notes').send({ title: 'A', content: '', tags: ['meeting', 'projekt'] });
     await api.post(`/api/projects/${studium.id}/notes`).send({ title: 'B', content: '', tags: ['meeting', 'uni'] });
@@ -174,7 +234,8 @@ describe('all notes and tags of Wissen: notebooks only', () => {
 
     const tags = (await api.get('/api/tags')).body as { name: string; noteCount: number }[];
     expect(tags.map((t) => [t.name, t.noteCount])).toEqual([
-      ['meeting', 1],
+      ['meeting', 2],
+      ['projekt', 1],
       ['uni', 1],
     ]);
   });

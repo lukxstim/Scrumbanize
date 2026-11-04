@@ -5,7 +5,7 @@ import type { Attachment, AttachmentOwner } from '../types/attachment';
 import type { AuthSession, AuthUser } from '../types/auth';
 import type { Folder, Note, NoteInput } from '../types/note';
 import type { Backlink, ContentRef, LinkCandidate, ResolvedLink } from '../types/link';
-import type { Project, ProjectInput, ProjectMember, ProjectRole } from '../types/project';
+import type { Project, ProjectInput, ProjectMember, ProjectPatch, ProjectRole } from '../types/project';
 import type { ProjectColor } from '../types/project';
 import type { BoardColumn, Label, Lane, LinkKind, Task, TaskInput, TaskPatch } from '../types/task';
 import type { Template, TemplateInput, TemplateKind } from '../types/template';
@@ -130,7 +130,7 @@ export const metaApi = {
 export const projectsApi = {
   list: () => request<Project[]>('/projects'),
   create: (input: ProjectInput) => request<Project>('/projects', { method: 'POST', body: JSON.stringify(input) }),
-  update: (id: number, patch: Partial<ProjectInput>) =>
+  update: (id: number, patch: ProjectPatch) =>
     request<Project>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
   /** Moves the project to the trash. */
   remove: (id: number) => trashRequest<void>(`/projects/${id}`, { method: 'DELETE' }),

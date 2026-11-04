@@ -16,10 +16,10 @@ export function notesRouter(notes: NotesRepository, folders: FoldersRepository, 
   const read = access.requireRole('viewer', access.of.note());
   const edit = access.requireRole('member', access.of.note());
 
-  /** "Alle Notizen" in Wissen (US-22): the notes of every notebook the user can see, `?q=` and `?tag=` as per project. */
+  /** "Alle Notizen" (US-22, US-26): the notes of every notebook the user can see, `?q=` and `?tag=` as per project. */
   router.get('/', (req, res) => {
     const { q, tag } = noteListQuerySchema.parse(req.query);
-    res.json(notes.listInNotebooks(access.projectIds(userOf(res)!), { q, tags: tag }));
+    res.json(notes.listAcross(access.projectIds(userOf(res)!), { q, tags: tag }));
   });
 
   router.get('/:id', read, (req, res) => {
@@ -58,12 +58,12 @@ export function notesRouter(notes: NotesRepository, folders: FoldersRepository, 
   return router;
 }
 
-/** GET /api/tags — the tags of Wissen (US-22): tags of the notes in all the user's notebooks, with counts. */
+/** GET /api/tags — the tags beside "Alle Notizen" (US-22, US-26): tags of the notes in all the user's notebooks, with counts. */
 export function tagsRouter(notes: NotesRepository, access: Access): Router {
   const router = Router();
 
   router.get('/', (_req, res) => {
-    res.json(notes.listNotebookTags(access.projectIds(userOf(res)!)));
+    res.json(notes.listTagsAcross(access.projectIds(userOf(res)!)));
   });
 
   return router;

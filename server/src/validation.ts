@@ -29,9 +29,9 @@ export type NotebookIcon = (typeof NOTEBOOK_ICONS)[number];
 export const projectInputSchema = z.object({
   name: z.string().trim().min(1).max(60),
   color: z.enum(PROJECT_COLORS),
-  /** A notebook (US-22): notes only, no board. Fixed once created. */
+  /** A notebook (US-22): notes only, no board. Since US-26 the board can be switched on later (`board`). */
   kind: z.enum(['project', 'notebook']).default('project'),
-  /** Notebooks only. */
+  /** Notebooks get "book" without one; null shows the color. */
   icon: z.enum(NOTEBOOK_ICONS).nullable().optional(),
 });
 
@@ -41,6 +41,8 @@ export const projectPatchSchema = z.object({
   name: projectInputSchema.shape.name.optional(),
   color: projectInputSchema.shape.color.optional(),
   icon: projectInputSchema.shape.icon,
+  /** The board on (a project) or off (a notebook, US-26); switching it off hides its tasks, it deletes none. */
+  board: z.boolean().optional(),
 });
 
 export type ProjectPatch = z.infer<typeof projectPatchSchema>;

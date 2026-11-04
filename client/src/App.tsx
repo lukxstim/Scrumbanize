@@ -8,12 +8,11 @@ import ActivityDrawer from './components/activity/ActivityDrawer';
 import UserMenu from './components/auth/UserMenu';
 import CalendarPage from './components/calendar/CalendarPage';
 import TrashPage from './components/trash/TrashPage';
-import { BoardIcon, CalendarIcon, ChartIcon, FolderIcon, HistoryIcon, SettingsIcon, NoteIcon, SearchIcon, TrashIcon } from './components/icons';
+import { BoardIcon, CalendarIcon, ChartIcon, HistoryIcon, SettingsIcon, NoteIcon, SearchIcon, TrashIcon } from './components/icons';
 import NotesPage from './components/notes/NotesPage';
 import AllNotesPage from './components/knowledge/AllNotesPage';
 import KnowledgeLayout from './components/knowledge/KnowledgeLayout';
 import NewProjectHost from './components/projects/NewProjectHost';
-import { NotebookGlyph } from './components/projects/NotebookSymbol';
 import ProjectLayout from './components/projects/ProjectLayout';
 import ProjectSwitcher from './components/projects/ProjectSwitcher';
 import RedirectToProject from './components/projects/RedirectToProject';
@@ -33,8 +32,8 @@ import { useTrashCount } from './hooks/useTrash';
 import { onTourStartRequest } from './utils/appEvents';
 import { closedTourState, INITIAL_TOUR_STATE, isTourState, TOUR_STORAGE_KEY } from './utils/tour';
 import { isReminderState, REMINDER_STORAGE_KEY, reminderStep, type ReminderState } from './utils/updateReminder';
-import { areaTarget, lastAreaPath, rememberAreaPath } from './utils/areas';
 import { ACTIVITY_PARAM, KNOWLEDGE_PATH, paths, withActivityDrawer } from './utils/paths';
+import { hasBoard } from './utils/projects';
 
 // Loaded on first visit, so the charting library stays out of the main bundle.
 const AnalyticsPage = lazy(() => import('./components/analytics/AnalyticsPage'));
@@ -73,10 +72,9 @@ export default function App() {
   const toast = useToast();
   const projectMatch = useMatch('/p/:projectId/*');
   const activeProject = projects.find((p) => p.id === Number(projectMatch?.params.projectId));
-  // The two areas (US-22): projects with notes, board, calendar and statistics; Wissen with "Alle Notizen" and the
-  // notebooks. Account pages belong to neither.
-  const inProjects = activeProject?.kind === 'project';
-  const onKnowledge = useMatch(`${KNOWLEDGE_PATH}/*`) !== null || activeProject?.kind === 'notebook';
+  // One area for all notebooks (US-26); those with their board switched on also have board, calendar and statistics.
+  const withBoard = activeProject !== undefined && hasBoard(activeProject);
+  const onAllNotes = useMatch(`${KNOWLEDGE_PATH}/*`) !== null;
   // A task's details are shown on the board, so the Board tab stays active there.
   const boardMatch = useMatch('/p/:projectId/board');
   const taskMatch = useMatch('/p/:projectId/tasks/:taskId');
@@ -104,21 +102,6 @@ export default function App() {
   const others = useProjectPresence(activeProject?.id);
   const offline = useRealtimeStatus() === 'reconnecting';
   useRestoreNotice();
-
-  // The area switch comes back to the page last shown in the other area (without the activity drawer).
-  useEffect(() => {
-    if (inProjects) {
-      rememberAreaPath('projects', location.pathname);
-    } else if (onKnowledge) {
-      const params = new URLSearchParams(location.search);
-      params.delete(ACTIVITY_PARAM);
-      const search = params.toString();
-      rememberAreaPath('knowledge', `${location.pathname}${search ? `?${search}` : ''}`);
-    }
-  }, [inProjects, onKnowledge, location.pathname, location.search]);
-  // Inside an area, its entry leads to the area's start: the current project stays, Wissen shows "Alle Notizen".
-  const projectsTarget = inProjects ? location.pathname : areaTarget('projects', lastAreaPath('projects'), projects);
-  const knowledgeTarget = onKnowledge ? KNOWLEDGE_PATH : areaTarget('knowledge', lastAreaPath('knowledge'), projects);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   // The onboarding tour starts by itself once the first project is shown, unless it was dismissed for good
@@ -126,8 +109,8 @@ export default function App() {
   const [tourState, setTourState] = useStoredState(TOUR_STORAGE_KEY, INITIAL_TOUR_STATE, isTourState);
   const [tourOpen, setTourOpen] = useState(false);
   const tourOffered = useRef(false);
-  // Not in a notebook: the tour shows the board and its tabs.
-  const hasProject = activeProject?.kind === 'project';
+  // In a notebook with board: the tour shows the board and its tabs.
+  const hasProject = withBoard;
   // It points at the header of wide screens, so phones (US-25) never get it.
   const mobile = useIsMobile();
   useEffect(() => {
@@ -189,10 +172,9 @@ export default function App() {
     <div className="flex h-dvh flex-col bg-canvas text-fg">
       {/*
         The header gets compact in steps, so it never overflows: below xl (1280 px) the tabs show only icons and the
-        wordmark goes (the names of the two areas stay), below lg (1024 px, the desktop app's minimum width) the search
-        and the area switch are icons. Below md (768 px, phones, US-25) it keeps logo, project, search and account; the
-        tabs, the areas and the tools move to the bottom navigation (MobileNav). The top padding keeps it clear of the
-        notch of an installed app.
+        wordmark goes, below lg (1024 px, the desktop app's minimum width) the search is an icon. Below md (768 px,
+        phones, US-25) it keeps logo, notebook, search and account; the tabs and the tools move to the bottom
+        navigation (MobileNav). The top padding keeps it clear of the notch of an installed app.
       */}
       <header className="relative z-20 flex h-[calc(3.25rem+env(safe-area-inset-top))] shrink-0 items-center gap-2 border-b border-line bg-surface/80 px-3 pt-[env(safe-area-inset-top)] backdrop-blur-md lg:gap-3 lg:px-4">
         {/* The logo leads back to the last project used, e.g. from the profile or the user management. */}
@@ -205,28 +187,8 @@ export default function App() {
           <img src="/scrumbanize-logo.png" alt="" width={28} height={28} className="size-7 rounded-md shadow-sm" />
           <span className="sr-only text-sm font-semibold tracking-tight xl:not-sr-only">Scrumbanize</span>
         </Link>
-        {/* The two areas (US-22), always in the same place: projects (with board) and Wissen (notebooks). */}
-        <nav className="inline-flex shrink-0 rounded-lg bg-surface-muted p-0.5 ring-1 ring-line ring-inset max-md:hidden lg:ml-1" aria-label="Bereiche" data-tour="areas">
-          <Link
-            to={projectsTarget}
-            aria-current={inProjects ? 'page' : undefined}
-            title="Projekte: Notizen, Board, Kalender und Statistiken"
-            className={tabClass(inProjects)}
-          >
-            <FolderIcon className="size-3.5" />
-            <span className="sr-only lg:not-sr-only">Projekte</span>
-          </Link>
-          <Link
-            to={knowledgeTarget}
-            aria-current={onKnowledge ? 'page' : undefined}
-            title="Wissen: Notizbücher für alles, was zu keinem Projekt gehört"
-            className={tabClass(onKnowledge)}
-          >
-            <NotebookGlyph icon="book" className="size-3.5" />
-            <span className="sr-only lg:not-sr-only">Wissen</span>
-          </Link>
-        </nav>
-        {activeProject && inProjects && (
+        {/* The notebook shown (US-26: one area for all), its notes and – with board – board, calendar and statistics. */}
+        {activeProject && (
           <>
             <span className="h-5 w-px shrink-0 bg-line max-md:hidden" aria-hidden="true" />
             <ProjectSwitcher active={activeProject} section={section} />
@@ -238,18 +200,22 @@ export default function App() {
                 <NoteIcon className="size-3.5" />
                 <TabLabel>Notizen</TabLabel>
               </NavLink>
-              <NavLink to={paths.board(activeProject.id)} className={() => tabClass(onBoard)} data-tour="tab-board" title="Board">
-                <BoardIcon className="size-3.5" />
-                <TabLabel>Board</TabLabel>
-              </NavLink>
-              <NavLink to={paths.calendar(activeProject.id)} className={({ isActive }) => tabClass(isActive)} data-tour="tab-calendar" title="Kalender">
-                <CalendarIcon className="size-3.5" />
-                <TabLabel>Kalender</TabLabel>
-              </NavLink>
-              <NavLink to={paths.analytics(activeProject.id)} className={({ isActive }) => tabClass(isActive)} data-tour="tab-analytics" title="Statistiken">
-                <ChartIcon className="size-3.5" />
-                <TabLabel>Statistiken</TabLabel>
-              </NavLink>
+              {withBoard && (
+                <>
+                  <NavLink to={paths.board(activeProject.id)} className={() => tabClass(onBoard)} data-tour="tab-board" title="Board">
+                    <BoardIcon className="size-3.5" />
+                    <TabLabel>Board</TabLabel>
+                  </NavLink>
+                  <NavLink to={paths.calendar(activeProject.id)} className={({ isActive }) => tabClass(isActive)} data-tour="tab-calendar" title="Kalender">
+                    <CalendarIcon className="size-3.5" />
+                    <TabLabel>Kalender</TabLabel>
+                  </NavLink>
+                  <NavLink to={paths.analytics(activeProject.id)} className={({ isActive }) => tabClass(isActive)} data-tour="tab-analytics" title="Statistiken">
+                    <ChartIcon className="size-3.5" />
+                    <TabLabel>Statistiken</TabLabel>
+                  </NavLink>
+                </>
+              )}
             </nav>
           </>
         )}
@@ -360,7 +326,7 @@ export default function App() {
             }
           />
         </Route>
-        {/* Wissen (US-22): "Alle Notizen" beside the sidebar of notebooks and tags; a notebook lives under /p/:id. */}
+        {/* "Alle Notizen" (US-22, US-26) beside the sidebar of notebooks and tags; a notebook lives under /p/:id. */}
         <Route
           path={`${KNOWLEDGE_PATH}/notizen?/:noteId?`}
           element={
@@ -395,8 +361,8 @@ export default function App() {
         <ActivityDrawer key={activeProject.id} projectId={activeProject.id} projectName={activeProject.name} onClose={closeActivity} />
       )}
 
-      {/* The tour points at the header of a project, so it waits while Wissen is shown. */}
-      {tourOpen && !paletteOpen && inProjects && !mobile && (
+      {/* The tour points at the tabs of a board, so it waits while a notebook without one is shown. */}
+      {tourOpen && !paletteOpen && withBoard && !mobile && (
         <Tour
           onClose={(dontShowAgain) => {
             setTourOpen(false);
@@ -408,8 +374,7 @@ export default function App() {
       <MobileNav
         activeProject={activeProject}
         section={section}
-        onKnowledge={onKnowledge}
-        knowledgeTarget={knowledgeTarget}
+        onAllNotes={onAllNotes}
         trashCount={trashCount}
         pathname={location.pathname}
         search={location.search}

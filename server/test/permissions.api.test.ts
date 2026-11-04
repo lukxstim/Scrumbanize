@@ -208,7 +208,7 @@ describe('what each user sees', () => {
     expect(await list('admin')).toEqual([]);
   });
 
-  it('lists the notes and tags of Wissen (US-22) only from their own notebooks', async () => {
+  it('lists all notes and tags (US-22, US-26) only from their own notebooks and projects', async () => {
     const f = await fixture();
     const notebook = (await request(f.app).post('/api/projects').set('Cookie', f.cookie.outsider).send({ name: 'Privat', color: 'pink', kind: 'notebook' })).body;
     await request(f.app).post(`/api/projects/${notebook.id}/notes`).set('Cookie', f.cookie.outsider).send({ title: 'Tagebuch', content: '', tags: ['geheim'] });
@@ -217,11 +217,11 @@ describe('what each user sees', () => {
     await request(f.app).post(`/api/projects/${shared.id}/notes`).set('Cookie', f.cookie.owner).send({ title: 'Protokoll', content: '', tags: ['team'] });
 
     const notes = async (who: Who) => ((await request(f.app).get('/api/notes').set('Cookie', f.cookie[who])).body as { title: string }[]).map((n) => n.title);
-    // The project note "Notiz" of the fixture stays in its project.
-    expect(await notes('owner')).toEqual(['Protokoll']);
-    expect(await notes('viewer')).toEqual(['Protokoll']);
+    // With the project note "Notiz" of the fixture, for everyone in its project.
+    expect(await notes('owner')).toEqual(['Protokoll', 'Notiz']);
+    expect(await notes('viewer')).toEqual(['Protokoll', 'Notiz']);
     expect(await notes('outsider')).toEqual(['Tagebuch']);
-    expect(await notes('member')).toEqual([]);
+    expect(await notes('member')).toEqual(['Notiz']);
 
     const tags = async (who: Who) => ((await request(f.app).get('/api/tags').set('Cookie', f.cookie[who])).body as { name: string }[]).map((t) => t.name);
     expect(await tags('viewer')).toEqual(['team']);

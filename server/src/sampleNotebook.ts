@@ -6,7 +6,8 @@ import { createMetaRepository } from './repositories/metaRepository.js';
 import { createNotesRepository } from './repositories/notesRepository.js';
 import { createProjectsRepository } from './repositories/projectsRepository.js';
 
-export const SAMPLE_NOTEBOOK_NAME = 'Willkommen in Wissen';
+export const SAMPLE_NOTEBOOK_NAME = 'Wissen & Ideen';
+export const SAMPLE_GUIDE_TITLE = 'So funktionieren Notizbücher';
 
 const RECIPE_NOTE = `Ein Beispiel für ein Notizbuch voller Rezepte – ersetze es gern durch deine eigenen.
 
@@ -26,31 +27,32 @@ const RECIPE_NOTE = `Ein Beispiel für ein Notizbuch voller Rezepte – ersetze 
 4. Nudeln abgießen, mit dem Guanciale mischen, Pfanne vom Herd nehmen und die Eimasse unterrühren.`;
 
 function guideNote(recipeId: number, welcome: { id: number; title: string } | undefined): string {
-  return `# Wissen: alles, was zu keinem Projekt gehört
+  return `# Notizbücher: alles an einem Ort
 
-Oben links wechselst du zwischen **Projekte** (Notizen, Board, Kalender) und **Wissen**. Hier in Wissen sammelst du Notizen ohne Board – Rezepte, Mitschriften, Ideen. Dieses Notizbuch ist ein Beispiel: schau dich um, ändere alles und lösche es, wenn du es nicht mehr brauchst.
+Links siehst du alle deine Notizbücher – fürs Studium, ein Projekt oder Rezepte. Manche haben ein **Board** für ihre Aufgaben (mit Kalender und Statistiken), andere sind reine Notizen. Dieses Notizbuch ist ein Beispiel ohne Board: schau dich um, ändere alles und lösche es, wenn du es nicht mehr brauchst.
 
 ## Erste Schritte
 
 - [ ] Links bei „Notizbücher“ mit **+** ein eigenes Notizbuch anlegen, mit Farbe und Symbol
 - [ ] In der Notizliste einen **Ordner** anlegen und eine Notiz hineinziehen – so wie [Pasta Carbonara](note:${recipeId}) im Ordner „Rezepte“
 - [ ] Einer Notiz **Tags** geben; links unter „Tags“ findest du dann alle Notizen damit
-- [ ] **[[** tippen und eine Notiz oder Aufgabe auswählen – auch aus Projekten
-- [ ] Über **⋯** neben einem Notizbuch: umbenennen, Symbol ändern oder mit anderen teilen
+- [ ] **[[** tippen und eine Notiz oder Aufgabe auswählen – auch aus anderen Notizbüchern
+- [ ] Über **⋯** neben einem Notizbuch: umbenennen, Symbol ändern, das **Board einschalten** oder mit anderen teilen
 
 ## Gut zu wissen
 
 - „Alle Notizen“ zeigt die Notizen aus all deinen Notizbüchern auf einen Blick.
-- Mit <mark data-color="yellow">Strg+K</mark> (Mac: ⌘K) suchst du überall – in Notizbüchern und Projekten.
-- Aus einer Notiz wird mit „In Task umwandeln“ eine Aufgabe in einem Projekt deiner Wahl.${
-    welcome ? `\n- Mehr über Projekte und das Board steht in [${welcome.title}](note:${welcome.id}).` : ''
+- Mit <mark data-color="yellow">Strg+K</mark> (Mac: ⌘K) suchst du überall.
+- Aus einer Notiz wird mit „In Task umwandeln“ eine Aufgabe auf einem Board deiner Wahl.
+- Schaltest du ein Board wieder aus, werden seine Aufgaben nur ausgeblendet, nicht gelöscht.${
+    welcome ? `\n- Mehr über das Board steht in [${welcome.title}](note:${welcome.id}).` : ''
   }`;
 }
 
 /**
- * Creates the sample notebook (US-22) once per installation: a guide to Wissen, linking to a recipe in a folder and,
- * if it still exists, to the welcome note of the sample project. Existing installations get it on their first start
- * with Wissen; once deleted it never comes back. With login, the administrators own it (on a new server the first
+ * Creates the sample notebook (US-22, without board) once per installation: a guide to the notebooks, linking to a
+ * recipe in a folder and, if it still exists, to the welcome note of the sample project. Existing installations got it
+ * on their first start with notebooks; once deleted it never comes back. With login, the administrators own it (on a new server the first
  * administrator becomes owner at the setup, like of every project). Returns its id, or undefined if it was made
  * before.
  */
@@ -64,7 +66,7 @@ export function seedSampleNotebookOnce(db: Db): number | undefined {
 
   return db.transaction(() => {
     const created = projects.create({ name: SAMPLE_NOTEBOOK_NAME, color: 'amber', kind: 'notebook', icon: 'lightbulb' });
-    // The name is taken by a notebook of the user: leave Wissen as it is.
+    // The name is taken by a notebook of the user: leave the notebooks as they are.
     if (!created.ok) {
       meta.set('sample_notebook_id', '');
       return undefined;
@@ -76,7 +78,7 @@ export function seedSampleNotebookOnce(db: Db): number | undefined {
 
     const sampleProjectId = meta.sampleProjectId();
     const welcome = sampleProjectId === null ? undefined : notes.list(sampleProjectId).find((n) => n.title === 'So funktioniert Scrumbanize');
-    notes.create(notebookId, { title: 'So funktioniert Wissen', content: guideNote(recipe.id, welcome), tags: ['beispiel', 'einstieg'] });
+    notes.create(notebookId, { title: SAMPLE_GUIDE_TITLE, content: guideNote(recipe.id, welcome), tags: ['beispiel', 'einstieg'] });
 
     for (const { id } of db
       .prepare<[], { id: number }>(`SELECT id FROM users WHERE system_role = 'admin' AND password_hash IS NOT NULL AND disabled_at IS NULL`)

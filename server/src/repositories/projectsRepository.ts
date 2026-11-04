@@ -11,7 +11,10 @@ import { createLabelsRepository } from './labelsRepository.js';
 export const PROJECT_COLORS = ['slate', 'red', 'amber', 'emerald', 'sky', 'indigo', 'violet', 'pink'] as const;
 export type ProjectColor = (typeof PROJECT_COLORS)[number];
 
-/** A project has a board; a notebook (US-22) only notes, folders and the rest that comes with a project. */
+/**
+ * A project has a board; a notebook (US-22) only notes, folders and the rest that comes with a project. Since US-26
+ * both are notebooks in one area, and the kind says whether the board is switched on.
+ */
 export type ProjectKind = 'project' | 'notebook';
 
 export interface Project {
@@ -19,9 +22,10 @@ export interface Project {
   name: string;
   color: ProjectColor;
   kind: ProjectKind;
-  /** Notebooks: one of the fixed symbols; null for projects. */
+  /** One of the fixed symbols; null shows the color instead (projects from before US-26). */
   icon: NotebookIcon | null;
   noteCount: number;
+  /** Also the tasks of a board that is switched off (US-26), so switching it off can say how many it hides. */
   taskCount: number;
   createdAt: string;
   updatedAt: string;
@@ -39,7 +43,7 @@ interface ProjectRow {
   updated_at: string;
 }
 
-export type ProjectResult = { ok: true; project: Project } | { ok: false; reason: 'not_found' | 'name_taken' };
+export type ProjectResult = { ok: true; project: Project } | { ok: false; reason: 'not_found' | 'name_taken' | 'last_project' };
 
 /** A restored project whose name was taken meanwhile gets a free name like "Studium (2)". */
 export type RestoreResult = { project: Project; renamedFrom?: string };
@@ -56,11 +60,11 @@ export function createProjectsRepository(db: Db) {
   const selectProjects = db.prepare<[], ProjectRow>(
     `SELECT p.*,
        (SELECT COUNT(*) FROM live_notes WHERE project_id = p.id) AS note_count,
-       (SELECT COUNT(*) FROM live_tasks WHERE project_id = p.id) AS task_count
+       (SELECT COUNT(*) FROM tasks WHERE project_id = p.id AND deleted_at IS NULL) AS task_count
      FROM live_projects p`,
   );
-  // Names are unique per kind (US-22): a project and a notebook may share one.
-  const selectNames = db.prepare<[string], { id: number; name: string }>(`SELECT id, name FROM live_projects WHERE kind = ?`);
+  // Names are unique across projects and notebooks (US-26: one area).
+  const selectNames = db.prepare<[], { id: number; name: string }>(`SELECT id, name FROM live_projects`);
   const projectExists = db.prepare<[number], { found: 1 }>(`SELECT 1 AS found FROM live_projects WHERE id = ?`);
   const countProjects = db.prepare<[], { n: number }>(`SELECT COUNT(*) AS n FROM live_projects WHERE kind = 'project'`);
   const selectTrashedProject = db.prepare<[number], { id: number; name: string; kind: ProjectKind }>(
@@ -81,6 +85,9 @@ export function createProjectsRepository(db: Db) {
     `UPDATE projects SET name = COALESCE(?, name), color = COALESCE(?, color), updated_at = ? WHERE id = ?`,
   );
   const updateIcon = db.prepare<[NotebookIcon | null, number]>(`UPDATE projects SET icon = ? WHERE id = ?`);
+  const updateKind = db.prepare<[ProjectKind, number]>(`UPDATE projects SET kind = ? WHERE id = ?`);
+  const hasColumns = db.prepare<[number], { found: 1 }>(`SELECT 1 AS found FROM board_columns WHERE project_id = ? LIMIT 1`);
+  const hasLabels = db.prepare<[number], { found: 1 }>(`SELECT 1 AS found FROM labels WHERE project_id = ? LIMIT 1`);
   const deleteProject = db.prepare<[number]>(`DELETE FROM projects WHERE id = ?`);
   const deleteUnusedTags = db.prepare(`DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM note_tags)`);
 
@@ -98,17 +105,23 @@ export function createProjectsRepository(db: Db) {
     };
   }
 
-  function nameTaken(kind: ProjectKind, name: string, exceptId?: number): boolean {
-    return selectNames.all(kind).some((p) => p.id !== exceptId && sameName(p.name, name));
+  function nameTaken(name: string, exceptId?: number): boolean {
+    return selectNames.all().some((p) => p.id !== exceptId && sameName(p.name, name));
+  }
+
+  /** The default board, unless the notebook still has the one from when its board was on before (US-26). */
+  function setUpBoard(id: number) {
+    if (!hasColumns.get(id)) board.createDefaults(id);
+    if (!hasLabels.get(id)) labels.createStarters(id);
   }
 
   /** `name`, or the first of "name (2)", "name (3)" … that no project (or notebook) outside the trash uses. */
-  function freeName(kind: ProjectKind, name: string): string {
-    if (!nameTaken(kind, name)) return name;
+  function freeName(name: string): string {
+    if (!nameTaken(name)) return name;
     for (let n = 2; ; n++) {
       const suffix = ` (${n})`;
       const candidate = `${name.slice(0, MAX_NAME_LENGTH - suffix.length).trimEnd()}${suffix}`;
-      if (!nameTaken(kind, candidate)) return candidate;
+      if (!nameTaken(candidate)) return candidate;
     }
   }
 
@@ -138,13 +151,10 @@ export function createProjectsRepository(db: Db) {
     /** Also sets up a project's default board (five columns, one lane, starter labels); a notebook gets none. */
     create: db.transaction((input: Omit<ProjectInput, 'kind'> & { kind?: ProjectKind }): ProjectResult => {
       const kind = input.kind ?? 'project';
-      if (nameTaken(kind, input.name)) return { ok: false, reason: 'name_taken' };
+      if (nameTaken(input.name)) return { ok: false, reason: 'name_taken' };
       const now = new Date().toISOString();
-      const { id } = insertProject.get(input.name, input.color, kind, kind === 'notebook' ? (input.icon ?? 'book') : null, now, now)!;
-      if (kind === 'project') {
-        board.createDefaults(id);
-        labels.createStarters(id);
-      }
+      const { id } = insertProject.get(input.name, input.color, kind, input.icon ?? (kind === 'notebook' ? 'book' : null), now, now)!;
+      if (kind === 'project') setUpBoard(id);
       // Whoever creates a project owns it (US-21); outside a request (sample project) nobody does yet.
       const userId = currentUserId();
       if (userId !== undefined) insertOwner.run(id, userId, now);
@@ -162,11 +172,14 @@ export function createProjectsRepository(db: Db) {
     update: db.transaction((id: number, patch: ProjectPatch): ProjectResult => {
       const before = list().find((p) => p.id === id);
       if (!before) return { ok: false, reason: 'not_found' };
-      if (patch.name !== undefined && nameTaken(before.kind, patch.name, id)) return { ok: false, reason: 'name_taken' };
+      if (patch.name !== undefined && nameTaken(patch.name, id)) return { ok: false, reason: 'name_taken' };
+      const kind: ProjectKind = patch.board === undefined ? before.kind : patch.board ? 'project' : 'notebook';
+      // One board always stays, as the last project could not be deleted: tasks need a place.
+      if (kind === 'notebook' && before.kind === 'project' && countProjects.get()!.n <= 1) return { ok: false, reason: 'last_project' };
       updateProject.run(patch.name ?? null, patch.color ?? null, new Date().toISOString(), id);
-      // Only notebooks have a symbol.
-      if (patch.icon !== undefined && before.kind === 'notebook' && patch.icon !== before.icon) {
-        updateIcon.run(patch.icon ?? 'book', id);
+      // Every notebook may have a symbol since US-26; without one, it shows its color.
+      if (patch.icon !== undefined && patch.icon !== before.icon) {
+        updateIcon.run(patch.icon, id);
         activities.record({ projectId: id, entityType: 'project', entityId: id, actionType: 'update', description: text.projectRestyled(patch.name ?? before.name), metadata: { icon: { from: before.icon, to: patch.icon } } });
       }
 
@@ -177,6 +190,12 @@ export function createProjectsRepository(db: Db) {
       }
       if (patch.color !== undefined && patch.color !== before.color) {
         log(text.projectRecolored(patch.name ?? before.name, before.kind), { color: { from: before.color, to: patch.color } });
+      }
+      // The board on or off (US-26): its tasks stay as they are and are only hidden while it is off.
+      if (kind !== before.kind) {
+        updateKind.run(kind, id);
+        if (kind === 'project') setUpBoard(id);
+        log(text.boardSwitched(patch.name ?? before.name, kind === 'project'), { board: { from: before.kind === 'project', to: kind === 'project' } });
       }
       return { ok: true, project: list().find((p) => p.id === id)! };
     }),
@@ -205,7 +224,7 @@ export function createProjectsRepository(db: Db) {
     restore: db.transaction((id: number): RestoreResult | undefined => {
       const trashed = selectTrashedProject.get(id);
       if (!trashed) return undefined;
-      const name = freeName(trashed.kind, trashed.name);
+      const name = freeName(trashed.name);
       if (name !== trashed.name) setName.run(name, id);
       setDeletedAt.run(null, id);
       const renamed = name !== trashed.name;

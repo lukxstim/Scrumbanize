@@ -422,6 +422,25 @@ export const migrations: string[] = [
   );
   CREATE INDEX idx_content_links_target ON content_links(target_type, target_id);
   `,
+  // One area for all notebooks (US-26): a project is a notebook with its board switched on (kind 'project'). Names
+  // are unique across both kinds again; a notebook that shares its name with a project is renamed, with its id if
+  // even "… (Notizbuch)" is taken. Switching a board off keeps its tasks: live_tasks leaves them out until it is on.
+  `
+  UPDATE projects SET name = substr(name, 1, 47) || ' (Notizbuch)'
+    WHERE kind = 'notebook' AND deleted_at IS NULL
+      AND EXISTS (SELECT 1 FROM projects p WHERE p.kind = 'project' AND p.deleted_at IS NULL AND p.name = projects.name)
+      AND NOT EXISTS (SELECT 1 FROM projects p WHERE p.deleted_at IS NULL AND p.name = substr(projects.name, 1, 47) || ' (Notizbuch)');
+  UPDATE projects SET name = substr(name, 1, 40) || ' (' || id || ')'
+    WHERE kind = 'notebook' AND deleted_at IS NULL
+      AND EXISTS (SELECT 1 FROM projects p WHERE p.kind = 'project' AND p.deleted_at IS NULL AND p.name = projects.name);
+  DROP INDEX idx_projects_live_name;
+  CREATE UNIQUE INDEX idx_projects_live_name ON projects(name) WHERE deleted_at IS NULL;
+
+  DROP VIEW live_tasks;
+  CREATE VIEW live_tasks AS
+    SELECT t.* FROM tasks t JOIN projects p ON p.id = t.project_id
+    WHERE t.deleted_at IS NULL AND p.deleted_at IS NULL AND p.kind = 'project';
+  `,
 ];
 
 export interface OpenOptions {

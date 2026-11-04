@@ -7,11 +7,11 @@ import { notesApi } from '../../utils/api';
 import { onNotesChanged, requestNewProject } from '../../utils/appEvents';
 import { allNotesPath, KNOWLEDGE_PATH, paths, TAG_PARAM } from '../../utils/paths';
 import { can } from '../../utils/permissions';
-import { ofKind } from '../../utils/projects';
-import { ChevronDownIcon, NoteIcon, PlusIcon } from '../icons';
+import { hasBoard } from '../../utils/projects';
+import { BoardIcon, ChevronDownIcon, NoteIcon, PlusIcon } from '../icons';
 import Menu, { type MenuItem } from '../Menu';
 import ManageProjectDialogs, { type ManageDialog } from '../projects/ManageProjectDialogs';
-import NotebookSymbol from '../projects/NotebookSymbol';
+import { ProjectMark } from '../projects/ProjectSwitcher';
 import Dialog from '../ui/Dialog';
 import { iconButtonClass } from '../ui/styles';
 
@@ -30,13 +30,12 @@ function Heading({ children, action }: { children: string; action?: ReactNode })
 }
 
 /**
- * The left column of Wissen (US-22), on "Alle Notizen" and inside every notebook: "Alle Notizen", the notebooks
- * (each with its menu for editing, members and deleting) and the tags of all notebook notes. On phones (US-25) the
- * same list opens as a sheet (`inSheet`); `onNavigate` closes it once a link was chosen.
+ * The left column of the notes (US-22; since US-26 one area for all notebooks, OneNote-style): "Alle Notizen", every
+ * notebook with board or without (each with its menu for editing, members and deleting) and the tags of all notes. On
+ * phones (US-25) the same list opens as a sheet (`inSheet`); `onNavigate` closes it once a link was chosen.
  */
 function KnowledgeSidebar({ inSheet = false, onNavigate }: { inSheet?: boolean; onNavigate?: () => void }) {
-  const { projects, reload } = useProjects();
-  const notebooks = ofKind(projects, 'notebook');
+  const { projects: notebooks, reload } = useProjects();
   const withMembers = useAuth().session?.mode === 'required';
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -68,7 +67,7 @@ function KnowledgeSidebar({ inSheet = false, onNavigate }: { inSheet?: boolean; 
 
   return (
     <nav
-      aria-label="Wissen"
+      aria-label="Notizbücher"
       onClick={(event) => {
         if ((event.target as HTMLElement).closest('a')) onNavigate?.();
       }}
@@ -118,8 +117,14 @@ function KnowledgeSidebar({ inSheet = false, onNavigate }: { inSheet?: boolean; 
             return (
               <li key={notebook.id} className="group flex items-center gap-0.5">
                 <Link to={paths.notes(notebook.id)} aria-current={active ? 'page' : undefined} className={rowClass(active)}>
-                  <NotebookSymbol icon={notebook.icon} color={notebook.color} />
+                  <ProjectMark project={notebook} />
                   <span className="flex-1 truncate">{notebook.name}</span>
+                  {hasBoard(notebook) && (
+                    <span title="Mit Board" className="shrink-0 text-fg-faint">
+                      <BoardIcon className="size-3.5" aria-hidden="true" />
+                      <span className="sr-only">(mit Board)</span>
+                    </span>
+                  )}
                   <span className="text-xs text-fg-subtle tabular-nums group-hover:hidden group-focus-within:hidden">{notebook.noteCount}</span>
                 </Link>
                 {items.length > 0 && (
@@ -200,14 +205,14 @@ function KnowledgeSheetButton() {
         onClick={() => setOpen(true)}
         className="flex min-h-11 min-w-0 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-fg"
       >
-        <span className="text-fg-subtle">Wissen ·</span>
+        <span className="text-fg-subtle">Notizen ·</span>
         <span className="truncate">{place}</span>
         <ChevronDownIcon className="size-4 shrink-0 text-fg-subtle" />
       </button>
       <Dialog open={open} onClose={() => setOpen(false)} placement="sheet" closeOnBackdrop labelledBy="knowledge-sheet-title">
         <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-line-strong" aria-hidden="true" />
         <h2 id="knowledge-sheet-title" className="sr-only">
-          Wissen
+          Notizbücher
         </h2>
         {/* Only while open: the sidebar loads the tags itself. */}
         {open && <KnowledgeSidebar inSheet onNavigate={() => setOpen(false)} />}
@@ -216,7 +221,7 @@ function KnowledgeSheetButton() {
   );
 }
 
-/** Wissen (US-22): the sidebar of notebooks and tags beside "Alle Notizen" or a notebook's pages. */
+/** The notes (US-22, US-26): the sidebar of notebooks and tags beside "Alle Notizen" or a notebook's notes. */
 export default function KnowledgeLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-0 flex-1">

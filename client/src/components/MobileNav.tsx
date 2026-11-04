@@ -3,19 +3,17 @@ import { Link } from 'react-router';
 import { useProjects } from '../hooks/useProjects';
 import type { Project } from '../types/project';
 import { paths, withActivityDrawer, type Section } from '../utils/paths';
-import { defaultProject } from '../utils/projects';
+import { defaultProject, hasBoard } from '../utils/projects';
 import { BoardIcon, CalendarIcon, ChartIcon, HistoryIcon, MoreIcon, NoteIcon, SettingsIcon, TrashIcon } from './icons';
-import { NotebookGlyph } from './projects/NotebookSymbol';
 import ThemeSwitcher from './ThemeSwitcher';
 import Dialog from './ui/Dialog';
 
 interface MobileNavProps {
-  /** The project or notebook shown now, if any. */
+  /** The notebook shown now, if any. */
   activeProject: Project | undefined;
   section: Section;
-  onKnowledge: boolean;
-  /** Where "Wissen" leads: the page last shown there. */
-  knowledgeTarget: string;
+  /** "Alle Notizen" is shown. */
+  onAllNotes: boolean;
   trashCount: number;
   /** The current address, for the activity drawer over it. */
   pathname: string;
@@ -28,16 +26,17 @@ const tabClass = (active: boolean) =>
   }`;
 
 /**
- * The bottom navigation of phones (US-25), below md where the header has no room for the tabs: Notizen, Board and
- * Kalender of the project, Wissen, and "Mehr" for statistics, trash, settings, activity and the color scheme. Notizen,
- * Board and Kalender lead to the last project when Wissen is shown.
+ * The bottom navigation of phones (US-25), below md where the header has no room for the tabs: Notizen of the notebook
+ * (its bar above the list opens all notebooks, US-26), Board and Kalender, and "Mehr" for statistics, trash, settings,
+ * activity and the color scheme. Board and Kalender lead to the last notebook with a board when this one has none.
  */
-export default function MobileNav({ activeProject, section, onKnowledge, knowledgeTarget, trashCount, pathname, search }: MobileNavProps) {
+export default function MobileNav({ activeProject, section, onAllNotes, trashCount, pathname, search }: MobileNavProps) {
   const { projects, sampleProjectId } = useProjects();
   const [moreOpen, setMoreOpen] = useState(false);
-  const inProjects = activeProject?.kind === 'project';
-  const project = inProjects ? activeProject : defaultProject(projects, sampleProjectId);
-  const on = (...sections: Section[]) => inProjects && sections.includes(section);
+  const withBoard = activeProject !== undefined && hasBoard(activeProject);
+  const notebook = activeProject ?? defaultProject(projects, sampleProjectId);
+  const boardProject = withBoard ? activeProject : defaultProject(projects, sampleProjectId, true);
+  const on = (...sections: Section[]) => activeProject !== undefined && sections.includes(section);
 
   const tab = (to: string | undefined, active: boolean, icon: ReactNode, label: string) =>
     to ? (
@@ -59,10 +58,9 @@ export default function MobileNav({ activeProject, section, onKnowledge, knowled
         aria-label="Hauptnavigation"
         className="flex shrink-0 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
       >
-        {tab(project && paths.notes(project.id), on('notes', 'graph'), <NoteIcon className="size-5" />, 'Notizen')}
-        {tab(project && paths.board(project.id), on('board'), <BoardIcon className="size-5" />, 'Board')}
-        {tab(project && paths.calendar(project.id), on('calendar'), <CalendarIcon className="size-5" />, 'Kalender')}
-        {tab(knowledgeTarget, onKnowledge, <NotebookGlyph icon="book" className="size-5" />, 'Wissen')}
+        {tab(notebook && paths.notes(notebook.id), onAllNotes || on('notes', 'graph'), <NoteIcon className="size-5" />, 'Notizen')}
+        {tab(boardProject && paths.board(boardProject.id), withBoard && on('board'), <BoardIcon className="size-5" />, 'Board')}
+        {tab(boardProject && paths.calendar(boardProject.id), withBoard && on('calendar'), <CalendarIcon className="size-5" />, 'Kalender')}
         <button
           type="button"
           aria-haspopup="dialog"
@@ -81,7 +79,7 @@ export default function MobileNav({ activeProject, section, onKnowledge, knowled
           Mehr
         </h2>
         <ul className="px-2" onClick={() => setMoreOpen(false)}>
-          {inProjects && (
+          {withBoard && (
             <SheetLink to={paths.analytics(activeProject.id)} icon={<ChartIcon className="size-5" />} active={section === 'analytics'}>
               Statistiken
             </SheetLink>

@@ -11,7 +11,7 @@ import { notesApi, searchApi, type SearchResults } from '../utils/api';
 import { requestNewProject, requestTourStart, type CreateRequest } from '../utils/appEvents';
 import { matchesQuery } from '../utils/matchQuery';
 import { allNotesPath, KNOWLEDGE_PATH, paths, withActivityDrawer } from '../utils/paths';
-import { colorDot, ofKind } from '../utils/projects';
+import { colorDot, hasBoard } from '../utils/projects';
 import { NotebookGlyph } from './projects/NotebookSymbol';
 import { ProjectMark } from './projects/ProjectSwitcher';
 import { UNTITLED_NOTE } from '../utils/taskFromNote';
@@ -26,7 +26,6 @@ import {
   HistoryIcon,
   InfoIcon,
   CompactIcon,
-  FolderIcon,
   MonitorIcon,
   MoonIcon,
   NoteIcon,
@@ -134,8 +133,8 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
     if (!project || projectId === activeProject?.id) return undefined;
     return (
       <span className="flex items-center gap-1.5 text-xs text-fg-subtle">
-        {project.kind === 'notebook' ? (
-          <NotebookGlyph icon={project.icon ?? 'book'} className="size-3" />
+        {project.icon ? (
+          <NotebookGlyph icon={project.icon} className="size-3" />
         ) : (
           <span className={`size-2 rounded-full ${colorDot(project.color)}`} aria-hidden="true" />
         )}
@@ -152,8 +151,8 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
   if (activeProject) {
     // Viewers cannot create anything in the project (US-21), so they get no "Neue Notiz", "Neuer Task" or templates.
     const mayCreate = can(activeProject.role, 'edit');
-    // Notebooks (US-22) have no board: no tasks, calendar or statistics.
-    const withBoard = activeProject.kind === 'project';
+    // Without a board (US-22, US-26): no tasks, calendar or statistics.
+    const withBoard = hasBoard(activeProject);
     const create = (state: CreateRequest) => () =>
       navigate(state.create === 'note' ? paths.notes(activeProject.id) : paths.board(activeProject.id), { state });
     const actions: Item[] = (trimmed
@@ -261,19 +260,12 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
   const switchTo = (p: Project): Item & { label: string } => ({
     id: `project-${p.id}`,
     label: `Zu „${p.name}“ wechseln`,
-    keywords: `${p.kind === 'notebook' ? 'notizbuch wissen' : 'projekt'} wechseln ${p.name}`,
-    icon: p.kind === 'notebook' ? <ProjectMark project={p} /> : <span className={`m-1 size-2 rounded-full ${colorDot(p.color)}`} aria-hidden="true" />,
+    keywords: `notizbuch ${hasBoard(p) ? 'projekt board' : 'wissen'} wechseln ${p.name}`,
+    icon: p.icon ? <ProjectMark project={p} /> : <span className={`m-1 size-2 rounded-full ${colorDot(p.color)}`} aria-hidden="true" />,
     run: () => navigate(paths.notes(p.id)),
   });
   const others = projects.filter((p) => p.id !== activeProject?.id);
-  groups.push({
-    heading: 'Projekte',
-    items: [
-      ...ofKind(others, 'project').map(switchTo),
-      { id: 'new-project', label: 'Neues Projekt …', keywords: 'projekt anlegen erstellen', icon: <FolderIcon />, run: () => requestNewProject('project') },
-    ].filter((item) => matchesQuery(trimmed, item.label, item.keywords)),
-  });
-  // Notebooks (US-22): knowledge outside the projects.
+  // All notebooks in one group (US-26), with board or without.
   // A new note right in another notebook, e.g. "rezepte" or "notiz" → "Neue Notiz in „Rezepte“".
   const newNoteIn = (p: Project): Item & { label: string } => ({
     id: `create-note-in-${p.id}`,
@@ -283,22 +275,22 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
     run: () => navigate(paths.notes(p.id), { state: { create: 'note', title: '' } }),
   });
   groups.push({
-    heading: 'Wissen',
+    heading: 'Notizbücher',
     items: [
       {
         id: 'go-knowledge',
-        label: 'Wissen: Alle Notizen',
-        keywords: 'wissen alle notizen notizbücher notizbuch tags schlagworte übersicht gehe zu',
+        label: 'Alle Notizen',
+        keywords: 'alle notizen notizbücher notizbuch wissen tags schlagworte übersicht gehe zu',
         icon: <NotebookGlyph icon="book" />,
         run: () => navigate(KNOWLEDGE_PATH),
       },
-      ...ofKind(others, 'notebook').map(switchTo),
+      ...others.map(switchTo),
       // Only with a query (matched below), so the list without one stays short. Not for viewers (US-21).
-      ...(trimmed ? ofKind(others, 'notebook').filter((p) => can(p.role, 'edit')).map(newNoteIn) : []),
+      ...(trimmed ? others.filter((p) => can(p.role, 'edit')).map(newNoteIn) : []),
       {
         id: 'new-notebook',
         label: 'Neues Notizbuch …',
-        keywords: 'notizbuch wissen anlegen erstellen',
+        keywords: 'notizbuch projekt wissen anlegen erstellen',
         icon: <PlusIcon />,
         run: () => requestNewProject('notebook'),
       },
@@ -338,7 +330,7 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
     ].filter((item) => matchesQuery(trimmed, item.label, item.keywords)),
   });
 
-  // Tags of Wissen (US-22): "#rezept" or "rezept" opens "Alle Notizen" with that tag.
+  // Tags (US-22): "#rezept" or "rezept" opens "Alle Notizen" with that tag.
   const tagQuery = trimmed.replace(/^#/, '');
   if (tagQuery) {
     groups.push({

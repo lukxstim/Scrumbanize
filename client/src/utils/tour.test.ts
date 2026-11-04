@@ -6,7 +6,7 @@ const card = { width: 320, height: 200 };
 
 describe('tour', () => {
   it('has 8 steps, the first one centered', () => {
-    expect(TOUR_STEPS).toHaveLength(9);
+    expect(TOUR_STEPS).toHaveLength(8);
     expect(TOUR_STEPS[0]!.target).toBeUndefined();
     expect(TOUR_STEPS.slice(1).every((s) => s.target)).toBe(true);
   });

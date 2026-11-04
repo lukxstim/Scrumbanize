@@ -7,7 +7,7 @@ import Button from '../ui/Button';
 import ProjectDialog from './ProjectDialog';
 
 /**
- * Someone without any project (US-21): just invited, or removed from all of them. They can start their own project,
+ * Someone without any notebook (US-21, US-26): just invited, or removed from all of them. They can start their own,
  * or wait until an owner adds them to one.
  */
 export default function NoProjects() {
@@ -21,20 +21,20 @@ export default function NoProjects() {
         <span className="mx-auto grid size-12 place-items-center rounded-xl bg-surface-muted text-fg-subtle ring-1 ring-line [&_svg]:size-6">
           <FolderIcon />
         </span>
-        <h1 className="mt-4 text-base font-semibold text-fg">Noch keine Projekte</h1>
+        <h1 className="mt-4 text-base font-semibold text-fg">Noch keine Notizbücher</h1>
         <p className="mt-1 text-sm text-fg-subtle">
-          Lege ein eigenes Projekt an. Projekte anderer siehst du, sobald dich jemand dort als Mitglied hinzufügt.
+          Lege ein eigenes Notizbuch an. Notizbücher anderer siehst du, sobald dich jemand dort als Mitglied hinzufügt.
         </p>
         <Button variant="primary" className="mt-5" onClick={() => setCreating(true)}>
-          Neues Projekt
+          Neues Notizbuch
         </Button>
       </div>
       {creating && (
         <ProjectDialog
           mode="create"
-          initial={{ name: '', color: 'indigo' }}
-          onSubmit={async (input) => {
-            const project = await createProject(input);
+          initial={{ name: '', color: 'indigo', icon: 'book', board: true }}
+          onSubmit={async ({ board, ...values }) => {
+            const project = await createProject({ ...values, kind: board ? 'project' : 'notebook' });
             navigate(paths.notes(project.id));
           }}
           onClose={() => setCreating(false)}

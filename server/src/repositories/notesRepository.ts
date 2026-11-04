@@ -125,15 +125,15 @@ export function createNotesRepository(db: Db) {
      WHERE n.project_id = ?
      GROUP BY t.id ORDER BY t.name`,
   );
-  // The same over the notebooks among several projects (US-22: Wissen); the parameter is a JSON array of their ids.
-  const selectNotebookTagSummaries = db.prepare<[string], TagSummary>(
+  // The same over several notebooks, with board or without (US-26: "Alle Notizen"); the parameter is a JSON array of
+  // their ids.
+  const selectTagSummariesAcross = db.prepare<[string], TagSummary>(
     `SELECT t.id, t.name, COUNT(nt.note_id) AS noteCount
      FROM tags t JOIN note_tags nt ON nt.tag_id = t.id JOIN live_notes n ON n.id = nt.note_id
-     JOIN projects p ON p.id = n.project_id AND p.kind = 'notebook'
      WHERE n.project_id IN (SELECT value FROM json_each(?))
      GROUP BY t.id ORDER BY t.name`,
   );
-  const selectNotebookIds = db.prepare<[], { id: number }>(`SELECT id FROM live_projects WHERE kind = 'notebook'`);
+  const selectProjectIds = db.prepare<[], { id: number }>(`SELECT id FROM live_projects`);
 
   function setTags(noteId: number, tags: string[]): void {
     clearNoteTags.run(noteId);
@@ -221,12 +221,12 @@ export function createNotesRepository(db: Db) {
     list,
 
     /**
-     * "Alle Notizen" in Wissen (US-22): the notes of those of `projectIds` that are notebooks, most recently changed
-     * first. Notes of projects stay with their project.
+     * "Alle Notizen" (US-22, since US-26 over notebooks with a board, too): the notes of `projectIds`, most recently
+     * changed first.
      */
-    listInNotebooks(projectIds: Iterable<number>, filter: NoteFilter = {}): Note[] {
+    listAcross(projectIds: Iterable<number>, filter: NoteFilter = {}): Note[] {
       const allowed = new Set(projectIds);
-      return selectNotebookIds
+      return selectProjectIds
         .all()
         .filter(({ id }) => allowed.has(id))
         .flatMap(({ id }) => list(id, filter))
@@ -377,9 +377,9 @@ export function createNotesRepository(db: Db) {
       return selectTagSummaries.all(projectId);
     },
 
-    /** The tags of the notes in those of `projectIds` that are notebooks (US-22: the tags of Wissen). */
-    listNotebookTags(projectIds: Iterable<number>): TagSummary[] {
-      return selectNotebookTagSummaries.all(JSON.stringify([...projectIds]));
+    /** The tags of the notes in `projectIds` (US-26: the tags beside "Alle Notizen"). */
+    listTagsAcross(projectIds: Iterable<number>): TagSummary[] {
+      return selectTagSummariesAcross.all(JSON.stringify([...projectIds]));
     },
   };
 }

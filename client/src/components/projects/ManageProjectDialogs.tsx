@@ -1,13 +1,13 @@
 import { useLocation, useNavigate } from 'react-router';
 import { useProjects } from '../../hooks/useProjects';
 import { useToast } from '../../hooks/useToast';
-import type { Project, ProjectInput } from '../../types/project';
+import type { Project } from '../../types/project';
 import { trashApi } from '../../utils/api';
-import { KNOWLEDGE_PATH, sectionPath } from '../../utils/paths';
-import { KIND_WORDS, ofKind } from '../../utils/projects';
+import { sectionPath } from '../../utils/paths';
+import { hasBoard } from '../../utils/projects';
 import DeleteProjectDialog from './DeleteProjectDialog';
 import MembersDialog from './MembersDialog';
-import ProjectDialog from './ProjectDialog';
+import ProjectDialog, { type NotebookValues } from './ProjectDialog';
 
 export type ManageDialog = 'edit' | 'delete' | 'members';
 
@@ -18,23 +18,27 @@ interface ManageProjectDialogsProps {
 }
 
 /**
- * Editing, members and deleting of a project or notebook: from the project switcher and from the notebooks in the
- * sidebar of Wissen (US-22). Deleting moves it to the trash; the toast can take it back.
+ * Editing (also switching the board on and off, US-26), members and deleting of a notebook: from the switcher and from
+ * the sidebar of notebooks. Deleting moves it to the trash; the toast can take it back.
  */
 export default function ManageProjectDialogs({ project, dialog, onDialogChange }: ManageProjectDialogsProps) {
   const { projects, reload, updateProject, deleteProject } = useProjects();
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
-  const notebook = project.kind === 'notebook';
-  const word = KIND_WORDS[project.kind];
+  const board = hasBoard(project);
 
-  async function save(input: ProjectInput) {
-    // The kind never changes.
-    const { kind: _kind, ...patch } = input;
-    await updateProject(project.id, patch);
+  async function save(values: NotebookValues) {
+    await updateProject(project.id, values);
     onDialogChange(null);
-    toast({ message: `${word.one} gespeichert.` });
+    toast({
+      message:
+        values.board === board
+          ? 'Notizbuch gespeichert.'
+          : values.board
+            ? `Board für „${values.name}“ eingeschaltet.`
+            : `Board für „${values.name}“ ausgeschaltet – die Aufgaben sind ausgeblendet.`,
+    });
   }
 
   async function remove() {
@@ -43,9 +47,9 @@ export default function ManageProjectDialogs({ project, dialog, onDialogChange }
     const shown = location.pathname.startsWith(`/p/${id}/`);
     await deleteProject(id);
     onDialogChange(null);
-    if (shown) navigate(notebook ? KNOWLEDGE_PATH : '/', { replace: true });
+    if (shown) navigate('/', { replace: true });
     toast({
-      message: `${word.one} „${name}“ in den Papierkorb verschoben.`,
+      message: `Notizbuch „${name}“ in den Papierkorb verschoben.`,
       action: {
         label: 'Rückgängig',
         onClick: async () => {
@@ -57,7 +61,7 @@ export default function ManageProjectDialogs({ project, dialog, onDialogChange }
               toast({ message: `Wiederhergestellt als „${result.item.name}“ – der Name war inzwischen vergeben.` });
             }
           } catch {
-            toast({ message: `${notebook ? 'Das Notizbuch' : 'Das Projekt'} konnte nicht wiederhergestellt werden.`, tone: 'error' });
+            toast({ message: 'Das Notizbuch konnte nicht wiederhergestellt werden.', tone: 'error' });
           }
         },
       },
@@ -69,12 +73,13 @@ export default function ManageProjectDialogs({ project, dialog, onDialogChange }
       {dialog === 'edit' && (
         <ProjectDialog
           mode="edit"
-          initial={{ name: project.name, color: project.color, kind: project.kind, icon: project.icon }}
+          initial={{ name: project.name, color: project.color, icon: project.icon, board }}
+          taskCount={project.taskCount}
           onSubmit={save}
           onClose={() => onDialogChange(null)}
           onDelete={() => onDialogChange('delete')}
           deleteDisabledReason={
-            !notebook && ofKind(projects, 'project').length <= 1 ? 'Das letzte Projekt kann nicht gelöscht werden.' : undefined
+            board && projects.filter(hasBoard).length <= 1 ? 'Das letzte Notizbuch mit Board kann nicht gelöscht werden.' : undefined
           }
         />
       )}

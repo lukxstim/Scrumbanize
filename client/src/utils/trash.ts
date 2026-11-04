@@ -14,13 +14,13 @@ export function trashTitle(item: TrashItem): string {
   return item.type === 'note' ? item.title.trim() || UNTITLED_NOTE : item.title;
 }
 
-/** "3 Notizen, 1 Task und 1 Projekt" for the empty-trash confirmation; "" for nothing. */
+/** "3 Notizen, 1 Task und 1 Notizbuch" for the empty-trash confirmation; "" for nothing. */
 export function trashSummary(items: TrashItem[]): string {
   const count = (type: TrashType) => items.filter((i) => i.type === type).length;
   const parts = [
     count('note') > 0 ? countLabel(count('note'), 'Notiz', 'Notizen') : '',
     count('task') > 0 ? countLabel(count('task'), 'Task', 'Tasks') : '',
-    count('project') > 0 ? countLabel(count('project'), 'Projekt', 'Projekte') : '',
+    count('project') > 0 ? countLabel(count('project'), 'Notizbuch', 'Notizbücher') : '',
   ].filter(Boolean);
   return parts.length <= 1 ? (parts[0] ?? '') : `${parts.slice(0, -1).join(', ')} und ${parts.at(-1)}`;
 }
@@ -36,11 +36,10 @@ export function restoredMessage(result: RestoreResult): { message: string; link:
     case 'task':
       return { message: `Task „${result.item.title}“ wiederhergestellt.`, link: paths.task(result.item.projectId, result.item.id) };
     case 'project': {
-      const word = result.item.kind === 'notebook' ? 'Notizbuch' : 'Projekt';
       return {
         message: result.renamedFrom
-          ? `${word} „${result.renamedFrom}“ als „${result.item.name}“ wiederhergestellt – der Name war inzwischen vergeben.`
-          : `${word} „${result.item.name}“ wiederhergestellt.`,
+          ? `Notizbuch „${result.renamedFrom}“ als „${result.item.name}“ wiederhergestellt – der Name war inzwischen vergeben.`
+          : `Notizbuch „${result.item.name}“ wiederhergestellt.`,
         link: paths.notes(result.item.id),
       };
     }

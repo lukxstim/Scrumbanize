@@ -21,13 +21,13 @@ import Button from '../ui/Button';
 import MobileBackLink from '../ui/MobileBackLink';
 import Skeleton from '../ui/Skeleton';
 
-/** The project or notebook a note belongs to, as a small label. */
+/** The notebook a note belongs to, as a small label. */
 export function NotePlace({ project }: { project: Project | undefined }) {
   if (!project) return null;
   return (
     <span className="flex max-w-40 min-w-0 items-center gap-1 rounded bg-surface-muted px-1.5 py-0.5 text-[11px] text-fg-muted">
-      {project.kind === 'notebook' ? (
-        <NotebookGlyph icon={project.icon ?? 'book'} className="size-3 shrink-0" />
+      {project.icon ? (
+        <NotebookGlyph icon={project.icon} className="size-3 shrink-0" />
       ) : (
         <span className={`size-1.5 shrink-0 rounded-full ${colorDot(project.color)}`} aria-hidden="true" />
       )}
@@ -37,9 +37,9 @@ export function NotePlace({ project }: { project: Project | undefined }) {
 }
 
 /**
- * /wissen, the start of Wissen (US-22): the notes of every notebook the user can see in one list, filtered by text and
- * by tags (`?tag=`, from the sidebar or the command palette). A note is edited right here, with the rights its notebook
- * gives; new notes are made in a notebook. Notes of projects stay with their project.
+ * /wissen, "Alle Notizen" (US-22, since US-26 with the notebooks with board, too): the notes of every notebook the user
+ * can see in one list, filtered by text and by tags (`?tag=`, from the sidebar or the command palette). A note is
+ * edited right here, with the rights its notebook gives; new notes are made in a notebook.
  */
 export default function AllNotesPage() {
   const { noteId } = useParams();
@@ -172,7 +172,7 @@ export default function AllNotesPage() {
               <span>Aus</span>
               <NotePlace project={selectedProject} />
               <Link to={paths.notes(selectedNote.projectId, selectedNote.id)} className="ml-auto text-accent-text hover:underline">
-                {selectedProject?.kind === 'notebook' ? 'Im Notizbuch öffnen' : 'Im Projekt öffnen'}
+                Im Notizbuch öffnen
               </Link>
             </div>
             <div className="min-h-0 flex-1">

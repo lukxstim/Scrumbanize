@@ -21,13 +21,13 @@ type Scope = 'project' | 'all';
 const isScope = (value: unknown): value is Scope => value === 'project' || value === 'all';
 
 const TYPE_ICONS: Record<TrashType, ReactNode> = { note: <NoteIcon />, task: <TaskIcon />, project: <FolderIcon /> };
-const TYPE_LABELS: Record<TrashType, string> = { note: 'Notiz', task: 'Task', project: 'Projekt' };
+const TYPE_LABELS: Record<TrashType, string> = { note: 'Notiz', task: 'Task', project: 'Notizbuch' };
 
 const FILTERS: { value: TrashFilter; label: string }[] = [
   { value: 'all', label: 'Alle' },
   { value: 'note', label: 'Notizen' },
   { value: 'task', label: 'Tasks' },
-  { value: 'project', label: 'Projekte' },
+  { value: 'project', label: 'Notizbücher' },
 ];
 
 type Confirming = { kind: 'purge'; item: TrashItem } | { kind: 'empty' } | null;
@@ -111,7 +111,7 @@ export default function TrashPage() {
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-fg">Papierkorb</h1>
             <p className="mt-1 text-sm text-fg-subtle">
-              Gelöschte Notizen, Tasks und Projekte. Sie bleiben hier, bis du sie endgültig löschst.
+              Gelöschte Notizen, Tasks und Notizbücher. Sie bleiben hier, bis du sie endgültig löschst.
             </p>
           </div>
           <Button variant="danger-ghost" size="sm" disabled={emptied.length === 0} onClick={() => setConfirming({ kind: 'empty' })}>
@@ -127,8 +127,8 @@ export default function TrashPage() {
             value={scope}
             onChange={setScope}
             options={[
-              { value: 'project', label: 'Dieses Projekt' },
-              { value: 'all', label: 'Alle Projekte' },
+              { value: 'project', label: 'Dieses Notizbuch' },
+              { value: 'all', label: 'Alle Notizbücher' },
             ]}
           />
           <SegmentedControl label="Art filtern" size="sm" value={filter} onChange={setFilter} options={FILTERS} />

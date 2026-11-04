@@ -143,6 +143,8 @@ export const text = {
   projectRenamed: (from: string, to: string, kind: ProjectKind = 'project') => `${KIND_NAMES[kind]} ${quote(from)} in ${quote(to)} umbenannt`,
   projectRecolored: (name: string, kind: ProjectKind = 'project') => `Farbe von ${KIND_NAMES[kind]} ${quote(name)} geändert`,
   projectRestyled: (name: string) => `Symbol von Notizbuch ${quote(name)} geändert`,
+  boardSwitched: (name: string, on: boolean) =>
+    on ? `Board von ${quote(name)} eingeschaltet` : `Board von ${quote(name)} ausgeschaltet (Aufgaben ausgeblendet)`,
   projectTrashed: (name: string, kind: ProjectKind = 'project') => `${KIND_NAMES[kind]} ${quote(name)} in den Papierkorb verschoben`,
   projectRestored: (name: string, renamedTo?: string, kind: ProjectKind = 'project') =>
     `${KIND_NAMES[kind]} ${quote(name)} wiederhergestellt${renamedTo ? ` als ${quote(renamedTo)}` : ''}`,

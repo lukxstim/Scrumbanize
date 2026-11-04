@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useProjects } from '../../hooks/useProjects';
 import type { Project } from '../../types/project';
-import { countLabel, KIND_WORDS } from '../../utils/projects';
+import { countLabel, hasBoard } from '../../utils/projects';
 import Button from '../ui/Button';
 import Dialog from '../ui/Dialog';
 
@@ -12,7 +12,7 @@ interface DeleteProjectDialogProps {
   onClose: () => void;
 }
 
-/** The project goes to the trash with everything in it and can be restored from there, so a simple question is enough. */
+/** The notebook goes to the trash with everything in it and can be restored from there, so a simple question is enough. */
 export default function DeleteProjectDialog({ project, onConfirm, onClose }: DeleteProjectDialogProps) {
   const { projects, reload } = useProjects();
   const [deleting, setDeleting] = useState(false);
@@ -20,8 +20,8 @@ export default function DeleteProjectDialog({ project, onConfirm, onClose }: Del
 
   // Fresh counts, so the message matches what goes to the trash.
   const current = projects.find((p) => p.id === project.id) ?? project;
-  const word = KIND_WORDS[project.kind];
-  const notebook = project.kind === 'notebook';
+  // Hidden tasks of a board switched off (US-26) go along, too.
+  const withTasks = hasBoard(current) || current.taskCount > 0;
   useEffect(() => {
     void reload();
   }, [reload]);
@@ -40,20 +40,20 @@ export default function DeleteProjectDialog({ project, onConfirm, onClose }: Del
   return (
     <Dialog onClose={onClose} dismissible={!deleting} labelledBy="delete-project-title" mobile="compact" className="max-w-md p-6">
       <h2 id="delete-project-title" className="text-base font-semibold text-fg">
-        {word.one} löschen?
+        Notizbuch löschen?
       </h2>
       <p className="mt-2 text-sm text-fg-muted">
         „{current.name}“ kommt mit{' '}
         <strong className="font-semibold text-fg">
           {countLabel(current.noteCount, 'Notiz', 'Notizen')}
-          {!notebook && <> und {countLabel(current.taskCount, 'Task', 'Tasks')}</>}
+          {withTasks && <> und {countLabel(current.taskCount, 'Aufgabe', 'Aufgaben')}</>}
         </strong>{' '}
         in den Papierkorb. Von dort lässt es sich vollständig wiederherstellen.
       </p>
 
       {failed && (
         <p role="alert" className="mt-3 text-sm text-danger-text">
-          {notebook ? 'Das Notizbuch' : 'Das Projekt'} konnte nicht gelöscht werden. Bitte versuche es erneut.
+          Das Notizbuch konnte nicht gelöscht werden. Bitte versuche es erneut.
         </p>
       )}
 

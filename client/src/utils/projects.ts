@@ -26,11 +26,10 @@ export function ofKind(projects: Project[], kind: ProjectKind): Project[] {
   return projects.filter((p) => p.kind === kind);
 }
 
-/** Words for a project or a notebook, e.g. in dialogs and toasts. */
-export const KIND_WORDS: Record<ProjectKind, { one: string; many: string; article: string; new: string }> = {
-  project: { one: 'Projekt', many: 'Projekte', article: 'das Projekt', new: 'Neues Projekt' },
-  notebook: { one: 'Notizbuch', many: 'Notizbücher', article: 'das Notizbuch', new: 'Neues Notizbuch' },
-};
+/** Since US-26 everything is a notebook; a project is one with its board switched on (board, calendar, statistics). */
+export function hasBoard(project: Pick<Project, 'kind'>): boolean {
+  return project.kind === 'project';
+}
 
 /** "1 Notiz", "3 Notizen" */
 export function countLabel(count: number, singular: string, plural: string): string {
@@ -58,11 +57,13 @@ export function setLastProjectId(id: number): void {
 }
 
 /**
- * The project to open when the URL names none: the last one used in this browser, else the sample project
- * of the first start (if it still exists), else the first. Never a notebook: they have their own overview (US-22).
+ * The notebook to open when the URL names none: the last one used in this browser, else the sample project of the
+ * first start (if it still exists), else the first with a board. `needsBoard`: for the board and the calendar, only
+ * notebooks with a board (US-26).
  */
-export function defaultProject(all: Project[], sampleProjectId: number | null = null): Project | undefined {
-  const projects = ofKind(all, 'project');
+export function defaultProject(all: Project[], sampleProjectId: number | null = null, needsBoard = false): Project | undefined {
+  const boards = all.filter(hasBoard);
+  const candidates = needsBoard ? boards : all;
   const lastId = getLastProjectId();
-  return projects.find((p) => p.id === lastId) ?? projects.find((p) => p.id === sampleProjectId) ?? projects[0];
+  return candidates.find((p) => p.id === lastId) ?? candidates.find((p) => p.id === sampleProjectId) ?? boards[0] ?? candidates[0];
 }

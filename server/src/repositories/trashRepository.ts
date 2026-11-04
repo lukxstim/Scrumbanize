@@ -42,12 +42,13 @@ export function createTrashRepository(db: Db) {
      FROM notes n JOIN live_projects p ON p.id = n.project_id
      WHERE n.deleted_at IS NOT NULL AND (? IS NULL OR n.project_id = ?)`,
   );
+  // Tasks of a board that is switched off stay hidden here, too (US-26).
   const selectTasks = db.prepare<[number | null, number | null], {
     id: number; project_id: number; project_name: string; color: ProjectColor; title: string; column_name: string; deleted_at: string;
   }>(
     `SELECT t.id, t.project_id, p.name AS project_name, p.color, t.title, c.name AS column_name, t.deleted_at
      FROM tasks t JOIN live_projects p ON p.id = t.project_id JOIN board_columns c ON c.id = t.column_id
-     WHERE t.deleted_at IS NOT NULL AND (? IS NULL OR t.project_id = ?)`,
+     WHERE t.deleted_at IS NOT NULL AND p.kind = 'project' AND (? IS NULL OR t.project_id = ?)`,
   );
   const selectProjects = db.prepare<[], {
     id: number; name: string; color: ProjectColor; deleted_at: string; note_count: number; task_count: number;

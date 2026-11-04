@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { Project, ProjectInput } from '../types/project';
+import type { Project, ProjectInput, ProjectPatch } from '../types/project';
 import { metaApi, projectsApi, type DesktopInfo } from '../utils/api';
 import { sortProjects } from '../utils/projects';
 import type { LoadStatus } from './useNotes';
@@ -16,7 +16,7 @@ interface ProjectsState {
   /** Refreshes the list, e.g. for current note and task counts. */
   reload: () => Promise<void>;
   createProject: (input: ProjectInput) => Promise<Project>;
-  updateProject: (id: number, patch: Partial<ProjectInput>) => Promise<Project>;
+  updateProject: (id: number, patch: ProjectPatch) => Promise<Project>;
   deleteProject: (id: number) => Promise<void>;
 }
 
@@ -58,7 +58,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     return project;
   }, []);
 
-  const updateProject = useCallback(async (id: number, patch: Partial<ProjectInput>) => {
+  const updateProject = useCallback(async (id: number, patch: ProjectPatch) => {
     const project = await projectsApi.update(id, patch);
     setProjects((current) => sortProjects(current.map((p) => (p.id === id ? project : p))));
     return project;

@@ -3,7 +3,7 @@ import { Navigate, Outlet, useMatch, useParams } from 'react-router';
 import { useShowProject } from '../../hooks/useCollaboration';
 import { useProjects } from '../../hooks/useProjects';
 import { paths } from '../../utils/paths';
-import { setLastProjectId } from '../../utils/projects';
+import { hasBoard, setLastProjectId } from '../../utils/projects';
 import KnowledgeLayout from '../knowledge/KnowledgeLayout';
 import RedirectToProject, { ProjectsLoading } from './RedirectToProject';
 
@@ -17,13 +17,14 @@ export default function ProjectLayout() {
   const calendarMatch = useMatch('/p/:projectId/calendar');
   const trashMatch = useMatch('/p/:projectId/trash');
   const analyticsMatch = useMatch('/p/:projectId/analytics');
+  const notesMatch = useMatch('/p/:projectId/notes/*');
+  const graphMatch = useMatch('/p/:projectId/graph');
 
-  const notebook = project?.kind === 'notebook';
   // The others see who is in the project (US-24).
   useShowProject(project ? project.id : null);
-  // Notebooks are not "the last project": the logo and unknown addresses lead back to a project.
+  // Every notebook counts as the last one used (US-26); the board and the calendar fall back to one with a board.
   useEffect(() => {
-    if (project && project.kind === 'project') setLastProjectId(project.id);
+    if (project) setLastProjectId(project.id);
   }, [project]);
 
   if (status !== 'ready') return <ProjectsLoading />;
@@ -36,8 +37,8 @@ export default function ProjectLayout() {
       />;
   }
 
-  // A notebook has no board (US-22): its board, task, calendar and statistics addresses show the notes.
-  if (notebook && (boardMatch || taskMatch || calendarMatch || analyticsMatch)) return <Navigate to={paths.notes(project.id)} replace />;
+  // Without a board (US-22, switched off since US-26): its board, task, calendar and statistics addresses show the notes.
+  if (!hasBoard(project) && (boardMatch || taskMatch || calendarMatch || analyticsMatch)) return <Navigate to={paths.notes(project.id)} replace />;
 
   // A new key per project resets search, filters and loaded data when switching projects.
   const page = (
@@ -45,6 +46,6 @@ export default function ProjectLayout() {
       <Outlet />
     </Fragment>
   );
-  // A notebook belongs to Wissen (US-22): its pages sit beside the sidebar of notebooks and tags.
-  return notebook ? <KnowledgeLayout>{page}</KnowledgeLayout> : page;
+  // The notes of every notebook sit beside the sidebar of notebooks and tags (US-26); the board keeps the full width.
+  return notesMatch || graphMatch ? <KnowledgeLayout>{page}</KnowledgeLayout> : page;
 }

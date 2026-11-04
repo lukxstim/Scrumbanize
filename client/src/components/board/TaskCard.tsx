@@ -131,10 +131,10 @@ export function TaskCardBody({
       ? 'border-dashed border-accent-line bg-accent-muted [&>*]:invisible'
       : 'cursor-grab border-line shadow-card hover:-translate-y-px hover:border-line-strong hover:shadow-card-hover';
   const tags = task.sourceNote?.tags ?? [];
-  // A source note in a notebook (US-22) shows the notebook, so it is clear the note lives in Wissen.
+  // A source note in another notebook (US-22, US-26) shows that notebook, so it is clear where the note lives.
   const { projects } = useProjects();
   const sourcePlace = task.sourceNote && projects.find((p) => p.id === task.sourceNote?.projectId);
-  const sourceNotebook = sourcePlace?.kind === 'notebook' ? sourcePlace : undefined;
+  const sourceNotebook = sourcePlace && sourcePlace.id !== task.projectId ? sourcePlace : undefined;
   const blockers = openBlockers(task);
   const checklist = checklistProgress(task.description);
   // Who has the task open right now (US-24).

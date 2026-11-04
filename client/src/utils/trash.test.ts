@@ -28,19 +28,19 @@ describe('trash helpers', () => {
   });
 
   it('summarizes in German', () => {
-    expect(trashSummary(items)).toBe('2 Notizen, 1 Task und 1 Projekt');
+    expect(trashSummary(items)).toBe('2 Notizen, 1 Task und 1 Notizbuch');
     expect(trashSummary([item('task', 1), item('task', 2)])).toBe('2 Tasks');
-    expect(trashSummary([item('note', 1), item('project', 2), item('project', 3)])).toBe('1 Notiz und 2 Projekte');
+    expect(trashSummary([item('note', 1), item('project', 2), item('project', 3)])).toBe('1 Notiz und 2 Notizbücher');
     expect(trashSummary([])).toBe('');
   });
 
   it('says what was restored and where it is', () => {
     const project = { id: 5, name: 'Studium (2)', color: 'sky' as const, kind: 'project' as const, icon: null, role: 'owner' as const, noteCount: 0, taskCount: 0, createdAt: '', updatedAt: '' };
     expect(restoredMessage({ type: 'project', item: project, renamedFrom: 'Studium' })).toEqual({
-      message: 'Projekt „Studium“ als „Studium (2)“ wiederhergestellt – der Name war inzwischen vergeben.',
+      message: 'Notizbuch „Studium“ als „Studium (2)“ wiederhergestellt – der Name war inzwischen vergeben.',
       link: '/p/5/notes',
     });
-    expect(restoredMessage({ type: 'project', item: { ...project, name: 'Studium' } }).message).toBe('Projekt „Studium“ wiederhergestellt.');
+    expect(restoredMessage({ type: 'project', item: { ...project, name: 'Studium' } }).message).toBe('Notizbuch „Studium“ wiederhergestellt.');
     expect(restoredMessage({ type: 'project', item: { ...project, name: 'Rezepte', kind: 'notebook' } }).message).toBe('Notizbuch „Rezepte“ wiederhergestellt.');
   });
 });
