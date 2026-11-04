@@ -8,6 +8,7 @@ import { macMenuTemplate } from './macMenu.js';
 import type { DueTask, ReminderMessage } from './reminderPlan.js';
 import { startReminders, type Reminders } from './reminders.js';
 import { loadSettings, saveSettings, type DesktopSettings } from './settings.js';
+import { loadStickyState, saveStickyState, STICKY_MIN_SIZE, stickyBounds, type StickyState } from './stickyState.js';
 import { createTray } from './tray.js';
 import { loadWindowState, trackWindowState } from './windowState.js';
 
@@ -67,6 +68,9 @@ let tray: Tray | undefined;
 let reminders: Reminders | undefined;
 let settings: DesktopSettings = loadSettings(app.getPath('userData'));
 let hotkeyActive = false;
+/** The open sticky notes (US-26) by note id, and where every note's window was. */
+const stickyWindows = new Map<number, BrowserWindow>();
+let stickyState: StickyState = loadStickyState(app.getPath('userData'));
 /** Set once quitting has begun, so closing the window no longer hides it (notification area, macOS Dock). */
 let quitting = false;
 /**
@@ -116,6 +120,8 @@ async function start(): Promise<void> {
 
   registerIpc(server.url);
   createWindow(server.url, !startedAtLogin());
+  // The sticky notes pinned when the app was quit come back, also when it starts hidden at login.
+  for (const noteId of stickyState.open) openSticky(server.url, noteId);
   tray = createTray(trayIcon, { open: showWindow, checkReminders: () => void reminders?.check(true), quit: () => app.quit() }, { template: isMac });
   setHotkey(settings.hotkey);
   const url = server.url;
@@ -161,6 +167,8 @@ function createWindow(url: string, visible: boolean): void {
   if (visible) window.once('ready-to-show', () => window.show());
   window.on('closed', () => {
     mainWindow = undefined;
+    // Closing the window ends the app on Windows, also while sticky notes are open; they come back at the next start.
+    if (!isMac) app.quit();
   });
 
   // Closing or minimising may hide the window in the notification area instead (settings, US-18). On a Mac,
@@ -180,8 +188,16 @@ function createWindow(url: string, visible: boolean): void {
     quitting = true;
   });
 
-  // Only the app itself is shown in the window; any other link opens in the default browser.
-  const origin = new URL(url).origin;
+  keepInApp(window);
+  void window.loadURL(url);
+}
+
+/**
+ * Only the app itself is shown in its windows; any other link opens in the default browser. Developer tools (F12)
+ * only in unpacked runs.
+ */
+function keepInApp(window: BrowserWindow): void {
+  const origin = server ? new URL(server.url).origin : '';
   const openOutside = (target: string) => {
     if (/^https?:\/\//i.test(target) || /^mailto:/i.test(target)) void shell.openExternal(target);
   };
@@ -194,15 +210,74 @@ function createWindow(url: string, visible: boolean): void {
     event.preventDefault();
     openOutside(target);
   });
-
-  // Developer tools only in unpacked runs.
   if (!app.isPackaged) {
     window.webContents.on('before-input-event', (_event, input) => {
       if (input.type === 'keyDown' && input.key === 'F12') window.webContents.toggleDevTools();
     });
   }
+}
 
-  void window.loadURL(url);
+/**
+ * A note as a sticky note (US-26): a small frameless window, always in front, where the note was last time. A note
+ * already open comes to the front instead. Its place is saved while it moves; closing it unpins it, quitting keeps it.
+ */
+function openSticky(url: string, noteId: number): void {
+  const existing = stickyWindows.get(noteId);
+  if (existing && !existing.isDestroyed()) {
+    existing.show();
+    existing.focus();
+    return;
+  }
+  const dir = app.getPath('userData');
+  const bounds = stickyBounds(
+    stickyState.bounds[noteId],
+    screen.getAllDisplays().map((d) => d.workArea),
+    stickyWindows.size,
+  );
+  const window = new BrowserWindow({
+    ...bounds,
+    minWidth: STICKY_MIN_SIZE.width,
+    minHeight: STICKY_MIN_SIZE.height,
+    frame: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    title: 'Sticky Note',
+    show: false,
+    // The paper color of the note, so there is no white flash before the page has loaded.
+    backgroundColor: '#fff4a8',
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      preload: path.join(__dirname, 'preload.cjs'),
+    },
+  });
+  stickyWindows.set(noteId, window);
+  if (!stickyState.open.includes(noteId)) stickyState = { ...stickyState, open: [...stickyState.open, noteId] };
+  saveStickyState(dir, stickyState);
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const remember = () => {
+    if (window.isDestroyed()) return;
+    stickyState = { ...stickyState, bounds: { ...stickyState.bounds, [noteId]: window.getBounds() } };
+    saveStickyState(dir, stickyState);
+  };
+  const rememberSoon = () => {
+    clearTimeout(timer);
+    timer = setTimeout(remember, 400);
+  };
+  window.on('moved', rememberSoon);
+  window.on('resized', rememberSoon);
+  window.on('close', () => {
+    clearTimeout(timer);
+    remember();
+    if (!quitting) stickyState = { ...stickyState, open: stickyState.open.filter((id) => id !== noteId) };
+    saveStickyState(dir, stickyState);
+  });
+  window.on('closed', () => stickyWindows.delete(noteId));
+  window.once('ready-to-show', () => window.show());
+  keepInApp(window);
+  void window.loadURL(`${url}/sticky/${noteId}`);
 }
 
 /** Brings the window to the front: from the tray, the shortcut, a notification or a second start. */
@@ -333,6 +408,10 @@ function registerIpc(appUrl: string): void {
   ipcMain.handle(IPC.checkReminders, async (event) => {
     if (!fromApp(event)) throw new Error('Not allowed');
     await reminders?.check(true);
+  });
+  ipcMain.handle(IPC.openSticky, (event, noteId: unknown) => {
+    if (!fromApp(event)) throw new Error('Not allowed');
+    if (typeof noteId === 'number' && Number.isInteger(noteId) && noteId > 0) openSticky(appUrl, noteId);
   });
 }
 

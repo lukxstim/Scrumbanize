@@ -1,4 +1,4 @@
-import { StrictMode } from 'react';
+import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Route, Routes } from 'react-router';
 import App from './App';
@@ -12,6 +12,9 @@ import { ProjectsProvider } from './hooks/useProjects';
 import { RealtimeProvider } from './hooks/useRealtime';
 import { ToastProvider } from './hooks/useToast';
 import './index.css';
+
+// The page of a sticky note window of the desktop app (US-26), loaded only there.
+const StickyNotePage = lazy(() => import('./components/sticky/StickyNotePage'));
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -27,6 +30,16 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/einladung/:token" element={<InvitePage />} />
             <Route path="/passwort/:token" element={<ResetPage />} />
             <Route element={<ProtectedRoute />}>
+              <Route
+                path="/sticky/:noteId"
+                element={
+                  <RealtimeProvider>
+                    <Suspense fallback={null}>
+                      <StickyNotePage />
+                    </Suspense>
+                  </RealtimeProvider>
+                }
+              />
               <Route
                 path="*"
                 element={

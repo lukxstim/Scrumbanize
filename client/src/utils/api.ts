@@ -154,9 +154,16 @@ export const notesApi = {
   /** Into a folder of the note's project, or (null) to the top level; with `projectId`, of another notebook (US-34). */
   moveToFolder: (id: number, folderId: number | null, projectId?: number) =>
     request<Note>(`/notes/${id}/folder`, { method: 'PUT', body: JSON.stringify({ folderId, projectId }) }),
-  /** `baseUpdatedAt`: the version the edit started from; changed elsewhere since, the save is refused (409, US-24). */
-  update: (id: number, input: NoteInput, baseUpdatedAt?: string) =>
-    request<Note>(`/notes/${id}`, { method: 'PUT', body: JSON.stringify({ ...input, baseUpdatedAt }) }),
+  /**
+   * `baseUpdatedAt`: the version the edit started from; changed elsewhere since, the save is refused (409, US-24).
+   * `asClient`: saved as another client of this tab, e.g. a sticky note (US-26), so the tab hears of the change.
+   */
+  update: (id: number, input: NoteInput, baseUpdatedAt?: string, asClient?: string) =>
+    request<Note>(`/notes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ ...input, baseUpdatedAt }),
+      ...(asClient ? { headers: { 'X-Client-Id': asClient } } : {}),
+    }),
   /** Moves the note to the trash. */
   remove: (id: number) => trashRequest<void>(`/notes/${id}`, { method: 'DELETE' }),
 };

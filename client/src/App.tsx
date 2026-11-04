@@ -11,6 +11,7 @@ import TrashPage from './components/trash/TrashPage';
 import { BoardIcon, CalendarIcon, ChartIcon, HistoryIcon, SettingsIcon, NoteIcon, SearchIcon, TrashIcon } from './components/icons';
 import NotesPage from './components/notes/NotesPage';
 import OldNotesRedirect from './components/knowledge/OldNotesRedirect';
+import StickyPipHost from './components/sticky/StickyPipHost';
 import KnowledgeLayout from './components/knowledge/KnowledgeLayout';
 import NewProjectHost from './components/projects/NewProjectHost';
 import ProjectLayout from './components/projects/ProjectLayout';
@@ -374,6 +375,8 @@ export default function App() {
       <NewProjectHost />
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} activeProject={activeProject} />
+      {/* The sticky note of this tab's Picture-in-Picture window (US-26). */}
+      <StickyPipHost />
     </div>
   );
 }

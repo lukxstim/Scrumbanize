@@ -29,6 +29,8 @@ export interface DesktopBridge {
   updateSettings: (patch: DesktopSettingsPatch) => Promise<UpdateSettingsResult>;
   /** Shows every task due today or overdue as a notification again, or that there are none. */
   checkReminders: () => Promise<void>;
+  /** Opens a note as a sticky note (US-26), a small window always in front; absent in older versions. */
+  openSticky?: (noteId: number) => Promise<void>;
   /** The desktop app asks to show a path of the app (a click on a notification); returns the unsubscribe. */
   onNavigate: (handler: (path: string) => void) => () => void;
 }

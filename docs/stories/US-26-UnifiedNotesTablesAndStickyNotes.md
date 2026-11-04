@@ -15,14 +15,17 @@ Notizen liegen derzeit getrennt in den Bereichen „Projekte“ und „Wissen“
 ## Akzeptanzkriterien
 
 ### 1. Einheitliche Notizstruktur
-- [ ] Die getrennten Bereiche „Projekte“ und „Wissen“ werden zu einer zentralen Struktur („Notizen“) zusammengeführt (OneNote-Prinzip).
+- [x] Die getrennten Bereiche „Projekte“ und „Wissen“ werden zu einer zentralen Struktur („Notizen“) zusammengeführt (OneNote-Prinzip).
 
 ### 2. Tabellen & Editor
-- [ ] Innerhalb von Notizen können native Tabellen erstellt, editiert und formatiert werden.
-- [ ] Die Formatierungsleiste (Rich-Text-Toolbar) bleibt beim Herunterscrollen in Notizen immer oben sichtbar (Sticky Header).
+- [x] Innerhalb von Notizen können native Tabellen erstellt, editiert und formatiert werden.
+- [x] Die Formatierungsleiste (Rich-Text-Toolbar) bleibt beim Herunterscrollen in Notizen immer oben sichtbar (Sticky Header).
 
 ### 3. Sticky Notes
-- [ ] Notizen lassen sich als kompaktes, schwebendes Fenster („Sticky Note“) auskoppeln und am Desktop anpinnen.
+- [x] Notizen lassen sich als kompaktes, schwebendes Fenster („Sticky Note“) auskoppeln und am Desktop anpinnen.
+- [x] Desktop-App: rahmenloses Fenster, immer im Vordergrund, verschiebbar über die Titelleiste; Position und Größe je Notiz werden gespeichert, beim Beenden offene Sticky Notes öffnen sich beim nächsten Start wieder.
+- [x] Chrome/Edge: Document Picture-in-Picture (ein Fenster je Tab); in anderen Browsern gibt es den Button nicht.
+- [x] Gelbes Papier wie Windows Sticky Notes (auch im dunklen Theme), Titel in der Leiste, Text ohne Werkzeugleiste (Tastenkürzel und Markdown-Eingabe); speichert selbst, übernimmt Änderungen von woanders.
 
 ---
 
