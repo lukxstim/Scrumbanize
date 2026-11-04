@@ -11,7 +11,8 @@ import TrashPage from './components/trash/TrashPage';
 import { BoardIcon, CalendarIcon, ChartIcon, HistoryIcon, SettingsIcon, NoteIcon, SearchIcon, TrashIcon } from './components/icons';
 import NotesPage from './components/notes/NotesPage';
 import OldNotesRedirect from './components/knowledge/OldNotesRedirect';
-import StickyPipHost from './components/sticky/StickyPipHost';
+import QuickNotesPipHost from './components/quick/QuickNotesPipHost';
+import { openQuickNotes, quickNotesAvailable } from './utils/quickNotesWindow';
 import KnowledgeLayout from './components/knowledge/KnowledgeLayout';
 import NewProjectHost from './components/projects/NewProjectHost';
 import ProjectLayout from './components/projects/ProjectLayout';
@@ -67,6 +68,16 @@ const tabClass = (active: boolean) =>
   `flex h-7 items-center gap-1.5 rounded-md px-2 text-sm font-medium xl:px-2.5 transition-[color,background-color,box-shadow] duration-150 focus-visible:outline-2 focus-visible:outline-accent ${
     active ? 'bg-surface text-fg shadow-card' : 'text-fg-subtle hover:text-fg'
   }`;
+
+/** Whether the quick notes can open here (US-26); the same for the whole visit. */
+const QUICK_NOTES = quickNotesAvailable();
+
+const QuickNotesIcon = () => (
+  <svg aria-hidden="true" viewBox="0 0 20 20" className="size-5 fill-none stroke-current stroke-[1.5]">
+    <path d="M4 3.5h12v9l-4 4H4z" strokeLinejoin="round" />
+    <path d="M16 12.5h-4v4M7 7.5h6M7 10h4" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
 
 export default function App() {
   const { projects, desktop } = useProjects();
@@ -250,6 +261,18 @@ export default function App() {
         </div>
         {activeProject && (
           <div className="flex shrink-0 items-center gap-1 max-md:hidden" data-tour="header-tools">
+            {/* Quick notes (US-26): where a panel in front of everything is possible (desktop app, Chrome, Edge). */}
+            {QUICK_NOTES && (
+              <button
+                type="button"
+                className={headerIconClass(false)}
+                aria-label="Kurznotizen"
+                title="Kurznotizen – schnell etwas festhalten, am rechten Bildschirmrand"
+                onClick={() => void openQuickNotes()}
+              >
+                <QuickNotesIcon />
+              </button>
+            )}
             <Link
               to={paths.trash(activeProject.id)}
               className={headerIconClass(onTrash)}
@@ -375,8 +398,8 @@ export default function App() {
       <NewProjectHost />
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} activeProject={activeProject} />
-      {/* The sticky note of this tab's Picture-in-Picture window (US-26). */}
-      <StickyPipHost />
+      {/* The quick notes of this tab's Picture-in-Picture window (US-26). */}
+      <QuickNotesPipHost />
     </div>
   );
 }

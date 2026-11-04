@@ -8,7 +8,7 @@ import { macMenuTemplate } from './macMenu.js';
 import type { DueTask, ReminderMessage } from './reminderPlan.js';
 import { startReminders, type Reminders } from './reminders.js';
 import { loadSettings, saveSettings, type DesktopSettings } from './settings.js';
-import { loadStickyState, saveStickyState, STICKY_MIN_SIZE, stickyBounds, type StickyState } from './stickyState.js';
+import { dockedBounds, loadQuickNotesState, QUICK_NOTES_WIDTH, saveQuickNotesState, type QuickNotesState } from './quickNotesState.js';
 import { createTray } from './tray.js';
 import { loadWindowState, trackWindowState } from './windowState.js';
 
@@ -68,9 +68,9 @@ let tray: Tray | undefined;
 let reminders: Reminders | undefined;
 let settings: DesktopSettings = loadSettings(app.getPath('userData'));
 let hotkeyActive = false;
-/** The open sticky notes (US-26) by note id, and where every note's window was. */
-const stickyWindows = new Map<number, BrowserWindow>();
-let stickyState: StickyState = loadStickyState(app.getPath('userData'));
+/** The quick notes panel (US-26), docked to the right edge of the screen. */
+let quickNotesWindow: BrowserWindow | undefined;
+let quickNotesState: QuickNotesState = loadQuickNotesState(app.getPath('userData'));
 /** Set once quitting has begun, so closing the window no longer hides it (notification area, macOS Dock). */
 let quitting = false;
 /**
@@ -120,9 +120,9 @@ async function start(): Promise<void> {
 
   registerIpc(server.url);
   createWindow(server.url, !startedAtLogin());
-  // The sticky notes pinned when the app was quit come back, also when it starts hidden at login.
-  for (const noteId of stickyState.open) openSticky(server.url, noteId);
-  tray = createTray(trayIcon, { open: showWindow, checkReminders: () => void reminders?.check(true), quit: () => app.quit() }, { template: isMac });
+  // The quick notes come back if they were open when the app was quit, also when it starts hidden at login.
+  if (quickNotesState.open) openQuickNotes(server.url);
+  tray = createTray(trayIcon, { open: showWindow, quickNotes: () => server && openQuickNotes(server.url), checkReminders: () => void reminders?.check(true), quit: () => app.quit() }, { template: isMac });
   setHotkey(settings.hotkey);
   const url = server.url;
   reminders = startReminders({
@@ -167,7 +167,7 @@ function createWindow(url: string, visible: boolean): void {
   if (visible) window.once('ready-to-show', () => window.show());
   window.on('closed', () => {
     mainWindow = undefined;
-    // Closing the window ends the app on Windows, also while sticky notes are open; they come back at the next start.
+    // Closing the window ends the app on Windows, also while the quick notes are open; they come back at the next start.
     if (!isMac) app.quit();
   });
 
@@ -218,32 +218,33 @@ function keepInApp(window: BrowserWindow): void {
 }
 
 /**
- * A note as a sticky note (US-26): a small frameless window, always in front, where the note was last time. A note
- * already open comes to the front instead. Its place is saved while it moves; closing it unpins it, quitting keeps it.
+ * The quick notes (US-26): one frameless panel, always in front, docked to the right edge of the screen the mouse is
+ * on, over its full height. Opening it again brings it to the front. Its width is kept; it stays where it is docked,
+ * and resizing only changes the width. Closing it with × closes it; quitting the app keeps it for the next start.
  */
-function openSticky(url: string, noteId: number): void {
-  const existing = stickyWindows.get(noteId);
-  if (existing && !existing.isDestroyed()) {
-    existing.show();
-    existing.focus();
+function openQuickNotes(url: string): void {
+  if (quickNotesWindow && !quickNotesWindow.isDestroyed()) {
+    quickNotesWindow.show();
+    quickNotesWindow.focus();
     return;
   }
   const dir = app.getPath('userData');
-  const bounds = stickyBounds(
-    stickyState.bounds[noteId],
-    screen.getAllDisplays().map((d) => d.workArea),
-    stickyWindows.size,
-  );
+  const workArea = () => screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+  let area = workArea();
   const window = new BrowserWindow({
-    ...bounds,
-    minWidth: STICKY_MIN_SIZE.width,
-    minHeight: STICKY_MIN_SIZE.height,
+    ...dockedBounds(area, quickNotesState.width),
+    minWidth: QUICK_NOTES_WIDTH.min,
+    maxWidth: QUICK_NOTES_WIDTH.max,
     frame: false,
     alwaysOnTop: true,
     skipTaskbar: true,
-    title: 'Sticky Note',
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    title: 'Kurznotizen',
     show: false,
-    // The paper color of the note, so there is no white flash before the page has loaded.
+    // The paper color, so there is no white flash before the page has loaded.
     backgroundColor: '#fff4a8',
     webPreferences: {
       contextIsolation: true,
@@ -252,32 +253,36 @@ function openSticky(url: string, noteId: number): void {
       preload: path.join(__dirname, 'preload.cjs'),
     },
   });
-  stickyWindows.set(noteId, window);
-  if (!stickyState.open.includes(noteId)) stickyState = { ...stickyState, open: [...stickyState.open, noteId] };
-  saveStickyState(dir, stickyState);
+  quickNotesWindow = window;
+  quickNotesState = { ...quickNotesState, open: true };
+  saveQuickNotesState(dir, quickNotesState);
 
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const remember = () => {
-    if (window.isDestroyed()) return;
-    stickyState = { ...stickyState, bounds: { ...stickyState.bounds, [noteId]: window.getBounds() } };
-    saveStickyState(dir, stickyState);
-  };
-  const rememberSoon = () => {
-    clearTimeout(timer);
-    timer = setTimeout(remember, 400);
-  };
-  window.on('moved', rememberSoon);
-  window.on('resized', rememberSoon);
-  window.on('close', () => {
-    clearTimeout(timer);
-    remember();
-    if (!quitting) stickyState = { ...stickyState, open: stickyState.open.filter((id) => id !== noteId) };
-    saveStickyState(dir, stickyState);
+  // Resized at its left edge, it stays docked: the new width, again over the full height at the right edge.
+  window.on('resized', () => {
+    quickNotesState = { ...quickNotesState, width: window.getBounds().width };
+    window.setBounds(dockedBounds(area, quickNotesState.width));
+    saveQuickNotesState(dir, quickNotesState);
   });
-  window.on('closed', () => stickyWindows.delete(noteId));
+  // A screen added, removed or rearranged (or the taskbar moved): dock again.
+  const redock = () => {
+    if (window.isDestroyed()) return;
+    area = workArea();
+    window.setBounds(dockedBounds(area, quickNotesState.width));
+  };
+  screen.on('display-metrics-changed', redock);
+  screen.on('display-removed', redock);
+  window.on('close', () => {
+    if (!quitting) quickNotesState = { ...quickNotesState, open: false };
+    saveQuickNotesState(dir, quickNotesState);
+  });
+  window.on('closed', () => {
+    screen.removeListener('display-metrics-changed', redock);
+    screen.removeListener('display-removed', redock);
+    quickNotesWindow = undefined;
+  });
   window.once('ready-to-show', () => window.show());
   keepInApp(window);
-  void window.loadURL(`${url}/sticky/${noteId}`);
+  void window.loadURL(`${url}/kurznotizen`);
 }
 
 /** Brings the window to the front: from the tray, the shortcut, a notification or a second start. */
@@ -409,9 +414,9 @@ function registerIpc(appUrl: string): void {
     if (!fromApp(event)) throw new Error('Not allowed');
     await reminders?.check(true);
   });
-  ipcMain.handle(IPC.openSticky, (event, noteId: unknown) => {
+  ipcMain.handle(IPC.openQuickNotes, (event) => {
     if (!fromApp(event)) throw new Error('Not allowed');
-    if (typeof noteId === 'number' && Number.isInteger(noteId) && noteId > 0) openSticky(appUrl, noteId);
+    openQuickNotes(appUrl);
   });
 }
 

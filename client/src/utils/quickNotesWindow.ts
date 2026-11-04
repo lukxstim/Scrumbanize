@@ -1,12 +1,10 @@
 import { desktopBridge } from '../hooks/useDesktopSettings';
 
 /**
- * Sticky notes (US-26): a note as a small window that stays in front of everything. The desktop app opens a frameless
- * window of its own; Chrome and Edge a Document Picture-in-Picture window, whose content this tab renders
- * (StickyPipHost). Elsewhere there are none, and the button is not shown.
+ * Where the quick notes (US-26) open: the desktop app docks a frameless panel of its own to the right edge of the
+ * screen; Chrome and Edge open a Document Picture-in-Picture window, whose content this tab renders
+ * (QuickNotesPipHost). Elsewhere there are none, and the button is not shown.
  */
-export type StickySupport = 'desktop' | 'pip' | null;
-
 interface DocumentPictureInPicture {
   requestWindow: (options: { width: number; height: number }) => Promise<Window>;
 }
@@ -14,25 +12,17 @@ interface DocumentPictureInPicture {
 const pictureInPicture = (): DocumentPictureInPicture | undefined =>
   (window as unknown as { documentPictureInPicture?: DocumentPictureInPicture }).documentPictureInPicture;
 
-export function stickySupport(): StickySupport {
-  if (desktopBridge?.openSticky) return 'desktop';
-  return pictureInPicture() ? 'pip' : null;
-}
+export const quickNotesAvailable = (): boolean => Boolean(desktopBridge?.openQuickNotes || pictureInPicture());
 
-/** The note shown in this tab's Picture-in-Picture window; one at a time, as the browser allows. */
-export interface PipSticky {
-  window: Window;
-  noteId: number;
-}
-
-let pip: PipSticky | null = null;
+/** This tab's Picture-in-Picture window with the quick notes; one at a time, as the browser allows. */
+let pip: Window | null = null;
 const listeners = new Set<() => void>();
-const setPip = (next: PipSticky | null) => {
+const setPip = (next: Window | null) => {
   pip = next;
   listeners.forEach((listener) => listener());
 };
 
-export const pipSticky = {
+export const quickNotesPip = {
   get: () => pip,
   subscribe: (listener: () => void) => {
     listeners.add(listener);
@@ -40,7 +30,7 @@ export const pipSticky = {
   },
 };
 
-/** The page's styles and theme in the Picture-in-Picture window, so the note looks as in the app. */
+/** The page's styles and theme in the Picture-in-Picture window, so the panel looks as in the app. */
 function copyStyles(target: Document) {
   for (const sheet of [...document.styleSheets]) {
     try {
@@ -61,20 +51,24 @@ function copyStyles(target: Document) {
   if (theme) target.documentElement.setAttribute('data-theme', theme);
 }
 
-/** Opens the note as a sticky note; must run on a click (the browser asks for a user gesture). */
-export async function openStickyNote(noteId: number): Promise<void> {
-  if (desktopBridge?.openSticky) {
-    await desktopBridge.openSticky(noteId);
+/** Opens the quick notes; must run on a click (the browser opens Picture-in-Picture only for a user gesture). */
+export async function openQuickNotes(): Promise<void> {
+  if (desktopBridge?.openQuickNotes) {
+    await desktopBridge.openQuickNotes();
+    return;
+  }
+  if (pip && !pip.closed) {
+    pip.focus();
     return;
   }
   const api = pictureInPicture();
   if (!api) return;
-  const next = await api.requestWindow({ width: 320, height: 340 });
+  const next = await api.requestWindow({ width: 360, height: Math.min(900, window.screen.availHeight) });
   copyStyles(next.document);
-  next.document.title = 'Sticky Note';
-  next.document.body.className = 'm-0 h-screen overflow-hidden';
+  next.document.title = 'Kurznotizen';
+  next.document.body.className = 'm-0 h-screen overflow-hidden bg-canvas';
   next.addEventListener('pagehide', () => {
-    if (pip?.window === next) setPip(null);
+    if (pip === next) setPip(null);
   });
-  setPip({ window: next, noteId });
+  setPip(next);
 }

@@ -11,6 +11,7 @@ import { notesApi, searchApi, type SearchResults } from '../utils/api';
 import { requestNewProject, requestTourStart, type CreateRequest } from '../utils/appEvents';
 import { matchesQuery } from '../utils/matchQuery';
 import { paths, withActivityDrawer } from '../utils/paths';
+import { openQuickNotes, quickNotesAvailable } from '../utils/quickNotesWindow';
 import { colorDot, hasBoard } from '../utils/projects';
 import { NotebookGlyph } from './projects/NotebookSymbol';
 import { ProjectMark } from './projects/ProjectSwitcher';
@@ -263,6 +264,18 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
       ...others.map(switchTo),
       // Only with a query (matched below), so the list without one stays short. Not for viewers (US-21).
       ...(trimmed ? others.filter((p) => can(p.role, 'edit')).map(newNoteIn) : []),
+      // Quick notes (US-26), where a panel in front of everything is possible.
+      ...(quickNotesAvailable()
+        ? [
+            {
+              id: 'quick-notes',
+              label: 'Kurznotizen öffnen',
+              keywords: 'kurznotizen sticky notes schnell notieren notiz zettel',
+              icon: <PlusIcon />,
+              run: () => void openQuickNotes(),
+            },
+          ]
+        : []),
       {
         id: 'new-notebook',
         label: 'Neues Notizbuch …',

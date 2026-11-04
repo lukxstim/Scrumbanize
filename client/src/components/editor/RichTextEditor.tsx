@@ -24,8 +24,6 @@ export interface RichTextEditorProps {
   contentClassName?: string;
   /** Viewers (US-21): the text formatted as usual, without toolbar; checklists cannot be ticked. */
   readOnly?: boolean;
-  /** Without the toolbar, e.g. in a sticky note (US-26): formatting by shortcuts and Markdown typing only. */
-  toolbar?: boolean;
   /** Links to notes and tasks (US-22): typing "[[" suggests them, this project's first. Without it, no picker. */
   links?: { projectId: number };
 }
@@ -52,7 +50,6 @@ export default function RichTextEditor({
   toolbarTrailing,
   contentClassName = '',
   readOnly = false,
-  toolbar = true,
   links,
 }: RichTextEditorProps) {
   // The editor is created once; the latest callbacks are read through refs.
@@ -186,8 +183,8 @@ export default function RichTextEditor({
   if (!editor) return null;
   return (
     <div className="flex flex-col">
-      {!readOnly && toolbar && <EditorToolbar editor={editor} trailing={toolbarTrailing} />}
-      <EditorContent editor={editor} className={toolbar ? 'pt-3' : ''} />
+      {!readOnly && <EditorToolbar editor={editor} trailing={toolbarTrailing} />}
+      <EditorContent editor={editor} className="pt-3" />
       {picker?.anchor && links && (
         <LinkPicker
           anchor={picker.anchor}

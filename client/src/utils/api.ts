@@ -49,6 +49,9 @@ async function trashRequest<T>(path: string, init: RequestInit): Promise<T> {
   return result;
 }
 
+/** A request sent as another client of this tab (US-26), whose changes the tab then hears of live (US-24). */
+const asClientHeaders = (asClient?: string): RequestInit => (asClient ? { headers: { 'X-Client-Id': asClient } } : {});
+
 /** Login and the first administrator (US-21). */
 export const authApi = {
   session: () => request<AuthSession>('/auth/session'),
@@ -145,9 +148,13 @@ export const notesApi = {
   /** The same over all projects and notebooks the user can see (US-22). */
   allTags: () => request<{ id: number; name: string; noteCount: number }[]>('/tags'),
   get: (id: number) => request<Note>(`/notes/${id}`),
-  /** `folderId`: right into a folder of the project (US-22). */
-  create: (projectId: number, input: NoteInput, folderId?: number | null) =>
-    request<Note>(`/projects/${projectId}/notes`, { method: 'POST', body: JSON.stringify({ ...input, folderId: folderId ?? null }) }),
+  /** `folderId`: right into a folder of the project (US-22). `asClient`: see `update`. */
+  create: (projectId: number, input: NoteInput, folderId?: number | null, asClient?: string) =>
+    request<Note>(`/projects/${projectId}/notes`, {
+      method: 'POST',
+      body: JSON.stringify({ ...input, folderId: folderId ?? null }),
+      ...asClientHeaders(asClient),
+    }),
   /** The pages of a folder (null: the top level) in an order of their own (US-34); `ids` are all of its pages. */
   reorder: (projectId: number, folderId: number | null, ids: number[]) =>
     request<void>(`/projects/${projectId}/notes/order`, { method: 'PUT', body: JSON.stringify({ folderId, ids }) }),
@@ -156,16 +163,12 @@ export const notesApi = {
     request<Note>(`/notes/${id}/folder`, { method: 'PUT', body: JSON.stringify({ folderId, projectId }) }),
   /**
    * `baseUpdatedAt`: the version the edit started from; changed elsewhere since, the save is refused (409, US-24).
-   * `asClient`: saved as another client of this tab, e.g. a sticky note (US-26), so the tab hears of the change.
+   * `asClient`: sent as another client of this tab, e.g. the quick notes window (US-26), so the tab hears of it.
    */
   update: (id: number, input: NoteInput, baseUpdatedAt?: string, asClient?: string) =>
-    request<Note>(`/notes/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ ...input, baseUpdatedAt }),
-      ...(asClient ? { headers: { 'X-Client-Id': asClient } } : {}),
-    }),
-  /** Moves the note to the trash. */
-  remove: (id: number) => trashRequest<void>(`/notes/${id}`, { method: 'DELETE' }),
+    request<Note>(`/notes/${id}`, { method: 'PUT', body: JSON.stringify({ ...input, baseUpdatedAt }), ...asClientHeaders(asClient) }),
+  /** Moves the note to the trash. `asClient`: see `update`. */
+  remove: (id: number, asClient?: string) => trashRequest<void>(`/notes/${id}`, { method: 'DELETE', ...asClientHeaders(asClient) }),
 };
 
 /** Links between notes and tasks across projects (US-22). */

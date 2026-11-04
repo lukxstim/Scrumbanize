@@ -2,6 +2,8 @@ import { Menu, nativeImage, Tray } from 'electron';
 
 export interface TrayActions {
   open: () => void;
+  /** The quick notes panel at the right edge of the screen (US-26). */
+  quickNotes: () => void;
   checkReminders: () => void;
   quit: () => void;
 }
@@ -20,6 +22,7 @@ export function createTray(iconFile: string, actions: TrayActions, { template = 
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: 'Scrumbanize öffnen', click: actions.open },
+      { label: 'Kurznotizen', click: actions.quickNotes },
       { label: 'Erinnerungen jetzt prüfen', click: actions.checkReminders },
       { type: 'separator' },
       { label: 'Beenden', click: actions.quit },

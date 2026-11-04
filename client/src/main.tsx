@@ -13,8 +13,8 @@ import { RealtimeProvider } from './hooks/useRealtime';
 import { ToastProvider } from './hooks/useToast';
 import './index.css';
 
-// The page of a sticky note window of the desktop app (US-26), loaded only there.
-const StickyNotePage = lazy(() => import('./components/sticky/StickyNotePage'));
+// The page of the desktop app's quick notes panel (US-26), loaded only there.
+const QuickNotesPage = lazy(() => import('./components/quick/QuickNotesPage'));
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -31,11 +31,11 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/passwort/:token" element={<ResetPage />} />
             <Route element={<ProtectedRoute />}>
               <Route
-                path="/sticky/:noteId"
+                path="/kurznotizen"
                 element={
                   <RealtimeProvider>
                     <Suspense fallback={null}>
-                      <StickyNotePage />
+                      <QuickNotesPage />
                     </Suspense>
                   </RealtimeProvider>
                 }

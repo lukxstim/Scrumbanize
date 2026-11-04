@@ -7,8 +7,8 @@ export const IPC = {
   getSettings: 'desktop:get-settings',
   updateSettings: 'desktop:update-settings',
   checkReminders: 'desktop:check-reminders',
-  /** Opens a note as a sticky note (US-26): a small window of its own, always in front. */
-  openSticky: 'desktop:open-sticky',
+  /** Opens the quick notes (US-26): a panel docked to the right edge of the screen, always in front. */
+  openQuickNotes: 'desktop:open-quick-notes',
   /** Main → page: show this path of the app, e.g. after a click on a notification. */
   navigate: 'desktop:navigate',
 } as const;

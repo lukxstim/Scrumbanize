@@ -15,7 +15,6 @@ import type { RealtimeActor } from '../../types/realtime';
 import type { Task } from '../../types/task';
 import { buildTaskDraft, UNTITLED_NOTE, type TaskDraft } from '../../utils/taskFromNote';
 import { ApiError, exportUrls, startDownload, type ExportFormat } from '../../utils/api';
-import { openStickyNote, stickySupport } from '../../utils/stickyNotes';
 import { BoardIcon, DownloadIcon, FolderIcon, MindmapIcon } from '../icons';
 import Menu from '../Menu';
 import AttachmentsPanel from '../attachments/AttachmentsPanel';
@@ -28,15 +27,6 @@ import TagInput from './TagInput';
 
 // Loaded when first opened, with its layout code.
 const MindmapDialog = lazy(() => import('../mindmap/MindmapDialog'));
-/** Whether a sticky note window can be opened here (US-26); the same for the whole visit. */
-const STICKY = stickySupport() !== null;
-
-const StickyIcon = () => (
-  <svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5 fill-none stroke-current stroke-[1.5]">
-    <path d="M3 2.5h10v7.5l-3.5 3.5H3z" strokeLinejoin="round" />
-    <path d="M13 10H9.5v3.5" strokeLinejoin="round" />
-  </svg>
-);
 
 interface NoteEditorProps {
   /** The editor keeps its own draft; remount it (via `key`) to edit another note. */
@@ -235,24 +225,6 @@ export default function NoteEditor({
           <MindmapIcon className="size-3.5" />
           Als Mindmap
         </Button>
-        {/* Sticky notes (US-26): only where a window in front of everything is possible (desktop app, Chrome, Edge). */}
-        {STICKY && (
-          <Button
-            size="sm"
-            variant="ghost"
-            title="Als kleines Fenster anheften, das vor allen anderen bleibt"
-            onClick={(event) => {
-              void flush();
-              // Right away: the browser opens the window only during the click.
-              openStickyNote(note.id).catch(() => toast({ message: 'Die Sticky Note konnte nicht geöffnet werden.', tone: 'error' }));
-              // Out of the editor, so it takes over what is typed on the sticky note instead of asking (US-24).
-              event.currentTarget.blur();
-            }}
-          >
-            <StickyIcon />
-            Sticky Note
-          </Button>
-        )}
         <Menu
           label="Notiz exportieren"
           align="left"

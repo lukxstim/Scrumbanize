@@ -351,27 +351,6 @@ mark[data-color],
   background-color: var(--highlight-orange);
 }
 
-/*
- * A sticky note (US-26): yellow paper like the Windows Sticky Notes, in both themes, so its text tokens are those of
- * the light theme.
- */
-.sticky-paper {
-  color-scheme: light;
-  background-color: #fff4a8;
-  --color-surface: #fff4a8;
-  --color-surface-muted: #fbeb8a;
-  --color-surface-hover: #f7e27a;
-  --color-line: #ecd970;
-  --color-line-strong: #dcc65a;
-  --color-fg: var(--color-zinc-900);
-  --color-fg-muted: var(--color-zinc-700);
-  --color-fg-subtle: oklch(42% 0.03 90);
-  --color-fg-faint: oklch(58% 0.04 90);
-  --color-accent: var(--color-indigo-600);
-  --color-accent-text: var(--color-indigo-700);
-  color: var(--color-fg);
-}
-
 /* The rich-text editor (Tiptap/ProseMirror). */
 .rich-text {
   caret-color: var(--color-accent);
