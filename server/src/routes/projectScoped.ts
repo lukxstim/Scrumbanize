@@ -151,6 +151,8 @@ export function projectScopedRouter({ access, activities, analytics, graph, labe
     if (input.columnId !== undefined && board.columnProjectId(input.columnId) !== projectIdOf(res)) {
       throw new HttpError(400, 'invalid_input', 'The column belongs to another project');
     }
+    const parentIssue = input.parentTaskId === undefined ? undefined : tasks.parentProblem(projectIdOf(res), null, input.parentTaskId);
+    if (parentIssue) throw new HttpError(400, 'invalid_parent', parentIssue);
     if (input.labelIds && !labels.allInProject(projectIdOf(res), input.labelIds)) {
       throw new HttpError(400, 'invalid_input', 'A label belongs to another project');
     }

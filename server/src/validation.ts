@@ -116,6 +116,8 @@ export const taskInputSchema = z
     /** The column to create the task in (e.g. from a template); the first column if omitted. */
     columnId: z.number().int().positive().optional(),
     labelIds: z.array(z.number().int().positive()).max(MAX_LABELS_PER_PROJECT).optional(),
+    /** A subtask of this task of the project (US-28). */
+    parentTaskId: z.number().int().positive().optional(),
     ...scheduleFields,
   })
   .superRefine((input, ctx) => {
@@ -131,6 +133,8 @@ export const taskPatchSchema = z.object({
   description: z.string().max(1_000_000).optional(),
   /** Replaces the task's labels. */
   labelIds: z.array(z.number().int().positive()).max(MAX_LABELS_PER_PROJECT).optional(),
+  /** Makes the task a subtask of another task of the project (US-28), or (null) an ordinary task again. */
+  parentTaskId: z.number().int().positive().nullable().optional(),
   ...scheduleFields,
   /**
    * Title and description as they were when the edit started (US-24). If someone else changed one of them since, the

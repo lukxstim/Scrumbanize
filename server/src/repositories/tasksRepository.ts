@@ -20,6 +20,11 @@ export interface Task {
   /** Order within the task's cell (column × lane), ascending. */
   position: number;
   /**
+   * The task this one is a subtask of (US-28), one level deep. It may be in the trash; the board then shows this one
+   * as an ordinary task.
+   */
+  parentId: number | null;
+  /**
    * The note the task was created from, with its current tags; null if created elsewhere or the note was deleted.
    * It may live in another project or notebook (US-22); `restricted`: the viewer may not see it (no title, no tags).
    */
@@ -87,6 +92,7 @@ interface TaskRow {
   title: string;
   description: string;
   position: number;
+  parent_id: number | null;
   source_note_id: number | null;
   source_note_title: string | null;
   /** Set while the source note is outside the trash; a trashed note is not shown on its tasks. */
@@ -114,6 +120,7 @@ export type UpdateResult =
   | { ok: false; reason: 'not_found' }
   | { ok: false; reason: 'invalid_labels' }
   | { ok: false; reason: 'invalid_schedule'; message: string }
+  | { ok: false; reason: 'invalid_parent'; message: string }
   /** Title or description changed elsewhere since `patch.base` (US-24); `task` is the current state. */
   | { ok: false; reason: 'conflict'; task: Task; fields: ('title' | 'description')[] };
 
@@ -143,15 +150,20 @@ export function createTasksRepository(db: Db) {
   );
   const insertTask = db.prepare<
     [
-      number, number, number, string, string, number, number | null,
+      number, number, number, string, string, number, number | null, number | null,
       TaskPriority | null, string | null, string | null, string, string,
     ],
     { id: number }
   >(
-    `INSERT INTO tasks (project_id, column_id, lane_id, title, description, position, source_note_id,
+    `INSERT INTO tasks (project_id, column_id, lane_id, title, description, position, source_note_id, parent_id,
                         priority, start_date, due_date, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
   );
+  const selectParentCandidate = db.prepare<[number], { project_id: number; parent_id: number | null }>(
+    `SELECT project_id, parent_id FROM live_tasks WHERE id = ?`,
+  );
+  const countSubtasks = db.prepare<[number], { count: number }>(`SELECT COUNT(*) AS count FROM live_tasks WHERE parent_id = ?`);
+  const updateParent = db.prepare<[number | null, number]>(`UPDATE tasks SET parent_id = ? WHERE id = ?`);
   const selectTask = db.prepare<[number], TaskRow>(`${selectTaskSql} WHERE t.id = ?`);
   const selectProjectTasks = db.prepare<[number], TaskRow>(
     `${selectTaskSql}
@@ -260,6 +272,7 @@ export function createTasksRepository(db: Db) {
       title: row.title,
       description: row.description,
       position: row.position,
+      parentId: row.parent_id ?? null,
       sourceNote: sourceNoteOf(row),
       linkedNotes: linkedNotesOf(row),
       priority: row.priority,
@@ -273,7 +286,22 @@ export function createTasksRepository(db: Db) {
     };
   }
 
+  /**
+   * Why `parentId` cannot be the parent of a task in `projectId` (US-28), or undefined if it can: a task of the same
+   * project that is not a subtask itself, not the task itself; and the task (null: a new one) has no subtasks of its own.
+   */
+  function parentProblem(projectId: number, taskId: number | null, parentId: number): string | undefined {
+    const parent = selectParentCandidate.get(parentId);
+    if (!parent || parent.project_id !== projectId) return 'The parent task must be a task of the same project';
+    if (parentId === taskId) return 'A task cannot be its own subtask';
+    if (parent.parent_id !== null) return 'A subtask cannot have subtasks';
+    if (taskId !== null && countSubtasks.get(taskId)!.count > 0) return 'A task with subtasks cannot become a subtask';
+    return undefined;
+  }
+
   return {
+    parentProblem,
+
     /** The project a note belongs to, or undefined if the note does not exist. */
     noteProjectId(noteId: number): number | undefined {
       return selectNoteProject.get(noteId)?.project_id;
@@ -307,6 +335,7 @@ export function createTasksRepository(db: Db) {
         input.description,
         position,
         sourceNoteId,
+        input.parentTaskId ?? null,
         input.priority ?? null,
         input.startDate ?? null,
         input.dueDate ?? null,
@@ -354,6 +383,11 @@ export function createTasksRepository(db: Db) {
       const dueDate = patch.dueDate === undefined ? before.due_date : patch.dueDate;
       const problem = scheduleProblem(startDate, dueDate);
       if (problem) return { ok: false, reason: 'invalid_schedule', message: problem };
+      if (patch.parentTaskId !== undefined && patch.parentTaskId !== null && patch.parentTaskId !== before.parent_id) {
+        const parentIssue = parentProblem(before.project_id, id, patch.parentTaskId);
+        if (parentIssue) return { ok: false, reason: 'invalid_parent', message: parentIssue };
+      }
+      if (patch.parentTaskId !== undefined) updateParent.run(patch.parentTaskId, id);
       updateTask.run(
         patch.title ?? before.title,
         patch.description ?? before.description,

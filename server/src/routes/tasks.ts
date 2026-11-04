@@ -47,6 +47,7 @@ export function tasksRouter(tasks: TasksRepository, access: Access): Router {
     if (result.reason === 'conflict') {
       throw new HttpError(409, 'conflict', 'The task was changed in the meantime', { task: result.task, fields: result.fields });
     }
+    if (result.reason === 'invalid_parent') throw new HttpError(400, 'invalid_parent', result.message);
     throw new HttpError(400, 'invalid_schedule', result.message);
   });
 

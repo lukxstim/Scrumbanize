@@ -201,3 +201,47 @@ describe('dates when converting a note (US-27)', () => {
     expect((await send({ startDate: '2026-11-14', dueDate: '2026-11-13' })).status).toBe(400);
   });
 });
+
+describe('subtasks (US-28)', () => {
+  const newTask = async (body: object) => api.post('/api/projects/1/tasks').send({ description: '', ...body });
+
+  it('creates a subtask, keeps it on the board and turns it back into an ordinary task', async () => {
+    const parent = (await newTask({ title: 'Release' })).body;
+    expect(parent.parentId).toBeNull();
+    const sub = await newTask({ title: 'Changelog', parentTaskId: parent.id });
+    expect(sub.status).toBe(201);
+    expect(sub.body.parentId).toBe(parent.id);
+
+    const board = (await api.get('/api/projects/1/board')).body as { tasks: { id: number; parentId: number | null }[] };
+    expect(board.tasks.find((t) => t.id === sub.body.id)?.parentId).toBe(parent.id);
+
+    const freed = await api.patch(`/api/tasks/${sub.body.id}`).send({ parentTaskId: null });
+    expect(freed.status).toBe(200);
+    expect(freed.body.parentId).toBeNull();
+    const again = await api.patch(`/api/tasks/${sub.body.id}`).send({ parentTaskId: parent.id });
+    expect(again.body.parentId).toBe(parent.id);
+  });
+
+  it('keeps subtasks one level deep and inside the project', async () => {
+    const parent = (await newTask({ title: 'Release' })).body;
+    const sub = (await newTask({ title: 'Changelog', parentTaskId: parent.id })).body;
+    const other = (await newTask({ title: 'Anderes' })).body;
+
+    expect((await newTask({ title: 'Tiefer', parentTaskId: sub.id })).body.error.code).toBe('invalid_parent');
+    expect((await newTask({ title: 'Nirgends', parentTaskId: 9999 })).body.error.code).toBe('invalid_parent');
+    expect((await api.patch(`/api/tasks/${other.id}`).send({ parentTaskId: other.id })).body.error.code).toBe('invalid_parent');
+    // A task with subtasks cannot become a subtask itself.
+    expect((await api.patch(`/api/tasks/${parent.id}`).send({ parentTaskId: other.id })).body.error.code).toBe('invalid_parent');
+
+    const project = (await api.post('/api/projects').send({ name: 'Zweites', color: 'red' })).body;
+    const foreign = (await api.post(`/api/projects/${project.id}/tasks`).send({ title: 'Fremd', description: '' })).body;
+    expect((await api.patch(`/api/tasks/${foreign.id}`).send({ parentTaskId: parent.id })).body.error.code).toBe('invalid_parent');
+  });
+
+  it('makes subtasks ordinary tasks once their parent is purged', async () => {
+    const parent = (await newTask({ title: 'Release' })).body;
+    const sub = (await newTask({ title: 'Changelog', parentTaskId: parent.id })).body;
+    db.prepare('DELETE FROM tasks WHERE id = ?').run(parent.id);
+    expect((await api.get(`/api/tasks/${sub.id}`)).body.parentId).toBeNull();
+  });
+});

@@ -456,6 +456,16 @@ export const migrations: string[] = [
   CREATE VIEW live_notes AS
     SELECT n.* FROM notes n JOIN projects p ON p.id = n.project_id WHERE n.deleted_at IS NULL AND p.deleted_at IS NULL;
   `,
+  // Subtasks (US-28): a task may belong to another task of its project, one level deep. Purging the parent makes
+  // its subtasks ordinary tasks again.
+  `
+  ALTER TABLE tasks ADD COLUMN parent_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL;
+  CREATE INDEX idx_tasks_parent ON tasks(parent_id);
+  DROP VIEW live_tasks;
+  CREATE VIEW live_tasks AS
+    SELECT t.* FROM tasks t JOIN projects p ON p.id = t.project_id
+    WHERE t.deleted_at IS NULL AND p.deleted_at IS NULL AND p.kind = 'project';
+  `,
 ];
 
 export interface OpenOptions {
