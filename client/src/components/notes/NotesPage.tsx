@@ -39,7 +39,7 @@ import NoteList from './NoteList';
 import NotesViewSwitch from './NotesViewSwitch';
 import SearchBar from './SearchBar';
 import { ActiveTags, TagFilterButton } from './TagFilter';
-import NotebookSections, { type SectionDrop } from './NotebookSections';
+import NotebookSections, { type DraggedSection, type SectionDrop, type SectionPlace } from './NotebookSections';
 import PageList, { PAGE_LIST_DROP } from './PageList';
 import { currentSection, DEFAULT_PAGE_SORT, isPageSort, PAGE_SORT_KEY, movePage, PAGE_SORTS, pagesOf, SECTION_PARAM, sectionColor, sectionParam, slotIndex, type PageSort, type SectionId } from '../../utils/sections';
 import { UNTITLED_NOTE } from '../../utils/taskFromNote';
@@ -272,21 +272,52 @@ export default function NotesPage() {
     setInsertBefore(null);
   }
 
+  // Sections of the notebook shown are dragged into a new place among the sections, too.
+  const [draggedSection, setDraggedSection] = useState<Folder | null>(null);
+
   useDndMonitor({
-    onDragStart: ({ active }) => setDraggedPage(notes.find((n) => n.id === active.data.current?.noteId) ?? null),
+    onDragStart: ({ active }) => {
+      setDraggedPage(notes.find((n) => n.id === active.data.current?.noteId) ?? null);
+      const dragged = active.data.current?.section as DraggedSection | undefined;
+      setDraggedSection(dragged?.projectId === projectId ? (folders.find((f) => f.id === dragged.sectionId) ?? null) : null);
+    },
     onDragMove: (event) => setInsertBefore(slotUnder(event)),
-    onDragCancel: endPageDrag,
+    onDragCancel: () => {
+      endPageDrag();
+      setDraggedSection(null);
+    },
     onDragEnd: ({ over }) => {
       const page = draggedPage;
       const before = insertBefore;
       const drop = over?.data.current?.drop as SectionDrop | undefined;
+      const section = draggedSection;
       endPageDrag();
+      setDraggedSection(null);
+      if (section) void placeSection(section, over?.data.current?.place as SectionPlace | undefined);
       if (!page) return;
       if (before !== null) void placePage(page, before);
       else if (drop && drop.projectId !== projectId) void movePageTo(page, drop);
       else if (drop && drop.folderId !== page.folderId) void folderActions.dropNote(page.id, drop.folderId);
     },
   });
+
+  /** A section dropped before another goes among that one's siblings, there; at "Neuer Abschnitt", last at the top. */
+  async function placeSection(dragged: Folder, place: SectionPlace | undefined) {
+    if (!place || place.projectId !== projectId || ('before' in place && place.before === dragged.id)) return;
+    const target = 'before' in place ? folders.find((f) => f.id === place.before) : undefined;
+    const parentId = target ? target.parentId : null;
+    if (!canMoveFolder(folders, dragged.id, parentId)) {
+      toast({ message: 'Ein Abschnitt kann nicht in sich selbst liegen, und Abschnitte gehen höchstens fünf Ebenen tief.', tone: 'error' });
+      return;
+    }
+    const siblings = folders.filter((f) => f.parentId === parentId && f.id !== dragged.id).sort((a, b) => a.position - b.position);
+    const index = target ? siblings.findIndex((f) => f.id === target.id) : siblings.length;
+    try {
+      await updateFolder(dragged.id, { parentId, index });
+    } catch (error) {
+      failed(error, 'Der Abschnitt konnte nicht verschoben werden.');
+    }
+  }
 
   // The new order covers every page of the section, also those a tag filter hides; dragging switches to it.
   async function placePage(page: Note, before: number | 'end') {
@@ -488,6 +519,12 @@ export default function NotesPage() {
             </div>
           </aside>
           <DragOverlay dropAnimation={null}>
+            {draggedSection && (
+              <div className="flex max-w-56 cursor-grabbing items-center gap-2 rounded-md border border-accent-line bg-surface px-2.5 py-1.5 text-sm font-medium text-fg shadow-popover">
+                <span className={`h-4 w-1 shrink-0 rounded-full ${sectionColor(draggedSection.id)}`} aria-hidden="true" />
+                <span className="truncate">{draggedSection.name}</span>
+              </div>
+            )}
             {draggedPage && (
               <div className="flex max-w-64 cursor-grabbing items-center gap-1.5 rounded-md border border-accent-line bg-surface px-2.5 py-1.5 text-sm font-medium text-fg shadow-popover">
                 <NoteIcon className="size-3.5 shrink-0 text-fg-subtle" />

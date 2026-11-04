@@ -10,7 +10,7 @@ import type { Project } from '../types/project';
 import { notesApi, searchApi, type SearchResults } from '../utils/api';
 import { requestNewProject, requestTourStart, type CreateRequest } from '../utils/appEvents';
 import { matchesQuery } from '../utils/matchQuery';
-import { allNotesPath, KNOWLEDGE_PATH, paths, withActivityDrawer } from '../utils/paths';
+import { paths, withActivityDrawer } from '../utils/paths';
 import { colorDot, hasBoard } from '../utils/projects';
 import { NotebookGlyph } from './projects/NotebookSymbol';
 import { ProjectMark } from './projects/ProjectSwitcher';
@@ -56,8 +56,6 @@ interface Item {
 }
 
 const SEARCH_DELAY_MS = 150;
-/** At most this many tags ("Tag „rezept“") among the results. */
-const MAX_TAG_ITEMS = 6;
 /** Views a notebook does not have (US-22). */
 const BOARD_VIEWS = ['go-board', 'go-calendar', 'go-analytics'];
 
@@ -73,21 +71,6 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
   const mobile = useIsMobile();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResults | null>(null);
-  // The tags of all notes the user can see (US-22), fresh every time the palette opens.
-  const [tags, setTags] = useState<{ name: string; noteCount: number }[]>([]);
-  useEffect(() => {
-    if (!open) return;
-    let current = true;
-    notesApi.allTags().then(
-      (all) => current && setTags(all),
-      () => {
-        // Without tags, everything else still works.
-      },
-    );
-    return () => {
-      current = false;
-    };
-  }, [open]);
 
   // Clear on close (not on open), so the palette is already empty when it reopens and keys typed
   // right after ⌘K are not appended to the previous query.
@@ -277,13 +260,6 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
   groups.push({
     heading: 'Notizbücher',
     items: [
-      {
-        id: 'go-knowledge',
-        label: 'Alle Notizen',
-        keywords: 'alle notizen notizbücher notizbuch wissen tags schlagworte übersicht gehe zu',
-        icon: <NotebookGlyph icon="book" />,
-        run: () => navigate(KNOWLEDGE_PATH),
-      },
       ...others.map(switchTo),
       // Only with a query (matched below), so the list without one stays short. Not for viewers (US-21).
       ...(trimmed ? others.filter((p) => can(p.role, 'edit')).map(newNoteIn) : []),
@@ -329,28 +305,6 @@ export default function CommandPalette({ open, onClose, activeProject }: Command
       },
     ].filter((item) => matchesQuery(trimmed, item.label, item.keywords)),
   });
-
-  // Tags (US-22): "#rezept" or "rezept" opens "Alle Notizen" with that tag.
-  const tagQuery = trimmed.replace(/^#/, '');
-  if (tagQuery) {
-    groups.push({
-      heading: 'Tags',
-      items: tags
-        .filter((tag) => matchesQuery(tagQuery, tag.name))
-        .slice(0, MAX_TAG_ITEMS)
-        .map((tag) => ({
-          id: `tag-${tag.name}`,
-          label: (
-            <>
-              Tag „{tag.name}“ <span className="text-xs text-fg-subtle">· {tag.noteCount === 1 ? '1 Notiz' : `${tag.noteCount} Notizen`}</span>
-            </>
-          ),
-          keywords: '',
-          icon: <span className="grid size-4 place-items-center text-sm font-semibold text-fg-subtle" aria-hidden="true">#</span>,
-          run: () => navigate(allNotesPath(undefined, [tag.name])),
-        })),
-    });
-  }
 
   if (results) {
     groups.push({

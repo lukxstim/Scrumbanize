@@ -1,15 +1,14 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Link, useLocation, useMatch, useSearchParams } from 'react-router';
+import { Link, useMatch } from 'react-router';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotesView } from '../../hooks/useNotesView';
 import { useProjects } from '../../hooks/useProjects';
 import type { Project } from '../../types/project';
-import { notesApi } from '../../utils/api';
 import { onNotesChanged, requestNewProject } from '../../utils/appEvents';
-import { allNotesPath, KNOWLEDGE_PATH, paths, TAG_PARAM } from '../../utils/paths';
+import { paths } from '../../utils/paths';
 import { can } from '../../utils/permissions';
 import { hasBoard } from '../../utils/projects';
-import { BoardIcon, ChevronDownIcon, ChevronRightIcon, NoteIcon, PlusIcon } from '../icons';
+import { BoardIcon, ChevronDownIcon, ChevronRightIcon, PlusIcon } from '../icons';
 import Menu, { type MenuItem } from '../Menu';
 import { DndContext, MouseSensor, pointerWithin, TouchSensor, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
 import { useStoredState } from '../../hooks/useStoredState';
@@ -40,7 +39,7 @@ function NotebookDropRow({ projectId, children }: { projectId: number; children:
 
 function Heading({ children, action }: { children: string; action?: ReactNode }) {
   return (
-    <div className="flex h-7 items-center justify-between px-2 pt-4 pb-1">
+    <div className="flex h-7 items-center justify-between px-2 pt-3 pb-1">
       <h2 className="text-[11px] font-semibold tracking-wide text-fg-subtle uppercase">{children}</h2>
       {action}
     </div>
@@ -48,10 +47,9 @@ function Heading({ children, action }: { children: string; action?: ReactNode })
 }
 
 /**
- * The left column of the notes (US-22; since US-26 one area for all notebooks, OneNote-style): "Alle Notizen", every
- * notebook with board or without (each with its menu for editing, members and deleting) and, if chosen, the tags of all
- * notes. In the tree view (US-34) the open notebook's folders and notes hang under it: `onSlot` receives the place for
- * them. On phones (US-25) the same list opens as a sheet (`inSheet`); `onNavigate` closes it once a link was chosen.
+ * The left column of the notes (US-22; since US-26 one area for all notebooks, OneNote-style): every notebook with
+ * board or without, each with its menu for editing and members. In the notebook view (US-34) open notebooks show their
+ * sections; the shown one's come from the notes page: `onSlot` receives the place for them. On phones (US-25) the same list opens as a sheet (`inSheet`); `onNavigate` closes it once a link was chosen.
  */
 function KnowledgeSidebar({
   inSheet = false,
@@ -64,12 +62,7 @@ function KnowledgeSidebar({
 }) {
   const { projects: notebooks, reload } = useProjects();
   const withMembers = useAuth().session?.mode === 'required';
-  const location = useLocation();
-  const [searchParams] = useSearchParams();
-  const onAllNotes = useMatch(`${KNOWLEDGE_PATH}/*`) !== null;
   const activeNotebookId = Number(useMatch('/p/:projectId/*')?.params.projectId);
-  const activeTags = onAllNotes ? searchParams.getAll(TAG_PARAM) : [];
-  const [tags, setTags] = useState<{ name: string; noteCount: number }[]>([]);
   const [view] = useNotesView();
   const tree = view.layout === 'tree' && !inSheet;
   const [managing, setManaging] = useState<{ project: Project; dialog: ManageDialog } | null>(null);
@@ -83,18 +76,8 @@ function KnowledgeSidebar({
     // Only when another notebook is shown; closing it afterwards stays possible.
   }, [activeNotebookId, onNotesPage, tree]);
 
-  // Fresh tag counts on every page, and tag and note counts whenever a note was created, saved or deleted.
-  useEffect(() => {
-    const load = () =>
-      notesApi.allTags().then(setTags, () => {
-        // Without tags, the notebooks still work.
-      });
-    void load();
-    return onNotesChanged(() => {
-      void load();
-      void reload();
-    });
-  }, [location.pathname, reload]);
+  // Fresh note counts whenever a note was created, saved, moved or deleted.
+  useEffect(() => onNotesChanged(() => void reload()), [reload]);
 
   const menuItems = (notebook: Project): MenuItem[] => [
     ...(can(notebook.role, 'manageProject')
@@ -115,18 +98,6 @@ function KnowledgeSidebar({
           : `flex shrink-0 flex-col overflow-y-auto border-r border-line bg-canvas px-2 pb-4 max-md:hidden ${tree ? 'w-60 xl:w-64' : 'w-52 xl:w-60'}`
       }
     >
-      <div className="pt-3">
-        <Link
-          to={KNOWLEDGE_PATH}
-          aria-current={onAllNotes && activeTags.length === 0 ? 'page' : undefined}
-          className={rowClass(onAllNotes && activeTags.length === 0)}
-        >
-          <NoteIcon className="size-4 shrink-0 text-fg-subtle" />
-          <span className="flex-1 truncate">Alle Notizen</span>
-          <span className="text-xs text-fg-subtle tabular-nums">{notebooks.reduce((sum, n) => sum + n.noteCount, 0)}</span>
-        </Link>
-      </div>
-
       <Heading
         action={
           <button
@@ -212,33 +183,6 @@ function KnowledgeSidebar({
         </ul>
       )}
 
-      {view.showTags && tags.length > 0 && (
-        <>
-          <Heading>Tags</Heading>
-          <ul className="space-y-0.5">
-            {tags.map((tag) => {
-              const active = activeTags.length === 1 && activeTags[0] === tag.name;
-              return (
-                <li key={tag.name} className="flex">
-                  <Link
-                    to={active ? KNOWLEDGE_PATH : allNotesPath(undefined, [tag.name])}
-                    aria-current={active ? 'page' : undefined}
-                    title={active ? 'Filter aufheben' : `Alle Notizen mit „${tag.name}“`}
-                    className={rowClass(active)}
-                  >
-                    <span className="grid size-4 shrink-0 place-items-center text-fg-subtle" aria-hidden="true">
-                      #
-                    </span>
-                    <span className="flex-1 truncate">{tag.name}</span>
-                    <span className="text-xs text-fg-subtle tabular-nums">{tag.noteCount}</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </>
-      )}
-
       {managing && (
         <ManageProjectDialogs
           project={managing.project}
@@ -251,19 +195,16 @@ function KnowledgeSidebar({
 }
 
 /**
- * Phones (US-25): a bar above the list names the place shown (Alle Notizen, a notebook or a tag) and opens the
+ * Phones (US-25): a bar above the list names the notebook shown and opens the
  * sidebar as a sheet. While a note is open, its back bar takes the place.
  */
 function KnowledgeSheetButton() {
   const [open, setOpen] = useState(false);
   const { projects } = useProjects();
-  const [searchParams] = useSearchParams();
   const notebookId = Number(useMatch('/p/:projectId/*')?.params.projectId);
   const notebookNote = useMatch('/p/:projectId/notes/:noteId');
-  const allNotesNote = useMatch(`${KNOWLEDGE_PATH}/notizen/:noteId`);
-  const tags = searchParams.getAll(TAG_PARAM);
-  const place = projects.find((p) => p.id === notebookId)?.name ?? (tags.length > 0 ? tags.map((t) => `#${t}`).join(' ') : 'Alle Notizen');
-  if (notebookNote || allNotesNote) return null;
+  const place = projects.find((p) => p.id === notebookId)?.name ?? '';
+  if (notebookNote) return null;
 
   return (
     <div className="flex shrink-0 items-center border-b border-line bg-canvas px-2 md:hidden">
@@ -283,14 +224,13 @@ function KnowledgeSheetButton() {
         <h2 id="knowledge-sheet-title" className="sr-only">
           Notizbücher
         </h2>
-        {/* Only while open: the sidebar loads the tags itself. */}
         {open && <KnowledgeSidebar inSheet onNavigate={() => setOpen(false)} />}
       </Dialog>
     </div>
   );
 }
 
-/** The notes (US-22, US-26): the sidebar of notebooks and tags beside "Alle Notizen" or a notebook's notes. */
+/** The notes (US-22, US-26, US-34): the sidebar of notebooks beside a notebook's notes. */
 export default function KnowledgeLayout({ children }: { children: ReactNode }) {
   // Where the tree view puts the open notebook's folders and notes (US-34).
   const [slot, setSlot] = useState<HTMLElement | null>(null);

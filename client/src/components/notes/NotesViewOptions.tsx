@@ -88,7 +88,7 @@ const LAYOUTS: { value: NotesLayout; label: string; hint: string; sketch: ReactN
   {
     value: 'list',
     label: 'Listen-Ansicht',
-    hint: 'Alle Notizen eines Notizbuchs mit Textanfang und Datum, Ordner als Baum.',
+    hint: 'Die Notizen eines Notizbuchs mit Textanfang und Datum, Ordner als Baum.',
     sketch: <ListSketch />,
   },
 ];
@@ -135,7 +135,7 @@ export function NotesViewOptions({ idPrefix }: { idPrefix: string }) {
         />
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-medium text-fg">Tags anzeigen</span>
-          <span className="block text-xs text-fg-subtle">An den Seiten, als Liste in der Seitenleiste und als Filter über den Seiten.</span>
+          <span className="block text-xs text-fg-subtle">An den Seiten und als Filter über den Seiten.</span>
         </span>
         <span aria-hidden="true" className="flex shrink-0 gap-1 pt-0.5">
           {['rezept', 'uni'].map((tag) => (

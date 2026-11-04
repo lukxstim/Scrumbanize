@@ -22,7 +22,7 @@ Seit US-26 liegen alle Notizen in Notizbüchern. Die Ansicht hat aber drei Spalt
 - [x] „⋯“ am Abschnitt: Neue Seite hier, Neuer Unterabschnitt, Umbenennen (auch Doppelklick), Verschieben nach …, Löschen.
 - [x] Seiten lassen sich per Drag & Drop auf einen Abschnitt verschieben.
 - [x] Seiten in einen Abschnitt eines anderen Notizbuchs ziehen (oder auf das Notizbuch selbst: „Ohne Abschnitt“); mit Anhängen, Tags und Links. Dafür braucht man im Ziel die Rolle „Mitglied“.
-- [ ] Abschnitte per Drag & Drop umsortieren.
+- [x] Abschnitte per Drag & Drop umsortieren: vor einen anderen Abschnitt (eine Linie zeigt den Platz) oder auf „Neuer Abschnitt“ ans Ende.
 - [x] Mehrere Notizbücher gleichzeitig aufklappen (merkt sich der Browser); ein Klick auf einen Abschnitt eines anderen Notizbuchs öffnet dessen erste Seite.
 - [ ] Ein Klick auf das Board-Symbol eines Notizbuchs öffnet das Board.
 
@@ -37,9 +37,9 @@ Seit US-26 liegen alle Notizen in Notizbüchern. Die Ansicht hat aber drei Spalt
 - [x] Ein Knopf „Filter“ öffnet ein Menü mit allen Tags (mit Anzahl, durchsuchbar) zum An- und Abhaken.
 - [x] Ein aktiver Filter erscheint als kleiner Chip mit ✕; der Baum zeigt dann nur passende Seiten (und ihre Ordner).
 
-### 4. Suche und „Alle Notizen“
-- [ ] Ein Suchfeld oben im Baum durchsucht alle Notizbücher; Treffer erscheinen als flache Liste mit Notizbuch-Namen.
-- [ ] „Alle Notizen“ ist kein eigener Ort mehr; `/wissen` und `/wissen/notizen/:id` leiten auf die Notiz in ihrem Notizbuch bzw. auf die Suche weiter.
+### 4. „Alle Notizen“ entfällt
+- [x] Die Ansicht „Alle Notizen“ und die Tag-Liste in der Seitenleiste sind entfernt; gesucht wird mit `Strg`+`K`.
+- [x] Alte Adressen (`/wissen`, `/wissen/notizen/:id`) öffnen die Notiz in ihrem Notizbuch bzw. das zuletzt benutzte Notizbuch.
 
 ### 5. Seiten verbinden
 - [ ] Eine Seite aus dem Baum in den Editor einer anderen Notiz ziehen fügt dort einen Link (`note:`) ein.
@@ -53,4 +53,5 @@ Seit US-26 liegen alle Notizen in Notizbüchern. Die Ansicht hat aber drei Spalt
 ## Entscheidungen (Klärung, 04.11.2026)
 1. Die Notizbuch-Ansicht (drei Spalten wie OneNote, nach Vorlage-Screenshot) ist Standard, die bisherige Liste mit Vorschau bleibt als wählbare Darstellung erhalten.
 2. Tags werden nicht entfernt, nur standardmäßig ausgeblendet und über ein Filtermenü erreichbar.
-3. Umsetzung vor US-26c (Sticky Notes), damit „Seite als Sticky Note öffnen“ im Baum-Menü landen kann.
+3. „Alle Notizen“ wird nicht gebraucht und entfällt (Rückmeldung nach US-34c).
+4. Umsetzung vor US-26c (Sticky Notes), damit „Seite als Sticky Note öffnen“ im Baum-Menü landen kann.

@@ -18,18 +18,8 @@ export const accountPaths = {
   users: '/benutzer',
 };
 
-/** The area Wissen (US-22) and its "Alle Notizen"; a notebook itself lives under /p/:id/notes like any project. */
+/** The old "Alle Notizen" (US-22, removed with US-34); its links lead to the notebooks now. */
 export const KNOWLEDGE_PATH = '/wissen';
-
-/** The query parameter of the tags "Alle Notizen" is filtered by; it may repeat. */
-export const TAG_PARAM = 'tag';
-
-/** "Alle Notizen", the start of Wissen (US-22): the notes of every notebook, optionally filtered by tags. */
-export function allNotesPath(noteId?: number, tags: string[] = []): string {
-  const params = new URLSearchParams(tags.map((tag) => [TAG_PARAM, tag]));
-  const search = params.toString();
-  return `${KNOWLEDGE_PATH}${noteId === undefined ? '' : `/notizen/${noteId}`}${search ? `?${search}` : ''}`;
-}
 
 /** The top-level pages of a project (the header tabs). */
 export type Section = 'notes' | 'graph' | 'board' | 'calendar' | 'analytics' | 'trash' | 'settings';

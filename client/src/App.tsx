@@ -10,7 +10,7 @@ import CalendarPage from './components/calendar/CalendarPage';
 import TrashPage from './components/trash/TrashPage';
 import { BoardIcon, CalendarIcon, ChartIcon, HistoryIcon, SettingsIcon, NoteIcon, SearchIcon, TrashIcon } from './components/icons';
 import NotesPage from './components/notes/NotesPage';
-import AllNotesPage from './components/knowledge/AllNotesPage';
+import OldNotesRedirect from './components/knowledge/OldNotesRedirect';
 import KnowledgeLayout from './components/knowledge/KnowledgeLayout';
 import NewProjectHost from './components/projects/NewProjectHost';
 import ProjectLayout from './components/projects/ProjectLayout';
@@ -74,7 +74,6 @@ export default function App() {
   const activeProject = projects.find((p) => p.id === Number(projectMatch?.params.projectId));
   // One area for all notebooks (US-26); those with their board switched on also have board, calendar and statistics.
   const withBoard = activeProject !== undefined && hasBoard(activeProject);
-  const onAllNotes = useMatch(`${KNOWLEDGE_PATH}/*`) !== null;
   // A task's details are shown on the board, so the Board tab stays active there.
   const boardMatch = useMatch('/p/:projectId/board');
   const taskMatch = useMatch('/p/:projectId/tasks/:taskId');
@@ -326,15 +325,8 @@ export default function App() {
             }
           />
         </Route>
-        {/* "Alle Notizen" (US-22, US-26) beside the sidebar of notebooks and tags; a notebook lives under /p/:id. */}
-        <Route
-          path={`${KNOWLEDGE_PATH}/notizen?/:noteId?`}
-          element={
-            <KnowledgeLayout>
-              <AllNotesPage />
-            </KnowledgeLayout>
-          }
-        />
+        {/* The old "Alle Notizen" (US-22): its links open the note in its notebook, or the last notebook. */}
+        <Route path={`${KNOWLEDGE_PATH}/notizen?/:noteId?`} element={<OldNotesRedirect />} />
         {/* The own account and user management (US-21c), outside the projects. */}
         <Route
           path="/profil"
@@ -374,7 +366,6 @@ export default function App() {
       <MobileNav
         activeProject={activeProject}
         section={section}
-        onAllNotes={onAllNotes}
         trashCount={trashCount}
         pathname={location.pathname}
         search={location.search}

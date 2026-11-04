@@ -34,14 +34,14 @@ Links siehst du alle deine Notizbücher – fürs Studium, ein Projekt oder Reze
 ## Erste Schritte
 
 - [ ] Links bei „Notizbücher“ mit **+** ein eigenes Notizbuch anlegen, mit Farbe und Symbol
-- [ ] In der Notizliste einen **Ordner** anlegen und eine Notiz hineinziehen – so wie [Pasta Carbonara](note:${recipeId}) im Ordner „Rezepte“
-- [ ] Einer Notiz **Tags** geben; links unter „Tags“ findest du dann alle Notizen damit
+- [ ] Links mit **+ Neuer Abschnitt** einen Abschnitt anlegen und eine Seite hineinziehen – so wie [Pasta Carbonara](note:${recipeId}) im Abschnitt „Rezepte“
+- [ ] Einer Seite **Tags** geben (in den Einstellungen „Tags anzeigen“ einschalten) und danach filtern
 - [ ] **[[** tippen und eine Notiz oder Aufgabe auswählen – auch aus anderen Notizbüchern
 - [ ] Über **⋯** neben einem Notizbuch: umbenennen, Symbol ändern, das **Board einschalten** oder mit anderen teilen
 
 ## Gut zu wissen
 
-- „Alle Notizen“ zeigt die Notizen aus all deinen Notizbüchern auf einen Blick.
+- Seiten ziehst du mit der Maus in eine neue Reihenfolge, auf einen anderen Abschnitt oder in ein anderes Notizbuch; auch Abschnitte lassen sich ziehen.
 - Mit <mark data-color="yellow">Strg+K</mark> (Mac: ⌘K) suchst du überall.
 - Aus einer Notiz wird mit „In Task umwandeln“ eine Aufgabe auf einem Board deiner Wahl.
 - Schaltest du ein Board wieder aus, werden seine Aufgaben nur ausgeblendet, nicht gelöscht.${
