@@ -48,6 +48,9 @@ interface FolderTreeProps {
   /** Viewers (US-21) only browse: no menus, no dragging. */
   canEdit: boolean;
   actions: FolderActions;
+  /** The tree view (US-34): notes as one line with the title, inside the notebooks' sidebar. */
+  compact?: boolean;
+  showTags?: boolean;
 }
 
 type Dragged = { type: 'note' | 'folder'; id: number };
@@ -72,7 +75,20 @@ const innermostArea: CollisionDetection = (args) => {
  * Notes and folders are dragged onto folders with the mouse or, on touch screens, by holding a finger on them for a
  * moment (US-25); the menus and "Verschieben nach …" are the way with the keyboard.
  */
-export default function FolderTree({ tree, folders, selectedId, onSelect, expanded, onToggle, renamingId, onRenamingChange, canEdit, actions }: FolderTreeProps) {
+export default function FolderTree({
+  tree,
+  folders,
+  selectedId,
+  onSelect,
+  expanded,
+  onToggle,
+  renamingId,
+  onRenamingChange,
+  canEdit,
+  actions,
+  compact = false,
+  showTags = true,
+}: FolderTreeProps) {
   const [dragged, setDragged] = useState<Dragged | null>(null);
   // The folder under the pointer while dragging; null: the top level; undefined: none that takes it.
   const [dropTarget, setDropTarget] = useState<number | null | undefined>(undefined);
@@ -125,23 +141,37 @@ export default function FolderTree({ tree, folders, selectedId, onSelect, expand
     setDropTarget(undefined);
   }
 
-  const view: TreeView = { folders, selectedId, onSelect, expanded, onToggle, renamingId, onRenamingChange, canEdit, actions, dragged, dropTarget };
+  const view: TreeView = {
+    folders,
+    selectedId,
+    onSelect,
+    expanded,
+    onToggle,
+    renamingId,
+    onRenamingChange,
+    canEdit,
+    actions,
+    compact,
+    showTags,
+    dragged,
+    dropTarget,
+  };
   const topTarget = dragged !== null && dropTarget === null;
   const draggedFolder = dragged?.type === 'folder' ? folders.find((f) => f.id === dragged.id) : undefined;
   const draggedNote = dragged?.type === 'note' ? findNote(tree, dragged.id) : undefined;
 
   return (
     <DndContext sensors={sensors} collisionDetection={innermostArea} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDragCancel={endDrag}>
-      <DropArea folderId={null} className={`min-h-full pb-6 transition-colors ${topTarget ? 'bg-accent-muted/50' : ''}`}>
+      <DropArea folderId={null} className={`transition-colors ${compact ? 'rounded-md pb-1' : 'min-h-full pb-6'} ${topTarget ? 'bg-accent-muted/50' : ''}`}>
         {tree.roots.length > 0 && (
-          <ul className="border-b border-line py-1">
+          <ul className={compact ? '' : 'border-b border-line py-1'}>
             {tree.roots.map((node) => (
               <FolderNodeView key={node.folder.id} node={node} view={view} />
             ))}
           </ul>
         )}
         {tree.looseNotes.length > 0 && (
-          <ul className="divide-y divide-line">
+          <ul className={compact ? '' : 'divide-y divide-line'}>
             {tree.looseNotes.map((note) => (
               <TreeNote key={note.id} note={note} view={view} />
             ))}
@@ -209,7 +239,7 @@ function FolderNodeView({ node, view }: { node: FolderNode; view: TreeView }) {
         ref={setNodeRef}
         {...listeners}
         style={{ paddingLeft: `${0.5 + (depth - 1) * 0.875}rem` }}
-        className={`group flex items-center gap-0.5 pr-2 transition-colors duration-100 ${holdClass} ${
+        className={`group flex items-center gap-0.5 pr-2 transition-colors duration-100 ${view.compact ? 'rounded-md' : ''} ${holdClass} ${
           target ? 'bg-accent-muted ring-1 ring-accent ring-inset' : 'hover:bg-surface-hover'
         } ${isDragging ? 'opacity-50' : ''}`}
       >
@@ -291,6 +321,8 @@ function TreeNote({ note, depth, view }: { note: Note; depth?: number; view: Tre
       depth={depth}
       selected={note.id === view.selectedId}
       onSelect={view.onSelect}
+      compact={view.compact}
+      showTags={view.showTags}
       drag={view.canEdit ? { setNodeRef, listeners, isDragging, className: holdClass } : undefined}
     />
   );

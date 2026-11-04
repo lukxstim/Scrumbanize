@@ -1,8 +1,12 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { useGoneNotice } from '../../hooks/useCollaboration';
 import { useFolders } from '../../hooks/useFolders';
+import { useIsMobile } from '../../hooks/useMediaQuery';
 import { useNotes } from '../../hooks/useNotes';
+import { useNotesView } from '../../hooks/useNotesView';
+import { useNotebookTreeSlot } from '../knowledge/notebookTreeSlot';
 import { useStoredState } from '../../hooks/useStoredState';
 import { useCan } from '../../hooks/useProjectRole';
 import { useProjects } from '../../hooks/useProjects';
@@ -33,7 +37,7 @@ import NoteEditor from './NoteEditor';
 import NoteList from './NoteList';
 import NotesViewSwitch from './NotesViewSwitch';
 import SearchBar from './SearchBar';
-import TagFilter from './TagFilter';
+import { ActiveTags, TagFilterButton } from './TagFilter';
 
 const isIdList = (value: unknown): value is number[] => Array.isArray(value) && value.every((v) => typeof v === 'number');
 
@@ -63,6 +67,11 @@ export default function NotesPage() {
   const projectName = project?.name ?? '';
   const { noteTemplates, reload: reloadTemplates } = useTemplates(projectId);
   const [templateDraft, setTemplateDraft] = useState<TemplateInput | null>(null);
+  // The tree view (US-34) puts the notes under their notebook in the sidebar; phones keep the list of US-25.
+  const [notesView] = useNotesView();
+  const slot = useNotebookTreeSlot();
+  const isMobile = useIsMobile();
+  const inTree = notesView.layout === 'tree' && !isMobile;
 
   const tagCounts = useMemo(() => countTags(notes), [notes]);
   // A selected tag disappears from the filter once no note uses it anymore.
@@ -205,98 +214,138 @@ export default function NotesPage() {
     setSelectedTags(activeTags.includes(tag) ? activeTags.filter((t) => t !== tag) : [...activeTags, tag]);
   }
 
+  const newFolderButton = canEdit && (
+    <button
+      type="button"
+      className={iconButtonClass}
+      title="Neuer Ordner"
+      aria-label="Neuer Ordner"
+      onClick={() => void folderActions.createFolder(null)}
+    >
+      <FolderPlusIcon />
+    </button>
+  );
+  // One split button: "Neue Notiz" and, joined to it, the arrow for templates. Not for viewers (US-21).
+  const newNoteButton = canEdit && (
+    <div className="flex shrink-0 items-stretch rounded-md shadow-sm">
+      <Button variant="primary" size="sm" className="rounded-r-none !shadow-none active:!scale-100" onClick={() => void handleCreate()}>
+        <PlusIcon className="size-3.5" />
+        Neue Notiz
+      </Button>
+      <Menu
+        label="Neue Notiz aus Vorlage"
+        triggerClassName={buttonClass('primary', 'sm', 'w-7 !px-0 rounded-l-none border-l border-accent-fg/30 !shadow-none active:!scale-100')}
+        trigger={<ChevronDownIcon className="size-3.5" />}
+        items={[
+          ...noteTemplates.map((template) => ({
+            label: `${template.name}${template.scope === 'global' ? '' : ' (Projekt)'}`,
+            onSelect: () => void handleCreate('', template),
+          })),
+          {
+            label: 'Neue Vorlage …',
+            onSelect: () => setTemplateDraft({ kind: 'note', scope: 'project', name: '', title: '', content: '', defaults: { tags: [] } }),
+          },
+        ]}
+      />
+    </div>
+  );
+  const searchAndFilter = (
+    <>
+      <div className="flex items-center gap-1">
+        <div className="min-w-0 flex-1">
+          <SearchBar value={query} onChange={setQuery} />
+        </div>
+        <TagFilterButton tags={tagCounts} selected={activeTags} onToggle={toggleTag} onClear={() => setSelectedTags([])} />
+      </div>
+      <ActiveTags selected={activeTags} onRemove={toggleTag} />
+    </>
+  );
+
+  const content = (
+    <>
+      {status === 'loading' && (
+        <div className={`space-y-4 ${inTree ? 'px-2 py-2' : 'p-4'}`} aria-label="Lade Notizen …">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="space-y-2">
+              <Skeleton className="h-4 w-2/3" />
+              {!inTree && <Skeleton className="h-3 w-full" />}
+            </div>
+          ))}
+        </div>
+      )}
+      {status === 'error' && (
+        <div className="px-4 py-6 text-center text-sm text-danger-text">
+          <p>Die Notizen konnten nicht geladen werden.</p>
+          <Button variant="ghost" size="sm" className="mt-2" onClick={() => void reload()}>
+            Erneut versuchen
+          </Button>
+        </div>
+      )}
+      {status === 'ready' &&
+        (filtering || (notes.length === 0 && folders.length === 0) ? (
+          <NoteList
+            notes={visibleNotes}
+            selectedId={selectedId}
+            onSelect={(id) => navigate(paths.notes(projectId, id))}
+            emptyMessage={notes.length === 0 ? 'Noch keine Notizen vorhanden.' : 'Keine Notizen gefunden.'}
+            compact={inTree}
+            showTags={notesView.showTags}
+          />
+        ) : (
+          <FolderTree
+            tree={tree}
+            folders={folders}
+            selectedId={selectedId}
+            onSelect={(id) => navigate(paths.notes(projectId, id))}
+            expanded={expanded}
+            onToggle={(id) => setExpanded(expanded.includes(id) ? expanded.filter((e) => e !== id) : [...expanded, id])}
+            renamingId={renamingId}
+            onRenamingChange={setRenamingId}
+            canEdit={canEdit}
+            actions={folderActions}
+            compact={inTree}
+            showTags={notesView.showTags}
+          />
+        ))}
+    </>
+  );
+
   return (
     <div className="flex min-h-0 flex-1">
-      {/* Phones (US-25) show the list or the open note, never both; the back bar returns to the list. */}
-      <aside className={`flex w-80 shrink-0 flex-col border-r border-line bg-surface max-md:w-full max-md:border-r-0 ${selectedId !== null ? 'max-md:hidden' : ''}`}>
-        <div className="space-y-3 border-b border-line p-4">
-          <div className="flex items-center gap-2">
-            <h1 className="text-sm font-semibold text-fg">Notizen</h1>
-            {/* Icons only: title, switch and the split button share the sidebar's width. */}
-            <NotesViewSwitch projectId={projectId} view="list" compact />
-            {/* One split button: "Neue Notiz" and, joined to it, the arrow for templates. Not for viewers (US-21). */}
-            {canEdit && (
-              <button
-                type="button"
-                className={`ml-auto ${iconButtonClass}`}
-                title="Neuer Ordner"
-                aria-label="Neuer Ordner"
-                onClick={() => void folderActions.createFolder(null)}
-              >
-                <FolderPlusIcon />
-              </button>
-            )}
-            {canEdit && (
-              <div className="flex shrink-0 items-stretch rounded-md shadow-sm">
-                <Button variant="primary" size="sm" className="rounded-r-none !shadow-none active:!scale-100" onClick={() => void handleCreate()}>
-                  <PlusIcon className="size-3.5" />
-                  Neue Notiz
-                </Button>
-                <Menu
-                  label="Neue Notiz aus Vorlage"
-                  triggerClassName={buttonClass('primary', 'sm', 'w-7 !px-0 rounded-l-none border-l border-accent-fg/30 !shadow-none active:!scale-100')}
-                  trigger={<ChevronDownIcon className="size-3.5" />}
-                  items={[
-                    ...noteTemplates.map((template) => ({
-                      label: `${template.name}${template.scope === 'global' ? '' : ' (Projekt)'}`,
-                      onSelect: () => void handleCreate('', template),
-                    })),
-                    {
-                      label: 'Neue Vorlage …',
-                      onSelect: () => setTemplateDraft({ kind: 'note', scope: 'project', name: '', title: '', content: '', defaults: { tags: [] } }),
-                    },
-                  ]}
-                />
+      {inTree ? (
+        // The tree view (US-34): search, buttons, folders and notes hang under the notebook in the sidebar.
+        slot &&
+        createPortal(
+          <div className="space-y-1.5 pt-1 pb-2">
+            {searchAndFilter}
+            <div className="flex items-center gap-1">
+              {newNoteButton}
+              {newFolderButton}
+              <div className="ml-auto">
+                <NotesViewSwitch projectId={projectId} view="list" compact />
               </div>
-            )}
+            </div>
+            {content}
+          </div>,
+          slot,
+        )
+      ) : (
+        // Phones (US-25) show the list or the open note, never both; the back bar returns to the list.
+        <aside className={`flex w-80 shrink-0 flex-col border-r border-line bg-surface max-md:w-full max-md:border-r-0 ${selectedId !== null ? 'max-md:hidden' : ''}`}>
+          <div className="space-y-3 border-b border-line p-4">
+            <div className="flex items-center gap-2">
+              <h1 className="text-sm font-semibold text-fg">Notizen</h1>
+              {/* Icons only: title, switch and the split button share the sidebar's width. */}
+              <NotesViewSwitch projectId={projectId} view="list" compact />
+              <div className="ml-auto" />
+              {newFolderButton}
+              {newNoteButton}
+            </div>
+            {searchAndFilter}
           </div>
-          <SearchBar value={query} onChange={setQuery} />
-          <TagFilter tags={tagCounts} selected={activeTags} onToggle={toggleTag} onClear={() => setSelectedTags([])} />
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {status === 'loading' && (
-            <div className="space-y-4 p-4" aria-label="Lade Notizen …">
-              {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="space-y-2">
-                  <Skeleton className="h-4 w-2/3" />
-                  <Skeleton className="h-3 w-full" />
-                </div>
-              ))}
-            </div>
-          )}
-          {status === 'error' && (
-            <div className="px-4 py-6 text-center text-sm text-danger-text">
-              <p>Die Notizen konnten nicht geladen werden.</p>
-              <Button variant="ghost" size="sm" className="mt-2" onClick={() => void reload()}>
-                Erneut versuchen
-              </Button>
-            </div>
-          )}
-          {status === 'ready' &&
-            (filtering || (notes.length === 0 && folders.length === 0) ? (
-              <NoteList
-                notes={visibleNotes}
-                selectedId={selectedId}
-                onSelect={(id) => navigate(paths.notes(projectId, id))}
-                emptyMessage={notes.length === 0 ? 'Noch keine Notizen vorhanden.' : 'Keine Notizen gefunden.'}
-              />
-            ) : (
-              <FolderTree
-                tree={tree}
-                folders={folders}
-                selectedId={selectedId}
-                onSelect={(id) => navigate(paths.notes(projectId, id))}
-                expanded={expanded}
-                onToggle={(id) => setExpanded(expanded.includes(id) ? expanded.filter((e) => e !== id) : [...expanded, id])}
-                renamingId={renamingId}
-                onRenamingChange={setRenamingId}
-                canEdit={canEdit}
-                actions={folderActions}
-              />
-            ))}
-        </div>
-      </aside>
+          <div className="min-h-0 flex-1 overflow-y-auto">{content}</div>
+        </aside>
+      )}
 
       <main className={`min-w-0 flex-1 bg-surface max-md:flex max-md:flex-col ${selectedId === null ? 'max-md:hidden' : ''}`}>
         <MobileBackLink to={paths.notes(projectId)} label="Notizen" />

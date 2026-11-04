@@ -11,6 +11,7 @@ import { countLabel } from '../../utils/projects';
 import ConfirmDialog from '../ConfirmDialog';
 import { DownloadIcon, RestoreIcon } from '../icons';
 import Button, { buttonClass } from '../ui/Button';
+import { NotesViewOptions } from '../notes/NotesViewMenu';
 import Section from '../ui/Section';
 import AutoBackupStatus from './AutoBackupStatus';
 import DesktopSection from './DesktopSection';
@@ -57,6 +58,10 @@ export default function SettingsPage() {
         </div>
 
         {desktopBridge && <DesktopSection />}
+
+        <Section title="Notizen" description="Wie die Notizen neben den Notizbüchern erscheinen. Gilt in diesem Browser.">
+          <NotesViewOptions idPrefix="settings" />
+        </Section>
 
         {isAdmin && (
           <Section title="Backup" description="Eine ZIP-Datei mit allen Projekten, Notizen, Tasks, dem Aktivitätsprotokoll und allen Anhängen.">

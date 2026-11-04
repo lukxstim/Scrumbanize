@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useGoneNotice } from '../../hooks/useCollaboration';
 import { useFolders } from '../../hooks/useFolders';
 import { useNotes } from '../../hooks/useNotes';
+import { useNotesView } from '../../hooks/useNotesView';
 import { useProjects } from '../../hooks/useProjects';
 import { useToast } from '../../hooks/useToast';
 import type { Project } from '../../types/project';
@@ -16,6 +17,7 @@ import { NoteIcon } from '../icons';
 import NoteEditor from '../notes/NoteEditor';
 import NoteList from '../notes/NoteList';
 import SearchBar from '../notes/SearchBar';
+import { ActiveTags, TagFilterButton } from '../notes/TagFilter';
 import { NotebookGlyph } from '../projects/NotebookSymbol';
 import Button from '../ui/Button';
 import MobileBackLink from '../ui/MobileBackLink';
@@ -50,6 +52,7 @@ export default function AllNotesPage() {
   const { projects } = useProjects();
   const { notes, status, reload, remoteEdits, updateAttachments, saveNote, moveNote, deleteNote, createTaskFromNote, discardTask } = useNotes(null);
   const [query, setQuery] = useState('');
+  const [notesView] = useNotesView();
   const deferredQuery = useDeferredValue(query);
 
   const tagCounts = useMemo(() => countTags(notes), [notes]);
@@ -73,9 +76,10 @@ export default function AllNotesPage() {
   const { folders } = useFolders(selectedNote?.projectId);
 
   // The tag filter lives in the address, so it survives opening a note and can be linked to.
-  function removeTag(tag: string) {
-    navigate(allNotesPath(selectedId ?? undefined, activeTags.filter((t) => t !== tag)), { replace: true });
+  function setTags(tags: string[]) {
+    navigate(allNotesPath(selectedId ?? undefined, tags), { replace: true });
   }
+  const removeTag = (tag: string) => setTags(activeTags.filter((t) => t !== tag));
 
   // Deleting moves the note to the trash of its project right away; the toast can take it back.
   async function handleDelete(id: number) {
@@ -111,25 +115,18 @@ export default function AllNotesPage() {
               </span>
             )}
           </div>
-          <SearchBar value={query} onChange={setQuery} placeholder="Notizen durchsuchen" />
-          {activeTags.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 text-xs text-fg-subtle">
-              Mit Tag
-              {activeTags.map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => removeTag(tag)}
-                  title="Filter aufheben"
-                  className="flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-white transition-opacity hover:opacity-85"
-                >
-                  {tag}
-                  <span aria-hidden="true">×</span>
-                  <span className="sr-only">entfernen</span>
-                </button>
-              ))}
+          <div className="flex items-center gap-1">
+            <div className="min-w-0 flex-1">
+              <SearchBar value={query} onChange={setQuery} placeholder="Notizen durchsuchen" />
             </div>
-          )}
+            <TagFilterButton
+              tags={tagCounts}
+              selected={activeTags}
+              onToggle={(tag) => (activeTags.includes(tag) ? removeTag(tag) : setTags([...activeTags, tag]))}
+              onClear={() => setTags([])}
+            />
+          </div>
+          <ActiveTags selected={activeTags} onRemove={removeTag} />
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
@@ -158,6 +155,7 @@ export default function AllNotesPage() {
               onSelect={(id) => navigate(allNotesPath(id, activeTags))}
               emptyMessage={notes.length === 0 ? 'Noch keine Notizen in deinen Notizbüchern.' : 'Keine Notizen gefunden.'}
               placeOf={(note) => <NotePlace project={projectOf(note.projectId)} />}
+              showTags={notesView.showTags}
             />
           )}
         </div>

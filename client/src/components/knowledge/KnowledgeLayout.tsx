@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useLocation, useMatch, useSearchParams } from 'react-router';
 import { useAuth } from '../../hooks/useAuth';
+import { useNotesView } from '../../hooks/useNotesView';
 import { useProjects } from '../../hooks/useProjects';
 import type { Project } from '../../types/project';
 import { notesApi } from '../../utils/api';
@@ -8,11 +9,13 @@ import { onNotesChanged, requestNewProject } from '../../utils/appEvents';
 import { allNotesPath, KNOWLEDGE_PATH, paths, TAG_PARAM } from '../../utils/paths';
 import { can } from '../../utils/permissions';
 import { hasBoard } from '../../utils/projects';
-import { BoardIcon, ChevronDownIcon, NoteIcon, PlusIcon } from '../icons';
+import { BoardIcon, ChevronDownIcon, ChevronRightIcon, NoteIcon, PlusIcon } from '../icons';
 import Menu, { type MenuItem } from '../Menu';
+import NotesViewMenu from '../notes/NotesViewMenu';
 import ManageProjectDialogs, { type ManageDialog } from '../projects/ManageProjectDialogs';
 import { ProjectMark } from '../projects/ProjectSwitcher';
 import Dialog from '../ui/Dialog';
+import { NotebookTreeSlot } from './notebookTreeSlot';
 import { iconButtonClass } from '../ui/styles';
 
 const rowClass = (active: boolean) =>
@@ -31,10 +34,19 @@ function Heading({ children, action }: { children: string; action?: ReactNode })
 
 /**
  * The left column of the notes (US-22; since US-26 one area for all notebooks, OneNote-style): "Alle Notizen", every
- * notebook with board or without (each with its menu for editing, members and deleting) and the tags of all notes. On
- * phones (US-25) the same list opens as a sheet (`inSheet`); `onNavigate` closes it once a link was chosen.
+ * notebook with board or without (each with its menu for editing, members and deleting) and, if chosen, the tags of all
+ * notes. In the tree view (US-34) the open notebook's folders and notes hang under it: `onSlot` receives the place for
+ * them. On phones (US-25) the same list opens as a sheet (`inSheet`); `onNavigate` closes it once a link was chosen.
  */
-function KnowledgeSidebar({ inSheet = false, onNavigate }: { inSheet?: boolean; onNavigate?: () => void }) {
+function KnowledgeSidebar({
+  inSheet = false,
+  onNavigate,
+  onSlot,
+}: {
+  inSheet?: boolean;
+  onNavigate?: () => void;
+  onSlot?: (element: HTMLElement | null) => void;
+}) {
   const { projects: notebooks, reload } = useProjects();
   const withMembers = useAuth().session?.mode === 'required';
   const location = useLocation();
@@ -43,6 +55,8 @@ function KnowledgeSidebar({ inSheet = false, onNavigate }: { inSheet?: boolean; 
   const activeNotebookId = Number(useMatch('/p/:projectId/*')?.params.projectId);
   const activeTags = onAllNotes ? searchParams.getAll(TAG_PARAM) : [];
   const [tags, setTags] = useState<{ name: string; noteCount: number }[]>([]);
+  const [view] = useNotesView();
+  const tree = view.layout === 'tree' && !inSheet;
   const [managing, setManaging] = useState<{ project: Project; dialog: ManageDialog } | null>(null);
 
   // Fresh tag counts on every page, and tag and note counts whenever a note was created, saved or deleted.
@@ -72,7 +86,9 @@ function KnowledgeSidebar({ inSheet = false, onNavigate }: { inSheet?: boolean; 
         if ((event.target as HTMLElement).closest('a')) onNavigate?.();
       }}
       className={
-        inSheet ? 'flex flex-col px-2 pb-4' : 'flex w-52 shrink-0 flex-col overflow-y-auto border-r border-line bg-canvas px-2 pb-4 max-md:hidden xl:w-60'
+        inSheet
+          ? 'flex flex-col px-2 pb-4'
+          : `flex shrink-0 flex-col overflow-y-auto border-r border-line bg-canvas px-2 pb-4 max-md:hidden ${tree ? 'w-64 xl:w-72' : 'w-52 xl:w-60'}`
       }
     >
       <div className="pt-3">
@@ -89,15 +105,18 @@ function KnowledgeSidebar({ inSheet = false, onNavigate }: { inSheet?: boolean; 
 
       <Heading
         action={
-          <button
-            type="button"
-            className={`${iconButtonClass} !size-6`}
-            title="Neues Notizbuch"
-            aria-label="Neues Notizbuch"
-            onClick={() => requestNewProject('notebook')}
-          >
-            <PlusIcon className="size-3.5" />
-          </button>
+          <div className="flex items-center gap-0.5">
+            {!inSheet && <NotesViewMenu />}
+            <button
+              type="button"
+              className={`${iconButtonClass} !size-6`}
+              title="Neues Notizbuch"
+              aria-label="Neues Notizbuch"
+              onClick={() => requestNewProject('notebook')}
+            >
+              <PlusIcon className="size-3.5" />
+            </button>
+          </div>
         }
       >
         Notizbücher
@@ -115,35 +134,45 @@ function KnowledgeSidebar({ inSheet = false, onNavigate }: { inSheet?: boolean; 
             const active = notebook.id === activeNotebookId;
             const items = menuItems(notebook);
             return (
-              <li key={notebook.id} className="group flex items-center gap-0.5">
-                <Link to={paths.notes(notebook.id)} aria-current={active ? 'page' : undefined} className={rowClass(active)}>
-                  <ProjectMark project={notebook} />
-                  <span className="flex-1 truncate">{notebook.name}</span>
-                  {hasBoard(notebook) && (
-                    <span title="Mit Board" className="shrink-0 text-fg-faint">
-                      <BoardIcon className="size-3.5" aria-hidden="true" />
-                      <span className="sr-only">(mit Board)</span>
-                    </span>
+              <li key={notebook.id}>
+                <div className="group flex items-center gap-0.5">
+                  <Link to={paths.notes(notebook.id)} aria-current={active ? 'page' : undefined} className={rowClass(active)}>
+                    {tree && (
+                      <ChevronRightIcon
+                        aria-hidden="true"
+                        className={`-mr-1 size-3.5 shrink-0 text-fg-faint transition-transform duration-150 ${active ? 'rotate-90' : ''}`}
+                      />
+                    )}
+                    <ProjectMark project={notebook} />
+                    <span className="flex-1 truncate">{notebook.name}</span>
+                    {hasBoard(notebook) && (
+                      <span title="Mit Board" className="shrink-0 text-fg-faint">
+                        <BoardIcon className="size-3.5" aria-hidden="true" />
+                        <span className="sr-only">(mit Board)</span>
+                      </span>
+                    )}
+                    <span className="text-xs text-fg-subtle tabular-nums group-hover:hidden group-focus-within:hidden">{notebook.noteCount}</span>
+                  </Link>
+                  {items.length > 0 && (
+                    <div className="hidden group-hover:block group-focus-within:block pointer-coarse:block">
+                      <Menu
+                        label={`Notizbuch „${notebook.name}“: Aktionen`}
+                        trigger={<span aria-hidden="true">⋯</span>}
+                        triggerClassName={`${iconButtonClass} !size-7`}
+                        items={items}
+                      />
+                    </div>
                   )}
-                  <span className="text-xs text-fg-subtle tabular-nums group-hover:hidden group-focus-within:hidden">{notebook.noteCount}</span>
-                </Link>
-                {items.length > 0 && (
-                  <div className="hidden group-hover:block group-focus-within:block pointer-coarse:block">
-                    <Menu
-                      label={`Notizbuch „${notebook.name}“: Aktionen`}
-                      trigger={<span aria-hidden="true">⋯</span>}
-                      triggerClassName={`${iconButtonClass} !size-7`}
-                      items={items}
-                    />
-                  </div>
-                )}
+                </div>
+                {/* The tree view (US-34): the notes page puts this notebook's folders and notes here. */}
+                {tree && active && <div ref={onSlot} className="pl-3" />}
               </li>
             );
           })}
         </ul>
       )}
 
-      {tags.length > 0 && (
+      {view.showTags && tags.length > 0 && (
         <>
           <Heading>Tags</Heading>
           <ul className="space-y-0.5">
@@ -223,12 +252,14 @@ function KnowledgeSheetButton() {
 
 /** The notes (US-22, US-26): the sidebar of notebooks and tags beside "Alle Notizen" or a notebook's notes. */
 export default function KnowledgeLayout({ children }: { children: ReactNode }) {
+  // Where the tree view puts the open notebook's folders and notes (US-34).
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
   return (
     <div className="flex min-h-0 flex-1">
-      <KnowledgeSidebar />
+      <KnowledgeSidebar onSlot={setSlot} />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <KnowledgeSheetButton />
-        {children}
+        <NotebookTreeSlot.Provider value={slot}>{children}</NotebookTreeSlot.Provider>
       </div>
     </div>
   );
