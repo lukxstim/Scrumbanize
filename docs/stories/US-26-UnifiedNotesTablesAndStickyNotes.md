@@ -25,7 +25,7 @@ Notizen liegen derzeit getrennt in den Bereichen „Projekte“ und „Wissen“
 - [x] Notizen lassen sich als kompaktes, schwebendes Fenster („Sticky Note“) auskoppeln und am Desktop anpinnen.
 - [x] **Kurznotizen** wie die Windows Sticky Notes (nach Vorlage-Screenshot `docs/screenshots/sticky-notes.png`): eine Leiste mit „+ Notiz“, „Aktuelle Notizen“ mit Suche und farbigen Karten (Farbbalken, Datum, erste Zeile fett als Titel, Listen als Punkte), neueste zuerst; ein Klick bearbeitet die Karte an Ort und Stelle, alles speichert sich selbst.
 - [x] Die Kurznotizen sind Notizen im Notizbuch „Kurznotizen“, das beim ersten Mal entsteht – durchsuchbar, verlinkbar, im Backup; Löschen legt sie in den Papierkorb.
-- [x] Desktop-App: ein rahmenloses Fenster, immer im Vordergrund, rechts am Bildschirmrand über die volle Höhe angedockt; die Breite lässt sich ziehen und bleibt gespeichert; beim Beenden geöffnet, ist es beim nächsten Start wieder da. Öffnen über den Button im Header, das Tray-Menü oder die Befehlspalette.
+- [x] Desktop-App: ein rahmenloses Fenster, immer im Vordergrund, rechts am Bildschirmrand über die volle Höhe angedockt – unter Windows als App-Leiste wie die angedockten Sticky Notes: der Streifen ist reserviert, maximierte Fenster und der Desktop enden daneben; vor Vollbild-Programmen tritt sie zurück; die Breite lässt sich ziehen und bleibt gespeichert; beim Beenden geöffnet, ist es beim nächsten Start wieder da. Öffnen über den Button im Header, das Tray-Menü oder die Befehlspalette.
 - [x] Chrome/Edge: dieselbe Leiste als Document-Picture-in-Picture-Fenster; in anderen Browsern gibt es den Button nicht.
 
 ---

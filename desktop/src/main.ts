@@ -9,6 +9,7 @@ import type { DueTask, ReminderMessage } from './reminderPlan.js';
 import { startReminders, type Reminders } from './reminders.js';
 import { loadSettings, saveSettings, type DesktopSettings } from './settings.js';
 import { dockedBounds, loadQuickNotesState, QUICK_NOTES_WIDTH, saveQuickNotesState, type QuickNotesState } from './quickNotesState.js';
+import { attachAppBar } from './appBar.js';
 import { createTray } from './tray.js';
 import { loadWindowState, trackWindowState } from './windowState.js';
 
@@ -229,10 +230,11 @@ function openQuickNotes(url: string): void {
     return;
   }
   const dir = app.getPath('userData');
-  const workArea = () => screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
-  let area = workArea();
+  // The screen the mouse is on; the same one again after the screens changed, or the primary one if it is gone.
+  const displayId = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).id;
+  const display = () => screen.getAllDisplays().find((d) => d.id === displayId) ?? screen.getPrimaryDisplay();
   const window = new BrowserWindow({
-    ...dockedBounds(area, quickNotesState.width),
+    ...dockedBounds(display().workArea, quickNotesState.width),
     minWidth: QUICK_NOTES_WIDTH.min,
     maxWidth: QUICK_NOTES_WIDTH.max,
     frame: false,
@@ -256,22 +258,27 @@ function openQuickNotes(url: string): void {
   quickNotesWindow = window;
   quickNotesState = { ...quickNotesState, open: true };
   saveQuickNotesState(dir, quickNotesState);
+  // On Windows an app bar like the docked Sticky Notes: its strip is reserved, other windows end next to it.
+  const bar = attachAppBar(window, display, quickNotesState.width, log);
+  const dock = () => {
+    if (window.isDestroyed()) return;
+    if (bar) bar.place();
+    else window.setBounds(dockedBounds(display().workArea, quickNotesState.width));
+  };
 
   // Resized at its left edge, it stays docked: the new width, again over the full height at the right edge.
   window.on('resized', () => {
     quickNotesState = { ...quickNotesState, width: window.getBounds().width };
-    window.setBounds(dockedBounds(area, quickNotesState.width));
+    if (bar) bar.setWidth(quickNotesState.width);
+    else dock();
     saveQuickNotesState(dir, quickNotesState);
   });
   // A screen added, removed or rearranged (or the taskbar moved): dock again.
-  const redock = () => {
-    if (window.isDestroyed()) return;
-    area = workArea();
-    window.setBounds(dockedBounds(area, quickNotesState.width));
-  };
+  const redock = dock;
   screen.on('display-metrics-changed', redock);
   screen.on('display-removed', redock);
   window.on('close', () => {
+    bar?.remove();
     if (!quitting) quickNotesState = { ...quickNotesState, open: false };
     saveQuickNotesState(dir, quickNotesState);
   });

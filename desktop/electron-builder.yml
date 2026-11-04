@@ -23,6 +23,9 @@ files:
   - package.json
   # Only the JavaScript of better-sqlite3, not its sources.
   - "!**/node_modules/better-sqlite3/{src,deps,docs,benchmark}/**"
+  # koffi (the app bar of the quick notes on Windows, US-26): only its JavaScript and the platform's binary.
+  - "!**/node_modules/koffi/{src,doc,vendor}/**"
+  - "!**/node_modules/koffi/build/koffi/*/*.{lib,exp,pdb}"
 asarUnpack:
   - "**/*.node"
 
@@ -40,6 +43,7 @@ win:
   icon: build/icon.png
   files:
     - "!**/node_modules/better-sqlite3/prebuilds/!(win32-x64.node)"
+    - "!**/node_modules/koffi/build/koffi/!(win32_x64)/**"
   # The icon for the notification area (tray).
   extraResources:
     - from: build/icon.png
@@ -77,6 +81,7 @@ mac:
   # are the same in the x64 and the arm64 build and must not be merged.
   files:
     - "!**/node_modules/better-sqlite3/prebuilds/!(darwin-*.node)"
+    - "!**/node_modules/koffi/build/koffi/!(darwin_*)/**"
   x64ArchFiles: "**/node_modules/better-sqlite3/prebuilds/darwin-*.node"
   # The menu bar icon: black on transparent, macOS tints it ("Template" in the name).
   extraResources:
