@@ -6,6 +6,8 @@ export interface Note {
   projectId: number;
   /** The folder (US-22); null at the top level. */
   folderId: number | null;
+  /** Its place among the pages of its folder (US-34); null while not put in order. */
+  position: number | null;
   title: string;
   /** Markdown source. */
   content: string;

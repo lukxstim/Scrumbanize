@@ -15,6 +15,8 @@ export type ChangeEvent =
   /** Tasks were made from the note (its list of tasks), not an edit of its text. */
   | { type: 'note.tasks'; noteId: number }
   | { type: 'notes.imported' }
+  /** The pages of a section were put in an order (US-34). */
+  | { type: 'notes.reordered' }
   | { type: 'folder.changed' }
   | { type: 'attachment.changed'; owner: 'task' | 'note'; ownerId: number }
   | { type: 'project.updated' | 'project.deleted' | 'project.restored' | 'project.purged' }

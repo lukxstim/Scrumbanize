@@ -7,6 +7,7 @@ const note = (id: number, folderId: number | null): Note => ({
   id,
   projectId: 1,
   folderId,
+  position: null,
   title: `N${id}`,
   content: '',
   tags: [],

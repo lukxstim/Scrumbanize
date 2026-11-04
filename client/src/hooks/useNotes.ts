@@ -76,6 +76,22 @@ export function useNotes(projectId: number | null) {
     if (toProjectId !== undefined) notifyNotesChanged();
   }, [projectId]);
 
+  /** Puts the pages of a folder in an order of their own (US-34), at once and then on the server. */
+  const reorderNotes = useCallback(
+    async (folderId: number | null, ids: number[]): Promise<void> => {
+      if (projectId === null) return;
+      const place = new Map(ids.map((id, index) => [id, index]));
+      setNotes((current) => current.map((note) => (place.has(note.id) ? { ...note, position: place.get(note.id)! } : note)));
+      try {
+        await notesApi.reorder(projectId, folderId, ids);
+      } catch (error) {
+        await reload(true);
+        throw error;
+      }
+    },
+    [projectId],
+  );
+
   /** After a folder was deleted, its notes moved up a level: take the new places from the server. */
   const refreshFolders = useCallback(async (): Promise<void> => {
     try {
@@ -171,6 +187,7 @@ export function useNotes(projectId: number | null) {
     createNote,
     saveNote,
     moveNote,
+    reorderNotes,
     refreshFolders,
     deleteNote,
     createTaskFromNote,

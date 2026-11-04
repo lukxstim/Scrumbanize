@@ -441,6 +441,14 @@ export const migrations: string[] = [
     SELECT t.* FROM tasks t JOIN projects p ON p.id = t.project_id
     WHERE t.deleted_at IS NULL AND p.deleted_at IS NULL AND p.kind = 'project';
   `,
+  // Pages in an order of their own (US-34, like OneNote): their place within their folder; null for pages not yet
+  // put in order, which follow the others, oldest first.
+  `
+  ALTER TABLE notes ADD COLUMN position INTEGER;
+  DROP VIEW live_notes;
+  CREATE VIEW live_notes AS
+    SELECT n.* FROM notes n JOIN projects p ON p.id = n.project_id WHERE n.deleted_at IS NULL AND p.deleted_at IS NULL;
+  `,
 ];
 
 export interface OpenOptions {

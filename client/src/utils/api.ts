@@ -148,6 +148,9 @@ export const notesApi = {
   /** `folderId`: right into a folder of the project (US-22). */
   create: (projectId: number, input: NoteInput, folderId?: number | null) =>
     request<Note>(`/projects/${projectId}/notes`, { method: 'POST', body: JSON.stringify({ ...input, folderId: folderId ?? null }) }),
+  /** The pages of a folder (null: the top level) in an order of their own (US-34); `ids` are all of its pages. */
+  reorder: (projectId: number, folderId: number | null, ids: number[]) =>
+    request<void>(`/projects/${projectId}/notes/order`, { method: 'PUT', body: JSON.stringify({ folderId, ids }) }),
   /** Into a folder of the note's project, or (null) to the top level; with `projectId`, of another notebook (US-34). */
   moveToFolder: (id: number, folderId: number | null, projectId?: number) =>
     request<Note>(`/notes/${id}/folder`, { method: 'PUT', body: JSON.stringify({ folderId, projectId }) }),

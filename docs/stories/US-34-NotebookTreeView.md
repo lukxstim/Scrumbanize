@@ -16,7 +16,8 @@ Seit US-26 liegen alle Notizen in Notizbüchern. Die Ansicht hat aber drei Spalt
 
 ### 1. Notizbuch-Ansicht wie OneNote (Standard, drei Spalten)
 - [x] Links: jedes Notizbuch mit Symbol (oder Farbpunkt) und Namen; unter dem offenen seine **Abschnitte** (= Ordner) mit Farbbalken, Unterabschnitte eingerückt, „Ohne Abschnitt“ für Seiten ohne Ordner und „+ Neuer Abschnitt“.
-- [x] Mitte: nur die **Seiten** des gewählten Abschnitts als Titel, darüber „Seite hinzufügen“ (mit Vorlagen) und Sortieren (zuletzt geändert, zuletzt erstellt, nach Titel; merkt sich der Browser).
+- [x] Mitte: nur die **Seiten** des gewählten Abschnitts als Titel, darüber „Seite hinzufügen“ (mit Vorlagen) und Sortieren (eigene Reihenfolge, zuletzt geändert, zuletzt erstellt, nach Titel; merkt sich der Browser).
+- [x] Seiten lassen sich mit der Maus (oder lange gedrückt auf Touch) in eine eigene Reihenfolge ziehen; eine Linie zeigt den neuen Platz. Die Reihenfolge speichert der Server je Abschnitt, neue Seiten kommen ans Ende.
 - [x] Rechts: die Seite im Editor. Ein Klick auf einen Abschnitt öffnet seine erste Seite.
 - [x] „⋯“ am Abschnitt: Neue Seite hier, Neuer Unterabschnitt, Umbenennen (auch Doppelklick), Verschieben nach …, Löschen.
 - [x] Seiten lassen sich per Drag & Drop auf einen Abschnitt verschieben.
@@ -26,7 +27,7 @@ Seit US-26 liegen alle Notizen in Notizbüchern. Die Ansicht hat aber drei Spalt
 - [ ] Ein Klick auf das Board-Symbol eines Notizbuchs öffnet das Board.
 
 ### 2. Wählbare Darstellung
-- [x] In den Einstellungen (Zahnrad oben rechts, Abschnitt „Notizen“) wählt man die Darstellung: **Notizbuch** (wie OneNote) oder **Liste** (Titel mit Textanfang, Datum und Tags, wie bisher).
+- [x] In den Einstellungen (Zahnrad oben rechts, Abschnitt „Notizen“, je mit kleiner Beispielskizze) wählt man die Darstellung: **Notizbuch** (wie OneNote) oder **Liste** (Titel mit Textanfang, Datum und Tags, wie bisher).
 - [x] Ebenfalls wählbar: Tags an der Notiz anzeigen oder ausblenden.
 - [ ] „Verlinkt von“ unter der Notiz aufgeklappt oder eingeklappt.
 - [ ] Die Wahl gilt je Person und bleibt nach dem Neuladen erhalten.

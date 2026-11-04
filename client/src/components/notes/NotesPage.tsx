@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { DragOverlay, useDndMonitor } from '@dnd-kit/core';
+import { DragOverlay, useDndMonitor, type DragMoveEvent } from '@dnd-kit/core';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useGoneNotice } from '../../hooks/useCollaboration';
@@ -40,8 +40,8 @@ import NotesViewSwitch from './NotesViewSwitch';
 import SearchBar from './SearchBar';
 import { ActiveTags, TagFilterButton } from './TagFilter';
 import NotebookSections, { type SectionDrop } from './NotebookSections';
-import PageList from './PageList';
-import { currentSection, isPageSort, PAGE_SORTS, pagesOf, SECTION_PARAM, sectionColor, sectionParam, type PageSort, type SectionId } from '../../utils/sections';
+import PageList, { PAGE_LIST_DROP } from './PageList';
+import { currentSection, DEFAULT_PAGE_SORT, isPageSort, PAGE_SORT_KEY, movePage, PAGE_SORTS, pagesOf, SECTION_PARAM, sectionColor, sectionParam, slotIndex, type PageSort, type SectionId } from '../../utils/sections';
 import { UNTITLED_NOTE } from '../../utils/taskFromNote';
 
 const SortIcon = () => (
@@ -57,7 +57,7 @@ export default function NotesPage() {
   const projectId = Number(projectParam);
   // Viewers read notes only (US-21).
   const canEdit = useCan('edit');
-  const { notes, status, reload, remoteEdits, updateAttachments, createNote, saveNote, moveNote, refreshFolders, deleteNote, createTaskFromNote, discardTask } =
+  const { notes, status, reload, remoteEdits, updateAttachments, createNote, saveNote, moveNote, reorderNotes, refreshFolders, deleteNote, createTaskFromNote, discardTask } =
     useNotes(projectId);
   // Folders (US-22): which are open is remembered per project in this browser.
   const { folders, createFolder, updateFolder, deleteFolder } = useFolders(projectId);
@@ -227,7 +227,7 @@ export default function NotesPage() {
 
   // The notebook view (US-34): the open page's section, or the one chosen while no page is open.
   const [searchParams] = useSearchParams();
-  const [pageSort, setPageSort] = useStoredState<PageSort>('scrumbanize.pageSort', 'updated', isPageSort);
+  const [pageSort, setPageSort] = useStoredState<PageSort>(PAGE_SORT_KEY, DEFAULT_PAGE_SORT, isPageSort);
   const section = currentSection(searchParams.get(SECTION_PARAM), selectedNote, folders, notes);
   const sectionName = section === null ? 'Ohne Abschnitt' : (folders.find((f) => f.id === section)?.name ?? '');
   const pages = useMemo(() => pagesOf(filterNotes(notes, '', activeTags), section, pageSort), [notes, activeTags, section, pageSort]);
@@ -250,19 +250,57 @@ export default function NotesPage() {
   }
 
   // Pages are dragged onto a section of this or another open notebook (US-34); the drag area spans the sidebar.
+  // Within the list, a page takes the place under the pointer, and the section keeps that order of its own.
   const [draggedPage, setDraggedPage] = useState<Note | null>(null);
+  const [insertBefore, setInsertBefore] = useState<number | 'end' | null>(null);
+
+  function slotUnder(event: DragMoveEvent): number | 'end' | null {
+    const page = draggedPage;
+    if (!page || event.over?.id !== PAGE_LIST_DROP || page.folderId !== section) return null;
+    const start = event.activatorEvent;
+    const startY = start instanceof MouseEvent ? start.clientY : start instanceof TouchEvent ? (start.touches[0]?.clientY ?? 0) : 0;
+    const others = pages.filter((p) => p.id !== page.id);
+    const middles = others.map((p) => {
+      const rect = document.querySelector(`[data-page-row="${p.id}"]`)?.getBoundingClientRect();
+      return rect ? rect.top + rect.height / 2 : 0;
+    });
+    return others[slotIndex(startY + event.delta.y, middles)]?.id ?? 'end';
+  }
+
+  function endPageDrag() {
+    setDraggedPage(null);
+    setInsertBefore(null);
+  }
+
   useDndMonitor({
     onDragStart: ({ active }) => setDraggedPage(notes.find((n) => n.id === active.data.current?.noteId) ?? null),
-    onDragCancel: () => setDraggedPage(null),
+    onDragMove: (event) => setInsertBefore(slotUnder(event)),
+    onDragCancel: endPageDrag,
     onDragEnd: ({ over }) => {
       const page = draggedPage;
+      const before = insertBefore;
       const drop = over?.data.current?.drop as SectionDrop | undefined;
-      setDraggedPage(null);
-      if (!page || !drop) return;
-      if (drop.projectId !== projectId) void movePageTo(page, drop);
-      else if (drop.folderId !== page.folderId) void folderActions.dropNote(page.id, drop.folderId);
+      endPageDrag();
+      if (!page) return;
+      if (before !== null) void placePage(page, before);
+      else if (drop && drop.projectId !== projectId) void movePageTo(page, drop);
+      else if (drop && drop.folderId !== page.folderId) void folderActions.dropNote(page.id, drop.folderId);
     },
   });
+
+  // The new order covers every page of the section, also those a tag filter hides; dragging switches to it.
+  async function placePage(page: Note, before: number | 'end') {
+    const all = pagesOf(notes, section, pageSort).map((p) => p.id);
+    const rest = all.filter((id) => id !== page.id);
+    const order = movePage(all, page.id, before === 'end' ? rest.length : rest.indexOf(before));
+    if (pageSort === 'manual' && order.every((id, index) => id === all[index])) return;
+    setPageSort('manual');
+    try {
+      await reorderNotes(section, order);
+    } catch {
+      toast({ message: 'Die Reihenfolge konnte nicht gespeichert werden.', tone: 'error' });
+    }
+  }
 
   async function movePageTo(page: Note, drop: SectionDrop) {
     const target = projects.find((p) => p.id === drop.projectId);
@@ -439,6 +477,7 @@ export default function NotesPage() {
                   onSelect={(id) => navigate(paths.notes(projectId, id))}
                   canEdit={canEdit}
                   showTags={notesView.showTags}
+                  insertBefore={insertBefore}
                   empty={
                     <p className="px-4 py-8 text-center text-sm text-fg-subtle">
                       {activeTags.length > 0 ? 'Keine Seite mit diesen Tags in diesem Abschnitt.' : 'Noch keine Seiten in diesem Abschnitt.'}

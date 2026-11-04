@@ -59,7 +59,7 @@ export default function SettingsPage() {
 
         {desktopBridge && <DesktopSection />}
 
-        <Section title="Notizen" description="Wie die Notizen neben den Notizbüchern erscheinen. Gilt in diesem Browser.">
+        <Section title="Notizen" description="So erscheinen deine Notizbücher und Seiten. Gilt in diesem Browser.">
           <NotesViewOptions idPrefix="settings" />
         </Section>
 

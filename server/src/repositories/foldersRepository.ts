@@ -44,11 +44,11 @@ export function createFoldersRepository(db: Db) {
   const setPosition = db.prepare<[number, number]>(`UPDATE note_folders SET position = ? WHERE id = ?`);
   const setName = db.prepare<[string, number]>(`UPDATE note_folders SET name = ? WHERE id = ?`);
   const deleteFolder = db.prepare<[number]>(`DELETE FROM note_folders WHERE id = ?`);
-  const moveNotesUp = db.prepare<[number | null, number]>(`UPDATE notes SET folder_id = ? WHERE folder_id = ?`);
+  const moveNotesUp = db.prepare<[number | null, number]>(`UPDATE notes SET folder_id = ?, position = NULL WHERE folder_id = ?`);
   const selectNoteProject = db.prepare<[number], { project_id: number }>(`SELECT project_id FROM notes WHERE id = ?`);
-  const setNoteFolder = db.prepare<[number | null, number]>(`UPDATE notes SET folder_id = ? WHERE id = ?`);
+  const setNoteFolder = db.prepare<[number | null, number]>(`UPDATE notes SET folder_id = ?, position = NULL WHERE id = ?`);
   const selectLiveProject = db.prepare<[number], { id: number }>(`SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL`);
-  const setNoteProject = db.prepare<[number, number | null, number]>(`UPDATE notes SET project_id = ?, folder_id = ? WHERE id = ?`);
+  const setNoteProject = db.prepare<[number, number | null, number]>(`UPDATE notes SET project_id = ?, folder_id = ?, position = NULL WHERE id = ?`);
   const setAttachmentsProject = db.prepare<[number, number]>(`UPDATE attachments SET project_id = ? WHERE note_id = ?`);
 
   const siblings = (projectId: number, parentId: number | null, exceptId?: number) =>

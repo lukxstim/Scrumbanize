@@ -14,12 +14,16 @@ const WITHOUT_SECTION = 'ohne';
 
 export const sectionParam = (section: SectionId) => (section === null ? WITHOUT_SECTION : String(section));
 
-export type PageSort = 'updated' | 'created' | 'title';
+export type PageSort = 'manual' | 'updated' | 'created' | 'title';
 export const PAGE_SORTS: { value: PageSort; label: string }[] = [
+  { value: 'manual', label: 'Eigene Reihenfolge' },
   { value: 'updated', label: 'Zuletzt geändert' },
   { value: 'created', label: 'Zuletzt erstellt' },
   { value: 'title', label: 'Nach Titel' },
 ];
+/** Like OneNote, pages keep the order they are dragged into; new ones join at the end. */
+export const PAGE_SORT_KEY = 'scrumbanize.pageSort';
+export const DEFAULT_PAGE_SORT: PageSort = 'manual';
 export const isPageSort = (value: unknown): value is PageSort => PAGE_SORTS.some((s) => s.value === value);
 
 // Grey is the color of "Ohne Abschnitt"; the sections take the others in turn.
@@ -34,9 +38,22 @@ export function pagesOf(notes: Note[], section: SectionId, sort: PageSort): Note
   const pages = notes.filter((n) => n.folderId === section);
   const byTitle = (a: Note, b: Note) => (a.title || '￿').localeCompare(b.title || '￿', 'de', { sensitivity: 'base' });
   if (sort === 'title') return pages.sort(byTitle);
+  // Pages put in order first; the others follow, oldest first, so a new page joins at the end.
+  if (sort === 'manual')
+    return pages.sort((a, b) => (a.position ?? Infinity) - (b.position ?? Infinity) || a.createdAt.localeCompare(b.createdAt) || a.id - b.id);
   const key = sort === 'created' ? 'createdAt' : 'updatedAt';
   return pages.sort((a, b) => b[key].localeCompare(a[key]) || byTitle(a, b));
 }
+
+/** The order after moving page `id` to `index` among the others (US-34). */
+export function movePage(ids: number[], id: number, index: number): number[] {
+  const rest = ids.filter((other) => other !== id);
+  rest.splice(Math.max(0, Math.min(index, rest.length)), 0, id);
+  return rest;
+}
+
+/** Where a page dragged to height `y` goes: after every other page whose middle is above it. */
+export const slotIndex = (y: number, otherMiddles: number[]) => otherMiddles.filter((middle) => middle < y).length;
 
 /**
  * The section shown: the open page's; else the one in the address (if it still exists); else the first section, or

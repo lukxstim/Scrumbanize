@@ -12,6 +12,8 @@ export interface Note {
   projectId: number;
   /** The folder (US-22); null at the top level. */
   folderId: number | null;
+  /** Its place among the pages of its folder (US-34); null while not put in order. */
+  position: number | null;
   title: string;
   content: string;
   tags: string[];
@@ -51,6 +53,7 @@ interface NoteRow {
   id: number;
   project_id: number;
   folder_id: number | null;
+  position: number | null;
   title: string;
   content: string;
   created_at: string;
@@ -90,6 +93,8 @@ export function createNotesRepository(db: Db) {
   const selectTitles = db.prepare<[number], { title: string }>(`SELECT title FROM live_notes WHERE project_id = ?`);
   // Reads go through live_notes and live_tasks, which leave out the trash and the contents of trashed projects.
   const selectNote = db.prepare<[number], NoteRow>(`SELECT * FROM live_notes WHERE id = ?`);
+  const selectPlaces = db.prepare<[number], { id: number; folder_id: number | null }>(`SELECT id, folder_id FROM live_notes WHERE project_id = ?`);
+  const setPosition = db.prepare<[number, number]>(`UPDATE notes SET position = ? WHERE id = ?`);
   // A note in the trash of a project that is not itself in the trash: the ones that can be restored or purged.
   const selectTrashedNote = db.prepare<[number], NoteRow>(
     `SELECT n.* FROM notes n JOIN live_projects p ON p.id = n.project_id WHERE n.id = ? AND n.deleted_at IS NOT NULL`,
@@ -148,6 +153,7 @@ export function createNotesRepository(db: Db) {
       id: row.id,
       projectId: row.project_id,
       folderId: row.folder_id ?? null,
+      position: row.position ?? null,
       title: row.title,
       content: row.content,
       tags,
@@ -315,6 +321,17 @@ export function createNotesRepository(db: Db) {
         describeCreate: (title) => text.noteCreated(title),
       });
       return { ok: true, note: withRelations(row) };
+    }),
+
+    /**
+     * Puts the pages of a folder (null: the top level) in the given order (US-34). `ids` must be exactly the folder's
+     * pages; false otherwise, e.g. when one was moved meanwhile.
+     */
+    reorder: db.transaction((projectId: number, folderId: number | null, ids: number[]): boolean => {
+      const inFolder = new Set(selectPlaces.all(projectId).filter((n) => n.folder_id === folderId).map((n) => n.id));
+      if (new Set(ids).size !== ids.length || ids.length !== inFolder.size || ids.some((id) => !inFolder.has(id))) return false;
+      ids.forEach((id, index) => setPosition.run(index, id));
+      return true;
     }),
 
     /** Moves the note to the trash; its tags and task links stay for a restore. False if there is no such note. */

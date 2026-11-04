@@ -6,7 +6,7 @@ import type { Note } from '../../types/note';
 import { notesApi } from '../../utils/api';
 import { onNotesChanged } from '../../utils/appEvents';
 import { paths } from '../../utils/paths';
-import { isPageSort, pagesOf, SECTION_PARAM, sectionParam, type PageSort, type SectionId } from '../../utils/sections';
+import { DEFAULT_PAGE_SORT, isPageSort, PAGE_SORT_KEY, pagesOf, SECTION_PARAM, sectionParam, type PageSort, type SectionId } from '../../utils/sections';
 import NotebookSections from '../notes/NotebookSections';
 
 /**
@@ -16,7 +16,7 @@ import NotebookSections from '../notes/NotebookSections';
 export default function NotebookSectionsPreview({ projectId }: { projectId: number }) {
   const { folders } = useFolders(projectId);
   const [notes, setNotes] = useState<Note[]>([]);
-  const [pageSort] = useStoredState<PageSort>('scrumbanize.pageSort', 'updated', isPageSort);
+  const [pageSort] = useStoredState<PageSort>(PAGE_SORT_KEY, DEFAULT_PAGE_SORT, isPageSort);
   const navigate = useNavigate();
 
   useEffect(() => {

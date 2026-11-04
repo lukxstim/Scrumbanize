@@ -23,6 +23,7 @@ import {
   labelInputSchema,
   laneInputSchema,
   newNoteFolderSchema,
+  noteOrderSchema,
   noteInputSchema,
   noteListQuerySchema,
   taskInputSchema,
@@ -95,6 +96,15 @@ export function projectScopedRouter({ access, activities, analytics, graph, labe
     const note = notes.create(projectId, noteInputSchema.parse(req.body), folderId);
     changed(res, projectId, { type: 'note.created', noteId: note.id });
     res.status(201).json(note);
+  });
+
+  /** The pages of a folder in an order of their own (US-34); `ids` are all of its pages. */
+  router.put('/notes/order', member, (req, res) => {
+    const projectId = projectIdOf(res);
+    const { folderId, ids } = noteOrderSchema.parse(req.body);
+    if (!notes.reorder(projectId, folderId, ids)) throw new HttpError(409, 'order_changed', 'The pages of the folder changed in the meantime');
+    changed(res, projectId, { type: 'notes.reordered' });
+    res.status(204).end();
   });
 
   /** Folders of notes (US-22), in projects and notebooks alike. */

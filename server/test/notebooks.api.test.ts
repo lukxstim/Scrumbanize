@@ -182,7 +182,9 @@ describe('the board of a notebook (US-26)', () => {
 
   it('renames notebooks that shared a name with a project before the update', () => {
     const old = new Database(':memory:');
-    migrations.slice(0, -1).forEach((sql) => old.exec(sql));
+    // The migration of US-26 is the one that makes names unique across both kinds again.
+    const us26 = migrations.findIndex((sql) => sql.includes("' (Notizbuch)'"));
+    migrations.slice(0, us26).forEach((sql) => old.exec(sql));
     const insert = old.prepare(`INSERT INTO projects (name, color, kind, created_at, updated_at) VALUES (?, 'red', ?, '', '')`);
     // "Allgemein" (id 1) comes from an earlier migration.
     insert.run('allgemein', 'notebook');
@@ -190,7 +192,7 @@ describe('the board of a notebook (US-26)', () => {
     insert.run('Uni', 'notebook');
     insert.run('Uni (Notizbuch)', 'notebook');
     insert.run('Rezepte', 'notebook');
-    old.exec(migrations.at(-1)!);
+    old.exec(migrations[us26]!);
     const names = old.prepare(`SELECT id, name FROM projects ORDER BY id`).all();
     expect(names).toEqual([
       { id: 1, name: 'Allgemein' },
@@ -266,5 +268,34 @@ describe('moving a note into another notebook (US-34)', () => {
     expect((await api.put(`/api/notes/${note.id}/folder`).send({ folderId: elsewhere.id, projectId: to.id })).status).toBe(400);
     expect((await api.put(`/api/notes/${note.id}/folder`).send({ folderId: null, projectId: 999 })).status).toBe(404);
     expect((await api.get(`/api/notes/${note.id}`)).body.projectId).toBe(from.id);
+  });
+});
+
+describe('pages in an order of their own (US-34)', () => {
+  it('keeps the order of a folder until a page leaves it', async () => {
+    const notebook = await newNotebook('Studium');
+    const folder = (await newFolder(notebook.id, 'Mathe')).body as Folder;
+    const a = await newNote(notebook.id, 'A', folder.id);
+    const b = await newNote(notebook.id, 'B', folder.id);
+    const c = await newNote(notebook.id, 'C', folder.id);
+
+    expect((await api.put(`/api/projects/${notebook.id}/notes/order`).send({ folderId: folder.id, ids: [c.id, a.id, b.id] })).status).toBe(204);
+    const positions = async () =>
+      Object.fromEntries(((await api.get(`/api/projects/${notebook.id}/notes`)).body as { title: string; position: number | null }[]).map((n) => [n.title, n.position]));
+    expect(await positions()).toEqual({ C: 0, A: 1, B: 2 });
+
+    await api.put(`/api/notes/${a.id}/folder`).send({ folderId: null });
+    expect(await positions()).toEqual({ C: 0, A: null, B: 2 });
+  });
+
+  it('refuses an order that is not exactly the pages of the folder', async () => {
+    const notebook = await newNotebook('Studium');
+    const a = await newNote(notebook.id, 'A');
+    const b = await newNote(notebook.id, 'B');
+    const order = (ids: number[]) => api.put(`/api/projects/${notebook.id}/notes/order`).send({ folderId: null, ids });
+    expect((await order([a.id])).status).toBe(409);
+    expect((await order([a.id, a.id])).status).toBe(409);
+    expect((await order([b.id, a.id, 999])).status).toBe(409);
+    expect((await order([b.id, a.id])).status).toBe(204);
   });
 });

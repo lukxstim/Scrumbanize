@@ -97,6 +97,7 @@ export function planNotes(events: RealtimeEvent[], all: boolean): NotesPlan {
     switch (event.type) {
       case 'resync':
       case 'notes.imported':
+      case 'notes.reordered':
         reload = true;
         folders = true;
         break;
