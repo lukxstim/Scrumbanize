@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { useNotesView } from '../../hooks/useNotesView';
 import { useProjects } from '../../hooks/useProjects';
 import { folderPath } from '../../utils/folders';
 import { can } from '../../utils/permissions';
@@ -76,6 +77,7 @@ export default function NoteEditor({
     taskProjects.find((p) => p.id === note.projectId) ?? taskProjects.find((p) => p.id === getLastProjectId()) ?? taskProjects[0];
   const [moving, setMoving] = useState(false);
   const path = folderPath(folders, note.folderId);
+  const sections = useNotesView()[0].layout === 'tree';
   const [draft, setDraft] = useState<NoteInput>({ title: note.title, content: note.content, tags: note.tags });
   const [conversion, setConversion] = useState<{ draft: TaskDraft; fromSelection: boolean } | null>(null);
   const toast = useToast();
@@ -241,7 +243,7 @@ export default function NoteEditor({
             ...(onSaveAsTemplate && !readOnly ? [{ label: 'Als Vorlage speichern …', onSelect: () => onSaveAsTemplate(draft) }] : []),
           ]}
         />
-        {/* Where the note is (US-22); a click moves it. */}
+        {/* Where the note is (US-22): its folder, a section in the notebook view (US-34); a click moves it. */}
         {(path.length > 0 || (onMove && !readOnly && folders.length > 0)) && (
           <Button
             size="sm"
@@ -249,10 +251,10 @@ export default function NoteEditor({
             className="min-w-0"
             disabled={readOnly || !onMove}
             onClick={() => setMoving(true)}
-            title={readOnly ? undefined : 'In einen anderen Ordner verschieben'}
+            title={readOnly ? undefined : `In einen anderen ${sections ? 'Abschnitt' : 'Ordner'} verschieben`}
           >
             <FolderIcon className="size-3.5 shrink-0" />
-            <span className="truncate">{path.length > 0 ? path.map((f) => f.name).join(' / ') : 'Kein Ordner'}</span>
+            <span className="truncate">{path.length > 0 ? path.map((f) => f.name).join(' / ') : sections ? 'Ohne Abschnitt' : 'Kein Ordner'}</span>
           </Button>
         )}
         <div className="flex-1" />
