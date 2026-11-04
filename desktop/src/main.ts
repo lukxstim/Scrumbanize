@@ -277,16 +277,23 @@ function openQuickNotes(url: string): void {
   const redock = dock;
   screen.on('display-metrics-changed', redock);
   screen.on('display-removed', redock);
-  window.on('close', () => {
-    bar?.remove();
-    if (!quitting) quickNotesState = { ...quickNotesState, open: false };
-    saveQuickNotesState(dir, quickNotesState);
-  });
+  // Only once it is really gone: the page may still refuse to close (unsaved text), and then it keeps its strip.
   window.on('closed', () => {
+    try {
+      bar?.remove();
+    } catch (error) {
+      log(`Quick notes strip could not be given back: ${String(error)}`);
+    }
     screen.removeListener('display-metrics-changed', redock);
     screen.removeListener('display-removed', redock);
     quickNotesWindow = undefined;
+    if (!quitting) quickNotesState = { ...quickNotesState, open: false };
+    saveQuickNotesState(dir, quickNotesState);
   });
+  // Quitting: the strip goes back before anything else is torn down.
+  const release = () => bar?.remove();
+  app.once('before-quit', release);
+  window.once('closed', () => app.removeListener('before-quit', release));
   window.once('ready-to-show', () => window.show());
   keepInApp(window);
   void window.loadURL(`${url}/kurznotizen`);
