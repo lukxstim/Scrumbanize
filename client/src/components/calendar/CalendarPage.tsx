@@ -312,8 +312,8 @@ export default function CalendarPage() {
           day={addingOn}
           lanes={board.lanes}
           onClose={() => setAddingOn(null)}
-          onCreate={async (title, laneId, priority) => {
-            const task = await board.createTask(title, laneId, { priority, dueDate: addingOn });
+          onCreate={async (title, laneId, priority, dates) => {
+            const task = await board.createTask(title, laneId, { priority, ...dates });
             setAddingOn(null);
             toast({ message: `Task #${task.id} „${task.title}“ angelegt.` });
           }}
