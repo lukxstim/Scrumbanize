@@ -11,7 +11,10 @@ import { can } from '../../utils/permissions';
 import { hasBoard } from '../../utils/projects';
 import { BoardIcon, ChevronDownIcon, ChevronRightIcon, NoteIcon, PlusIcon } from '../icons';
 import Menu, { type MenuItem } from '../Menu';
-import NotesViewMenu from '../notes/NotesViewMenu';
+import { DndContext, MouseSensor, pointerWithin, TouchSensor, useDroppable, useSensor, useSensors } from '@dnd-kit/core';
+import { useStoredState } from '../../hooks/useStoredState';
+import type { SectionDrop } from '../notes/NotebookSections';
+import NotebookSectionsPreview from './NotebookSectionsPreview';
 import ManageProjectDialogs, { type ManageDialog } from '../projects/ManageProjectDialogs';
 import { ProjectMark } from '../projects/ProjectSwitcher';
 import Dialog from '../ui/Dialog';
@@ -22,6 +25,18 @@ const rowClass = (active: boolean) =>
   `flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md px-2 text-sm transition-colors duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${
     active ? 'bg-surface-strong font-medium text-fg' : 'text-fg-muted hover:bg-surface-hover hover:text-fg'
   }`;
+
+const isIdList = (value: unknown): value is number[] => Array.isArray(value) && value.every((v) => typeof v === 'number');
+
+/** A notebook's row; a page dropped on it moves to its top level, "Ohne Abschnitt" (US-34). */
+function NotebookDropRow({ projectId, children }: { projectId: number; children: ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: `notebook:${projectId}`, data: { drop: { projectId, folderId: null } satisfies SectionDrop } });
+  return (
+    <div ref={setNodeRef} className={`group flex items-center gap-0.5 rounded-md ${isOver ? 'bg-accent-muted ring-1 ring-accent ring-inset' : ''}`}>
+      {children}
+    </div>
+  );
+}
 
 function Heading({ children, action }: { children: string; action?: ReactNode }) {
   return (
@@ -58,6 +73,15 @@ function KnowledgeSidebar({
   const [view] = useNotesView();
   const tree = view.layout === 'tree' && !inSheet;
   const [managing, setManaging] = useState<{ project: Project; dialog: ManageDialog } | null>(null);
+  // Several notebooks can be open at once (US-34), to see their sections and drop pages there; remembered here.
+  const [openIds, setOpenIds] = useStoredState<number[]>('scrumbanize.openNotebooks', [], isIdList);
+  const onNotesPage = useMatch('/p/:projectId/notes/*') !== null;
+  const toggleOpen = (id: number) => setOpenIds(openIds.includes(id) ? openIds.filter((o) => o !== id) : [...openIds, id]);
+  // The notebook shown opens when it is reached another way, e.g. from the header or the command palette.
+  useEffect(() => {
+    if (tree && onNotesPage && Number.isInteger(activeNotebookId) && !openIds.includes(activeNotebookId)) setOpenIds([...openIds, activeNotebookId]);
+    // Only when another notebook is shown; closing it afterwards stays possible.
+  }, [activeNotebookId, onNotesPage, tree]);
 
   // Fresh tag counts on every page, and tag and note counts whenever a note was created, saved or deleted.
   useEffect(() => {
@@ -105,18 +129,15 @@ function KnowledgeSidebar({
 
       <Heading
         action={
-          <div className="flex items-center gap-0.5">
-            {!inSheet && <NotesViewMenu />}
-            <button
-              type="button"
-              className={`${iconButtonClass} !size-6`}
-              title="Neues Notizbuch"
-              aria-label="Neues Notizbuch"
-              onClick={() => requestNewProject('notebook')}
-            >
-              <PlusIcon className="size-3.5" />
-            </button>
-          </div>
+          <button
+            type="button"
+            className={`${iconButtonClass} !size-6`}
+            title="Neues Notizbuch"
+            aria-label="Neues Notizbuch"
+            onClick={() => requestNewProject('notebook')}
+          >
+            <PlusIcon className="size-3.5" />
+          </button>
         }
       >
         Notizbücher
@@ -132,17 +153,28 @@ function KnowledgeSidebar({
         <ul className="space-y-0.5">
           {notebooks.map((notebook) => {
             const active = notebook.id === activeNotebookId;
+            const open = tree && openIds.includes(notebook.id);
             const items = menuItems(notebook);
             return (
               <li key={notebook.id}>
-                <div className="group flex items-center gap-0.5">
-                  <Link to={paths.notes(notebook.id)} aria-current={active ? 'page' : undefined} className={rowClass(active)}>
-                    {tree && (
-                      <ChevronRightIcon
-                        aria-hidden="true"
-                        className={`-mr-1 size-3.5 shrink-0 text-fg-faint transition-transform duration-150 ${active ? 'rotate-90' : ''}`}
-                      />
-                    )}
+                <NotebookDropRow projectId={notebook.id}>
+                  {tree && (
+                    <button
+                      type="button"
+                      aria-expanded={open}
+                      aria-label={`Abschnitte von „${notebook.name}“ ${open ? 'zuklappen' : 'aufklappen'}`}
+                      onClick={() => toggleOpen(notebook.id)}
+                      className={`${iconButtonClass} !size-6 shrink-0`}
+                    >
+                      <ChevronRightIcon className={`size-3.5 transition-transform duration-150 ${open ? 'rotate-90' : ''}`} />
+                    </button>
+                  )}
+                  <Link
+                    to={paths.notes(notebook.id)}
+                    onClick={() => !open && tree && toggleOpen(notebook.id)}
+                    aria-current={active ? 'page' : undefined}
+                    className={rowClass(active)}
+                  >
                     <ProjectMark project={notebook} />
                     <span className="flex-1 truncate">{notebook.name}</span>
                     {hasBoard(notebook) && (
@@ -163,9 +195,17 @@ function KnowledgeSidebar({
                       />
                     </div>
                   )}
-                </div>
-                {/* The notebook view (US-34): the notes page puts this notebook's sections here. */}
-                {tree && active && <div ref={onSlot} className="pl-3" />}
+                </NotebookDropRow>
+                {/* The notebook view (US-34): the notes page puts the shown notebook's sections here; other open
+                    notebooks show theirs on their own. */}
+                {open &&
+                  (active && onNotesPage ? (
+                    <div ref={onSlot} className="pl-5" />
+                  ) : (
+                    <div className="pl-5">
+                      <NotebookSectionsPreview projectId={notebook.id} />
+                    </div>
+                  ))}
               </li>
             );
           })}
@@ -254,13 +294,22 @@ function KnowledgeSheetButton() {
 export default function KnowledgeLayout({ children }: { children: ReactNode }) {
   // Where the tree view puts the open notebook's folders and notes (US-34).
   const [slot, setSlot] = useState<HTMLElement | null>(null);
+  // One drag area for the sidebar and the page list (US-34): pages go onto sections of any open notebook. The notes
+  // page listens to it (useDndMonitor); the folder tree of the list view has its own.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    // A short hold, so a swipe still scrolls the list (US-25).
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+  );
   return (
-    <div className="flex min-h-0 flex-1">
-      <KnowledgeSidebar onSlot={setSlot} />
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <KnowledgeSheetButton />
-        <NotebookTreeSlot.Provider value={slot}>{children}</NotebookTreeSlot.Provider>
+    <DndContext sensors={sensors} collisionDetection={pointerWithin}>
+      <div className="flex min-h-0 flex-1">
+        <KnowledgeSidebar onSlot={setSlot} />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <KnowledgeSheetButton />
+          <NotebookTreeSlot.Provider value={slot}>{children}</NotebookTreeSlot.Provider>
+        </div>
       </div>
-    </div>
+    </DndContext>
   );
 }

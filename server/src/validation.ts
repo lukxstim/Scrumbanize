@@ -63,7 +63,7 @@ export const noteUpdateSchema = noteInputSchema.extend({ baseUpdatedAt: z.iso.da
 
 /** Folders of notes (US-22). */
 const folderIdSchema = z.number().int().positive().nullable();
-export const noteFolderSchema = z.object({ folderId: folderIdSchema });
+export const noteFolderSchema = z.object({ folderId: folderIdSchema, projectId: z.number().int().positive().optional() });
 export const newNoteFolderSchema = z.object({ folderId: folderIdSchema.optional() });
 export const folderInputSchema = z.object({ name: z.string().trim().min(1).max(80), parentId: folderIdSchema.default(null) });
 export const folderPatchSchema = z.object({

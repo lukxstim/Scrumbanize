@@ -11,7 +11,7 @@ import { countLabel } from '../../utils/projects';
 import ConfirmDialog from '../ConfirmDialog';
 import { DownloadIcon, RestoreIcon } from '../icons';
 import Button, { buttonClass } from '../ui/Button';
-import { NotesViewOptions } from '../notes/NotesViewMenu';
+import { NotesViewOptions } from '../notes/NotesViewOptions';
 import Section from '../ui/Section';
 import AutoBackupStatus from './AutoBackupStatus';
 import DesktopSection from './DesktopSection';

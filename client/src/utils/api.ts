@@ -148,9 +148,9 @@ export const notesApi = {
   /** `folderId`: right into a folder of the project (US-22). */
   create: (projectId: number, input: NoteInput, folderId?: number | null) =>
     request<Note>(`/projects/${projectId}/notes`, { method: 'POST', body: JSON.stringify({ ...input, folderId: folderId ?? null }) }),
-  /** Into a folder of the note's project, or (null) to the top level. */
-  moveToFolder: (id: number, folderId: number | null) =>
-    request<Note>(`/notes/${id}/folder`, { method: 'PUT', body: JSON.stringify({ folderId }) }),
+  /** Into a folder of the note's project, or (null) to the top level; with `projectId`, of another notebook (US-34). */
+  moveToFolder: (id: number, folderId: number | null, projectId?: number) =>
+    request<Note>(`/notes/${id}/folder`, { method: 'PUT', body: JSON.stringify({ folderId, projectId }) }),
   /** `baseUpdatedAt`: the version the edit started from; changed elsewhere since, the save is refused (409, US-24). */
   update: (id: number, input: NoteInput, baseUpdatedAt?: string) =>
     request<Note>(`/notes/${id}`, { method: 'PUT', body: JSON.stringify({ ...input, baseUpdatedAt }) }),

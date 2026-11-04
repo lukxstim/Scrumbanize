@@ -38,13 +38,25 @@ export function notesRouter(notes: NotesRepository, folders: FoldersRepository, 
     res.json(result.note);
   });
 
-  /** Into a folder of the note's project, or (null) to the top level (US-22). */
+  /**
+   * Into a folder of the note's project, or (null) to the top level (US-22); with `projectId`, into another notebook,
+   * where the user must be a member, too (US-34).
+   */
   router.put('/:id/folder', edit, (req, res) => {
     const id = idParamSchema.parse(req.params.id);
-    if (!folders.moveNote(id, noteFolderSchema.parse(req.body).folderId)) {
-      throw new HttpError(400, 'invalid_folder', "The folder must belong to the note's project");
+    const { folderId, projectId: target } = noteFolderSchema.parse(req.body);
+    const from = res.locals.projectId as number;
+    if (target !== undefined && target !== from) {
+      access.check(userOf(res)!, target, 'member');
+      if (!folders.moveNoteToProject(id, target, folderId)) {
+        throw new HttpError(400, 'invalid_folder', 'The folder must belong to the target notebook');
+      }
+      changed(res, from, { type: 'note.moved', noteId: id });
+      changed(res, target, { type: 'note.moved', noteId: id });
+    } else {
+      if (!folders.moveNote(id, folderId)) throw new HttpError(400, 'invalid_folder', "The folder must belong to the note's project");
+      changed(res, from, { type: 'note.moved', noteId: id });
     }
-    changed(res, res.locals.projectId as number, { type: 'note.moved', noteId: id });
     res.json(notes.get(id));
   });
 

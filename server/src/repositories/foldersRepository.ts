@@ -47,6 +47,9 @@ export function createFoldersRepository(db: Db) {
   const moveNotesUp = db.prepare<[number | null, number]>(`UPDATE notes SET folder_id = ? WHERE folder_id = ?`);
   const selectNoteProject = db.prepare<[number], { project_id: number }>(`SELECT project_id FROM notes WHERE id = ?`);
   const setNoteFolder = db.prepare<[number | null, number]>(`UPDATE notes SET folder_id = ? WHERE id = ?`);
+  const selectLiveProject = db.prepare<[number], { id: number }>(`SELECT id FROM projects WHERE id = ? AND deleted_at IS NULL`);
+  const setNoteProject = db.prepare<[number, number | null, number]>(`UPDATE notes SET project_id = ?, folder_id = ? WHERE id = ?`);
+  const setAttachmentsProject = db.prepare<[number, number]>(`UPDATE attachments SET project_id = ? WHERE note_id = ?`);
 
   const siblings = (projectId: number, parentId: number | null, exceptId?: number) =>
     selectAll.all(projectId).filter((f) => f.parent_id === parentId && f.id !== exceptId);
@@ -137,6 +140,18 @@ export function createFoldersRepository(db: Db) {
       setNoteFolder.run(folderId, noteId);
       return true;
     },
+
+    /**
+     * Moves a note into another notebook (US-34), into one of its folders or (null) to its top level, with its
+     * attachments; tags, links and tasks made from it stay with it. False if the notebook or the folder does not fit.
+     */
+    moveNoteToProject: db.transaction((noteId: number, projectId: number, folderId: number | null): boolean => {
+      if (!selectNoteProject.get(noteId) || !selectLiveProject.get(projectId)) return false;
+      if (folderId !== null && selectOne.get(folderId)?.project_id !== projectId) return false;
+      setNoteProject.run(projectId, folderId, noteId);
+      setAttachmentsProject.run(projectId, noteId);
+      return true;
+    }),
 
     /** Whether a folder belongs to a project, for creating a note right inside it. */
     inProject(folderId: number, projectId: number): boolean {

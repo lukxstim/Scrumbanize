@@ -66,11 +66,15 @@ export function useNotes(projectId: number | null) {
     return saved;
   }, []);
 
-  /** Into a folder (US-22), or (null) to the top level. */
-  const moveNote = useCallback(async (id: number, folderId: number | null): Promise<void> => {
-    await notesApi.moveToFolder(id, folderId);
-    setNotes((current) => current.map((note) => (note.id === id ? { ...note, folderId } : note)));
-  }, []);
+  /** Into a folder (US-22), or (null) to the top level; with `toProjectId`, into another notebook (US-34). */
+  const moveNote = useCallback(async (id: number, folderId: number | null, toProjectId?: number): Promise<void> => {
+    const moved = await notesApi.moveToFolder(id, folderId, toProjectId);
+    // A note that left this notebook leaves its list; "Alle Notizen" (null) keeps it in its new place.
+    setNotes((current) =>
+      projectId !== null && moved.projectId !== projectId ? current.filter((note) => note.id !== id) : current.map((note) => (note.id === id ? moved : note)),
+    );
+    if (toProjectId !== undefined) notifyNotesChanged();
+  }, [projectId]);
 
   /** After a folder was deleted, its notes moved up a level: take the new places from the server. */
   const refreshFolders = useCallback(async (): Promise<void> => {

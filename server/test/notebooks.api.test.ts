@@ -240,3 +240,31 @@ describe('all notes and tags (US-26: of every notebook, with board or without)',
     ]);
   });
 });
+
+describe('moving a note into another notebook (US-34)', () => {
+  it('moves it with its tags into a folder or the top level of the other notebook', async () => {
+    const from = await newNotebook('Studium');
+    const to = await newNotebook('Rezepte');
+    const folder = (await newFolder(to.id, 'Kuchen')).body as Folder;
+    const note = (await api.post(`/api/projects/${from.id}/notes`).send({ title: 'Apfelkuchen', content: '', tags: ['backen'] })).body as { id: number };
+
+    const moved = await api.put(`/api/notes/${note.id}/folder`).send({ folderId: folder.id, projectId: to.id });
+    expect(moved.status).toBe(200);
+    expect(moved.body).toMatchObject({ projectId: to.id, folderId: folder.id, tags: ['backen'] });
+    expect((await api.get(`/api/projects/${from.id}/notes`)).body).toEqual([]);
+
+    const back = await api.put(`/api/notes/${note.id}/folder`).send({ folderId: null, projectId: from.id });
+    expect(back.body).toMatchObject({ projectId: from.id, folderId: null });
+  });
+
+  it('refuses a folder of another notebook and a notebook that does not exist', async () => {
+    const from = await newNotebook('Studium');
+    const to = await newNotebook('Rezepte');
+    const elsewhere = (await newFolder(from.id, 'Mathe')).body as Folder;
+    const note = await newNote(from.id, 'Skript');
+
+    expect((await api.put(`/api/notes/${note.id}/folder`).send({ folderId: elsewhere.id, projectId: to.id })).status).toBe(400);
+    expect((await api.put(`/api/notes/${note.id}/folder`).send({ folderId: null, projectId: 999 })).status).toBe(404);
+    expect((await api.get(`/api/notes/${note.id}`)).body.projectId).toBe(from.id);
+  });
+});

@@ -8,21 +8,26 @@ import { iconButtonClass } from '../ui/styles';
 import { RenameField, type FolderActions } from './FolderTree';
 
 interface NotebookSectionsProps {
+  projectId: number;
   folders: Folder[];
   notes: Note[];
-  current: SectionId;
+  /** The section shown; undefined for a notebook that is only open in the sidebar. */
+  current: SectionId | undefined;
   onSelect: (section: SectionId) => void;
-  onCreateSection: (parentId: number | null) => void;
-  canEdit: boolean;
-  actions: FolderActions;
-  renamingId: number | null;
-  onRenamingChange: (folderId: number | null) => void;
-  /** While a page is dragged (US-34): the section under it. */
-  dropTarget: SectionId | undefined;
+  /** Without them, the sections are only shown (another open notebook, US-34): no menus, no "Neuer Abschnitt". */
+  edit?: {
+    onCreateSection: (parentId: number | null) => void;
+    actions: FolderActions;
+    renamingId: number | null;
+    onRenamingChange: (folderId: number | null) => void;
+  };
 }
 
-/** The droppable of a section, for pages dragged from the list beside it. */
-export const sectionDropId = (section: SectionId) => `section:${section ?? 'none'}`;
+/** What a section takes when a page is dropped on it (US-34): pages also move into other notebooks. */
+export interface SectionDrop {
+  projectId: number;
+  folderId: SectionId;
+}
 
 /**
  * The sections of the open notebook under its name in the sidebar (US-34, like OneNote): its folders with a color
@@ -30,16 +35,12 @@ export const sectionDropId = (section: SectionId) => `section:${section ?? 'none
  * list beside it are dropped onto a section to move them there.
  */
 export default function NotebookSections({
+  projectId,
   folders,
   notes,
   current,
   onSelect,
-  onCreateSection,
-  canEdit,
-  actions,
-  renamingId,
-  onRenamingChange,
-  dropTarget,
+  edit,
 }: NotebookSectionsProps) {
   const count = (section: SectionId) => notes.filter((n) => n.folderId === section).length;
   const loose = count(null);
@@ -47,45 +48,46 @@ export default function NotebookSections({
   return (
     <ul aria-label="Abschnitte" className="space-y-0.5 py-0.5">
       {(loose > 0 || folders.length === 0) && (
-        <SectionRow section={null} name="Ohne Abschnitt" depth={1} count={loose} active={current === null} onSelect={onSelect} target={dropTarget === null} />
+        <SectionRow projectId={projectId} section={null} name="Ohne Abschnitt" depth={1} count={loose} active={current === null} onSelect={onSelect} />
       )}
       {flattenFolders(folders).map(({ folder, depth }) => (
         <SectionRow
           key={folder.id}
+          projectId={projectId}
           section={folder.id}
           name={folder.name}
           depth={depth}
           count={count(folder.id)}
           active={current === folder.id}
           onSelect={onSelect}
-          target={dropTarget === folder.id}
-          renaming={renamingId === folder.id}
+          renaming={edit?.renamingId === folder.id}
           onRenamed={async (name) => {
-            onRenamingChange(null);
-            if (name && name !== folder.name) await actions.renameFolder(folder.id, name);
+            if (!edit) return;
+            edit.onRenamingChange(null);
+            if (name && name !== folder.name) await edit.actions.renameFolder(folder.id, name);
           }}
           menu={
-            canEdit
+            edit
               ? [
-                  { label: 'Neue Seite hier', onSelect: () => actions.createNoteIn(folder.id) },
+                  { label: 'Neue Seite hier', onSelect: () => edit.actions.createNoteIn(folder.id) },
                   {
                     label: 'Neuer Unterabschnitt',
-                    onSelect: () => onCreateSection(folder.id),
+                    onSelect: () => edit.onCreateSection(folder.id),
                     disabledReason: depth >= MAX_FOLDER_DEPTH ? `Abschnitte gehen höchstens ${MAX_FOLDER_DEPTH} Ebenen tief.` : undefined,
                   },
-                  { label: 'Umbenennen', onSelect: () => onRenamingChange(folder.id) },
-                  { label: 'Verschieben nach …', onSelect: () => actions.moveFolderRequest(folder) },
-                  { label: 'Löschen …', onSelect: () => actions.deleteFolder(folder), danger: true },
+                  { label: 'Umbenennen', onSelect: () => edit.onRenamingChange(folder.id) },
+                  { label: 'Verschieben nach …', onSelect: () => edit.actions.moveFolderRequest(folder) },
+                  { label: 'Löschen …', onSelect: () => edit.actions.deleteFolder(folder), danger: true },
                 ]
               : undefined
           }
         />
       ))}
-      {canEdit && (
+      {edit && (
         <li>
           <button
             type="button"
-            onClick={() => onCreateSection(null)}
+            onClick={() => edit.onCreateSection(null)}
             className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent pointer-coarse:h-11"
           >
             <PlusIcon className="size-3.5" />
@@ -98,20 +100,25 @@ export default function NotebookSections({
 }
 
 interface SectionRowProps {
+  projectId: number;
   section: SectionId;
   name: string;
   depth: number;
   count: number;
   active: boolean;
   onSelect: (section: SectionId) => void;
-  target: boolean;
   renaming?: boolean;
   onRenamed?: (name: string) => Promise<void>;
   menu?: { label: string; onSelect: () => void; disabledReason?: string; danger?: boolean }[];
 }
 
-function SectionRow({ section, name, depth, count, active, onSelect, target, renaming = false, onRenamed, menu }: SectionRowProps) {
-  const { setNodeRef } = useDroppable({ id: sectionDropId(section), data: { folderId: section } });
+/** One section: a click shows its pages, a page dropped on it moves there. */
+export function SectionRow({ projectId, section, name, depth, count, active, onSelect, renaming = false, onRenamed, menu }: SectionRowProps) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `section:${projectId}:${section ?? 'none'}`,
+    data: { drop: { projectId, folderId: section } satisfies SectionDrop },
+  });
+  const target = isOver;
   return (
     <li
       ref={setNodeRef}

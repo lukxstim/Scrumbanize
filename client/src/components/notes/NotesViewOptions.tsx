@@ -1,15 +1,12 @@
 import { useNotesView } from '../../hooks/useNotesView';
 import type { NotesLayout } from '../../utils/notesView';
-import { SettingsIcon } from '../icons';
-import Popover from '../ui/Popover';
-import { iconButtonClass } from '../ui/styles';
 
 const LAYOUTS: { value: NotesLayout; label: string; hint: string }[] = [
   { value: 'tree', label: 'Notizbuch (wie OneNote)', hint: 'Abschnitte unter dem Notizbuch, daneben ihre Seiten' },
   { value: 'list', label: 'Liste', hint: 'Alle Notizen mit Textanfang und Datum, Ordner als Baum' },
 ];
 
-/** The choices of the notes view (US-34), in the sidebar's menu and in the settings. */
+/** The choices of the notes view (US-34), in the settings. */
 export function NotesViewOptions({ idPrefix }: { idPrefix: string }) {
   const [view, setView] = useNotesView();
   return (
@@ -44,21 +41,5 @@ export function NotesViewOptions({ idPrefix }: { idPrefix: string }) {
         Tags anzeigen
       </label>
     </div>
-  );
-}
-
-/** A small button in the notes sidebar that opens the view options. */
-export default function NotesViewMenu() {
-  return (
-    <Popover
-      label="Ansicht der Notizen anpassen"
-      title="Ansicht anpassen"
-      trigger={<SettingsIcon className="size-3.5" />}
-      triggerClassName={`${iconButtonClass} !size-6`}
-      align="left"
-      panelClassName="w-64 px-3 py-2.5"
-    >
-      <NotesViewOptions idPrefix="menu" />
-    </Popover>
   );
 }

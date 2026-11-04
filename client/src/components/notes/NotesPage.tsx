@@ -1,16 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  DndContext,
-  DragOverlay,
-  MouseSensor,
-  pointerWithin,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragOverEvent,
-  type DragStartEvent,
-} from '@dnd-kit/core';
+import { DragOverlay, useDndMonitor } from '@dnd-kit/core';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useGoneNotice } from '../../hooks/useCollaboration';
@@ -50,7 +39,7 @@ import NoteList from './NoteList';
 import NotesViewSwitch from './NotesViewSwitch';
 import SearchBar from './SearchBar';
 import { ActiveTags, TagFilterButton } from './TagFilter';
-import NotebookSections from './NotebookSections';
+import NotebookSections, { type SectionDrop } from './NotebookSections';
 import PageList from './PageList';
 import { currentSection, isPageSort, PAGE_SORTS, pagesOf, SECTION_PARAM, sectionColor, sectionParam, type PageSort, type SectionId } from '../../utils/sections';
 import { UNTITLED_NOTE } from '../../utils/taskFromNote';
@@ -260,25 +249,39 @@ export default function NotesPage() {
     }
   }
 
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
-    // A short hold, so a swipe still scrolls the list (US-25).
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
-  );
+  // Pages are dragged onto a section of this or another open notebook (US-34); the drag area spans the sidebar.
   const [draggedPage, setDraggedPage] = useState<Note | null>(null);
-  const [dropTarget, setDropTarget] = useState<SectionId | undefined>(undefined);
-  const sectionOf = (over: DragOverEvent['over']) => over?.data.current?.folderId as SectionId | undefined;
-  const onDragStart = ({ active }: DragStartEvent) => setDraggedPage(notes.find((n) => n.id === active.data.current?.noteId) ?? null);
-  const onDragOver = ({ over }: DragOverEvent) => setDropTarget(sectionOf(over));
-  function endDrag() {
-    setDraggedPage(null);
-    setDropTarget(undefined);
-  }
-  function onDragEnd({ over }: DragEndEvent) {
-    const page = draggedPage;
-    const target = sectionOf(over);
-    endDrag();
-    if (page && target !== undefined && target !== page.folderId) void folderActions.dropNote(page.id, target);
+  useDndMonitor({
+    onDragStart: ({ active }) => setDraggedPage(notes.find((n) => n.id === active.data.current?.noteId) ?? null),
+    onDragCancel: () => setDraggedPage(null),
+    onDragEnd: ({ over }) => {
+      const page = draggedPage;
+      const drop = over?.data.current?.drop as SectionDrop | undefined;
+      setDraggedPage(null);
+      if (!page || !drop) return;
+      if (drop.projectId !== projectId) void movePageTo(page, drop);
+      else if (drop.folderId !== page.folderId) void folderActions.dropNote(page.id, drop.folderId);
+    },
+  });
+
+  async function movePageTo(page: Note, drop: SectionDrop) {
+    const target = projects.find((p) => p.id === drop.projectId);
+    try {
+      await moveNote(page.id, drop.folderId, drop.projectId);
+      toast({
+        message: `„${page.title || UNTITLED_NOTE}“ liegt jetzt in „${target?.name ?? 'einem anderen Notizbuch'}“.`,
+        action: { label: 'Öffnen', onClick: () => navigate(paths.notes(drop.projectId, page.id)) },
+      });
+      if (page.id === selectedId) navigate(paths.notes(drop.projectId, page.id));
+    } catch (error) {
+      toast({
+        message:
+          error instanceof ApiError && error.status === 403
+            ? 'In diesem Notizbuch darfst du keine Seiten ablegen.'
+            : 'Die Seite konnte nicht verschoben werden.',
+        tone: 'error',
+      });
+    }
   }
 
   const newFolderButton = canEdit && (
@@ -387,20 +390,20 @@ export default function NotesPage() {
       {inTree ? (
         // The notebook view (US-34, like OneNote): the sections under the notebook in the sidebar, the pages of the
         // chosen one beside it. Pages are dragged onto a section to move them there.
-        <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={endDrag}>
+        <>
           {slot &&
             createPortal(
               <NotebookSections
+                projectId={projectId}
                 folders={folders}
                 notes={notes}
                 current={section}
                 onSelect={selectSection}
-                onCreateSection={(parentId) => void createSection(parentId)}
-                canEdit={canEdit}
-                actions={folderActions}
-                renamingId={renamingId}
-                onRenamingChange={setRenamingId}
-                dropTarget={draggedPage === null ? undefined : dropTarget}
+                edit={
+                  canEdit
+                    ? { onCreateSection: (parentId) => void createSection(parentId), actions: folderActions, renamingId, onRenamingChange: setRenamingId }
+                    : undefined
+                }
               />,
               slot,
             )}
@@ -453,7 +456,7 @@ export default function NotesPage() {
               </div>
             )}
           </DragOverlay>
-        </DndContext>
+        </>
       ) : (
         // Phones (US-25) show the list or the open note, never both; the back bar returns to the list.
         <aside className={`flex w-80 shrink-0 flex-col border-r border-line bg-surface max-md:w-full max-md:border-r-0 ${selectedId !== null ? 'max-md:hidden' : ''}`}>

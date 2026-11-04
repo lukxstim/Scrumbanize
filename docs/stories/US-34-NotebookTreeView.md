@@ -20,12 +20,13 @@ Seit US-26 liegen alle Notizen in Notizbüchern. Die Ansicht hat aber drei Spalt
 - [x] Rechts: die Seite im Editor. Ein Klick auf einen Abschnitt öffnet seine erste Seite.
 - [x] „⋯“ am Abschnitt: Neue Seite hier, Neuer Unterabschnitt, Umbenennen (auch Doppelklick), Verschieben nach …, Löschen.
 - [x] Seiten lassen sich per Drag & Drop auf einen Abschnitt verschieben.
-- [ ] Seiten in einen Abschnitt eines anderen Notizbuchs ziehen; Abschnitte per Drag & Drop umsortieren.
-- [ ] Mehrere Notizbücher gleichzeitig aufklappen.
+- [x] Seiten in einen Abschnitt eines anderen Notizbuchs ziehen (oder auf das Notizbuch selbst: „Ohne Abschnitt“); mit Anhängen, Tags und Links. Dafür braucht man im Ziel die Rolle „Mitglied“.
+- [ ] Abschnitte per Drag & Drop umsortieren.
+- [x] Mehrere Notizbücher gleichzeitig aufklappen (merkt sich der Browser); ein Klick auf einen Abschnitt eines anderen Notizbuchs öffnet dessen erste Seite.
 - [ ] Ein Klick auf das Board-Symbol eines Notizbuchs öffnet das Board.
 
 ### 2. Wählbare Darstellung
-- [x] Ein Umschalter oben im Baum (und in den Einstellungen) wählt die Darstellung: **Notizbuch** (wie OneNote) oder **Liste** (Titel mit Textanfang, Datum und Tags, wie bisher).
+- [x] In den Einstellungen (Zahnrad oben rechts, Abschnitt „Notizen“) wählt man die Darstellung: **Notizbuch** (wie OneNote) oder **Liste** (Titel mit Textanfang, Datum und Tags, wie bisher).
 - [x] Ebenfalls wählbar: Tags an der Notiz anzeigen oder ausblenden.
 - [ ] „Verlinkt von“ unter der Notiz aufgeklappt oder eingeklappt.
 - [ ] Die Wahl gilt je Person und bleibt nach dem Neuladen erhalten.
