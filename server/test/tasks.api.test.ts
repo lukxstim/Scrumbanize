@@ -180,3 +180,24 @@ describe('conflicts (US-24)', () => {
     expect((await api.patch(`/api/tasks/${task.id}`).send({ description: 'zwei', base: { description: 'eins' } })).status).toBe(200);
   });
 });
+
+describe('dates when converting a note (US-27)', () => {
+  it('stores start and due date of a task made from a note, on the board and in the calendar', async () => {
+    const note = await createNote();
+    const res = await api
+      .post('/api/projects/1/tasks')
+      .send({ title: 'Angebot schreiben', description: '', sourceNoteId: note.id, startDate: '2026-11-09', dueDate: '2026-11-13' });
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ startDate: '2026-11-09', dueDate: '2026-11-13', sourceNote: { id: note.id } });
+
+    const board = (await api.get('/api/projects/1/board')).body as { tasks: { id: number; startDate: string; dueDate: string }[] };
+    expect(board.tasks.find((t) => t.id === res.body.id)).toMatchObject({ startDate: '2026-11-09', dueDate: '2026-11-13' });
+  });
+
+  it('refuses a start without a due date, or after it', async () => {
+    const note = await createNote();
+    const send = (dates: object) => api.post('/api/projects/1/tasks').send({ title: 'x', description: '', sourceNoteId: note.id, ...dates });
+    expect((await send({ startDate: '2026-11-09' })).status).toBe(400);
+    expect((await send({ startDate: '2026-11-14', dueDate: '2026-11-13' })).status).toBe(400);
+  });
+});

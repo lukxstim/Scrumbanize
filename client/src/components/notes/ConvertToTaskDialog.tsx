@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Project } from '../../types/project';
 import type { TaskPriority } from '../../types/task';
 import type { TaskDraft } from '../../utils/taskFromNote';
+import { adjustSchedule } from '../../utils/schedule';
 import { DateField, PriorityPicker } from '../tasks/ScheduleFields';
 import Button from '../ui/Button';
 import Dialog from '../ui/Dialog';
@@ -23,7 +24,13 @@ export default function ConvertToTaskDialog({ initial, fromSelection, projects, 
   const [title, setTitle] = useState(initial.title);
   const [description, setDescription] = useState(initial.description);
   const [priority, setPriority] = useState<TaskPriority | null>(initial.priority ?? null);
-  const [dueDate, setDueDate] = useState<string | null>(initial.dueDate ?? null);
+  // Start and due date (US-27), kept to the rules of the API: a start needs a due date, start ≤ due.
+  const [dates, setDates] = useState({ startDate: initial.startDate ?? null, dueDate: initial.dueDate ?? null });
+  const changeDates = (change: { startDate?: string | null; dueDate?: string | null }) =>
+    setDates((current) => {
+      const next = adjustSchedule({ ...current, priority: null }, change);
+      return { startDate: next.startDate, dueDate: next.dueDate };
+    });
   const [submitting, setSubmitting] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -31,7 +38,7 @@ export default function ConvertToTaskDialog({ initial, fromSelection, projects, 
     setSubmitting(true);
     setFailed(false);
     try {
-      await onSubmit({ title: title.trim(), description, priority, dueDate }, projectId);
+      await onSubmit({ title: title.trim(), description, priority, ...dates }, projectId);
     } catch {
       setFailed(true);
       setSubmitting(false);
@@ -87,15 +94,22 @@ export default function ConvertToTaskDialog({ initial, fromSelection, projects, 
           />
         </label>
 
-        <div className="mt-4 flex flex-wrap items-start gap-x-6 gap-y-3">
-          <div className="flex flex-col gap-1">
-            <span className={labelClass}>
-              Priorität <span className="font-normal text-fg-subtle">(optional)</span>
-            </span>
+        <div className="mt-4 flex flex-col gap-1">
+          <span className={labelClass}>
+            Priorität <span className="font-normal text-fg-subtle">(optional)</span>
+          </span>
+          <div>
             <PriorityPicker value={priority} onChange={setPriority} />
           </div>
-          <DateField label="Fällig (optional)" value={dueDate} onChange={setDueDate} />
         </div>
+
+        <div className="mt-4 flex flex-wrap items-start gap-x-6 gap-y-3">
+          <DateField label="Startdatum (optional)" value={dates.startDate} quick={false} onChange={(startDate) => changeDates({ startDate })} />
+          <DateField label="Fälligkeitsdatum (optional)" value={dates.dueDate} onChange={(dueDate) => changeDates({ dueDate })} />
+        </div>
+        {dates.startDate && (
+          <p className="mt-1.5 text-xs text-fg-subtle">Mit Startdatum erscheint der Task im Kalender als Zeitraum bis zum Fälligkeitsdatum.</p>
+        )}
 
         {failed && (
           <p role="alert" className="mt-3 text-sm text-danger-text">

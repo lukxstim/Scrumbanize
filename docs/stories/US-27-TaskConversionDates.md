@@ -15,4 +15,4 @@ Beim Erstellen oder Umwandeln einer Aufgabe aus einer Notiz sollen die Termine d
 ## Akzeptanzkriterien
 
 ### 1. Start- & Fälligkeitsdatum
-- [ ] Beim Erstellen/Umwandeln einer Aufgabe stehen zwei Datumsauswahlfelder bereit: `Startdatum` und `Fälligkeitsdatum`.
+- [x] Beim Erstellen/Umwandeln einer Aufgabe stehen zwei Datumsauswahlfelder bereit: `Startdatum` und `Fälligkeitsdatum`.

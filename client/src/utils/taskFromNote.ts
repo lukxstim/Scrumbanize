@@ -7,6 +7,8 @@ export interface TaskDraft {
   title: string;
   description: string;
   priority?: TaskPriority | null;
+  /** US-27: planned right away; a start needs a due date and is not after it (see adjustSchedule). */
+  startDate?: string | null;
   dueDate?: string | null;
 }
 
