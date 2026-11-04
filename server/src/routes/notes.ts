@@ -5,7 +5,7 @@ import { HttpError, notFound } from '../errors.js';
 import type { FoldersRepository } from '../repositories/foldersRepository.js';
 import type { NotesRepository } from '../repositories/notesRepository.js';
 import { changed } from '../realtime/events.js';
-import { idParamSchema, noteFolderSchema, noteListQuerySchema, noteUpdateSchema } from '../validation.js';
+import { idParamSchema, noteColorSchema, noteFolderSchema, noteListQuerySchema, noteUpdateSchema } from '../validation.js';
 
 /**
  * Single notes by id, and the notes of all the user's notebooks at once; listing and creating per project are project-scoped (see
@@ -58,6 +58,15 @@ export function notesRouter(notes: NotesRepository, folders: FoldersRepository, 
       changed(res, from, { type: 'note.moved', noteId: id });
     }
     res.json(notes.get(id));
+  });
+
+  /** A color of its own (US-26: the quick notes), or null for none. */
+  router.put('/:id/color', edit, (req, res) => {
+    const { color } = noteColorSchema.parse(req.body);
+    const note = notes.setColor(idParamSchema.parse(req.params.id), color);
+    if (!note) throw notFound('Note not found');
+    changed(res, note.projectId, { type: 'note.updated', noteId: note.id });
+    res.json(note);
   });
 
   router.delete('/:id', edit, (req, res) => {

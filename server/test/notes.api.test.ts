@@ -176,3 +176,28 @@ describe('conflicts (US-24)', () => {
     expect(retry.body.updatedAt).toBe(saved.updatedAt);
   });
 });
+
+describe('note colors (US-26)', () => {
+  it('gives a note a color of its own without counting as a change of its text', async () => {
+    const note = await createNote({ title: 'Einkauf' });
+    expect(note.color).toBeNull();
+
+    const colored = await api.put(`/api/notes/${note.id}/color`).send({ color: 'green' });
+    expect(colored.status).toBe(200);
+    expect(colored.body.color).toBe('green');
+    expect(colored.body.updatedAt).toBe(note.updatedAt);
+    expect((await api.get(`/api/notes/${note.id}`)).body.color).toBe('green');
+
+    // Saving the text keeps the color.
+    const saved = await api.put(`/api/notes/${note.id}`).send({ title: 'Einkauf', content: 'Milch', tags: [] });
+    expect(saved.body.color).toBe('green');
+
+    expect((await api.put(`/api/notes/${note.id}/color`).send({ color: null })).body.color).toBeNull();
+  });
+
+  it('refuses unknown colors and unknown notes', async () => {
+    const note = await createNote({ title: 'X' });
+    expect((await api.put(`/api/notes/${note.id}/color`).send({ color: 'red' })).status).toBe(400);
+    expect((await api.put('/api/notes/9999/color').send({ color: 'blue' })).status).toBe(404);
+  });
+});

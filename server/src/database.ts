@@ -449,6 +449,13 @@ export const migrations: string[] = [
   CREATE VIEW live_notes AS
     SELECT n.* FROM notes n JOIN projects p ON p.id = n.project_id WHERE n.deleted_at IS NULL AND p.deleted_at IS NULL;
   `,
+  // A color of its own for a note (US-26, the quick notes like the Windows Sticky Notes); null: picked from its id.
+  `
+  ALTER TABLE notes ADD COLUMN color TEXT CHECK (color IS NULL OR color IN ('yellow', 'green', 'pink', 'purple', 'blue', 'gray'));
+  DROP VIEW live_notes;
+  CREATE VIEW live_notes AS
+    SELECT n.* FROM notes n JOIN projects p ON p.id = n.project_id WHERE n.deleted_at IS NULL AND p.deleted_at IS NULL;
+  `,
 ];
 
 export interface OpenOptions {

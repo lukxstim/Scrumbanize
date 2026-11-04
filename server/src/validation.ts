@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { isTimeZone } from './analytics.js';
 import { ENTITY_TYPES } from './repositories/activityRepository.js';
 import { PROJECT_COLORS } from './repositories/projectsRepository.js';
+import { NOTE_COLORS } from './repositories/notesRepository.js';
 
 export const MAX_TAG_LENGTH = 32;
 export const MAX_LABELS_PER_PROJECT = 30;
@@ -60,6 +61,9 @@ export type NoteInput = z.infer<typeof noteInputSchema>;
 
 /** Saving a note (US-24): `baseUpdatedAt` is the version the edit started from; a newer one on the server is a conflict (409). */
 export const noteUpdateSchema = noteInputSchema.extend({ baseUpdatedAt: z.iso.datetime().optional() });
+
+/** A note's own color (US-26), or null for none. */
+export const noteColorSchema = z.object({ color: z.enum(NOTE_COLORS).nullable() });
 
 /** Folders of notes (US-22). */
 const folderIdSchema = z.number().int().positive().nullable();
