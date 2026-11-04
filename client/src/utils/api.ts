@@ -3,7 +3,7 @@ import type { AnalyticsQuery, AnalyticsReport } from '../types/analytics';
 import type { GraphData } from '../types/graph';
 import type { Attachment, AttachmentOwner } from '../types/attachment';
 import type { AuthSession, AuthUser } from '../types/auth';
-import type { Folder, Note, NoteInput } from '../types/note';
+import type { Folder, Note, NoteColor, NoteInput } from '../types/note';
 import type { Backlink, ContentRef, LinkCandidate, ResolvedLink } from '../types/link';
 import type { Project, ProjectInput, ProjectMember, ProjectPatch, ProjectRole } from '../types/project';
 import type { ProjectColor } from '../types/project';
@@ -167,6 +167,9 @@ export const notesApi = {
    */
   update: (id: number, input: NoteInput, baseUpdatedAt?: string, asClient?: string) =>
     request<Note>(`/notes/${id}`, { method: 'PUT', body: JSON.stringify({ ...input, baseUpdatedAt }), ...asClientHeaders(asClient) }),
+  /** A color of its own (US-26), or null for none; not a change of its text. `asClient`: see `update`. */
+  setColor: (id: number, color: NoteColor | null, asClient?: string) =>
+    request<Note>(`/notes/${id}/color`, { method: 'PUT', body: JSON.stringify({ color }), ...asClientHeaders(asClient) }),
   /** Moves the note to the trash. `asClient`: see `update`. */
   remove: (id: number, asClient?: string) => trashRequest<void>(`/notes/${id}`, { method: 'DELETE', ...asClientHeaders(asClient) }),
 };

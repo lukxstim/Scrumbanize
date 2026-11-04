@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useAutosave } from '../../hooks/useAutosave';
 import { useRealtimeProject } from '../../hooks/useRealtime';
-import type { Note } from '../../types/note';
+import { NOTE_COLORS, type Note, type NoteColor } from '../../types/note';
 import type { Project } from '../../types/project';
 import { ApiError, notesApi, projectsApi } from '../../utils/api';
 import { notifyNotesChanged, onNotesChanged } from '../../utils/appEvents';
-import { fromQuickText, previewLines, QUICK_NOTEBOOK_NAME, quickCards, quickColor, quickText } from '../../utils/quickNotes';
+import { fromQuickMarkdown, QUICK_COLORS, QUICK_NOTEBOOK_NAME, quickCards, quickColorOf, quickMarkdown, quickText } from '../../utils/quickNotes';
 import { PlusIcon, SearchIcon, TrashIcon } from '../icons';
 import { iconButtonClass } from '../ui/styles';
+
+// The editor (Tiptap) is loaded on demand: the panel also lives in every tab, for Picture-in-Picture.
+const QuickNoteEditor = lazy(() => import('./QuickNoteEditor'));
 
 interface QuickNotesPanelProps {
   onClose: () => void;
@@ -155,8 +158,9 @@ export default function QuickNotesPanel({ onClose, inTab = false }: QuickNotesPa
             projectId={projectId}
             note={notes?.find((n) => n.id === draft.noteId) ?? null}
             editing
+            autoFocus
             asClient={asClient}
-            onEdit={() => undefined}
+            onEdit={() => setEditing(null)}
             onSaved={(note) => {
               upsert(note);
               setDraft((current) => (current ? { ...current, noteId: note.id } : current));
@@ -177,7 +181,8 @@ export default function QuickNotesPanel({ onClose, inTab = false }: QuickNotesPa
               setEditing(note.id);
             }}
             onSaved={upsert}
-            onDone={() => setEditing(null)}
+            // The focus may already be in the next card when the save after leaving this one ends.
+            onDone={() => setEditing((current) => (current === note.id ? null : current))}
             onDelete={remove}
           />
         ))}
@@ -197,19 +202,26 @@ interface QuickCardProps {
   note: Note | null;
   editing: boolean;
   asClient?: string;
+  /** Starts a new card with the focus in it. */
+  autoFocus?: boolean;
   onEdit: () => void;
   onSaved: (note: Note) => void;
   onDone: () => void;
   onDelete: (id: number) => void;
 }
 
-/** One card: the date, the title in bold, the text with list items as bullets; edited in place. */
-function QuickCard({ projectId, note, editing, asClient, onEdit, onSaved, onDone, onDelete }: QuickCardProps) {
+/**
+ * One card, like the Windows Sticky Notes: the date, a color of its own, the formatted text (the first paragraph in
+ * bold is its title), typed into right where it is; everything saves by itself.
+ */
+function QuickCard({ projectId, note, editing, asClient, autoFocus = false, onEdit, onSaved, onDone, onDelete }: QuickCardProps) {
   const latest = useRef<Note | null>(note);
-  const [text, setText] = useState(() => (note ? quickText(note) : ''));
+  const [markdown, setMarkdown] = useState(() => (note ? quickMarkdown(note) : ''));
+  const [revision, setRevision] = useState(0);
+  const [colorsOpen, setColorsOpen] = useState(false);
   const { status, schedule, flush } = useAutosave<string>(async (value) => {
     const base = latest.current;
-    const input = fromQuickText(value, base?.tags);
+    const input = fromQuickMarkdown(value, base?.tags);
     if (!base) {
       if (!input.title && !input.content) return;
       const created = await notesApi.create(projectId, input, null, asClient);
@@ -234,19 +246,42 @@ function QuickCard({ projectId, note, editing, asClient, onEdit, onSaved, onDone
   useEffect(() => {
     if (!note || note.updatedAt === latest.current?.updatedAt || status !== 'saved' || editing) return;
     latest.current = note;
-    setText(quickText(note));
+    setMarkdown(quickMarkdown(note));
+    setRevision((r) => r + 1);
   }, [note, status, editing]);
 
-  const color = quickColor(note?.id ?? latest.current?.id ?? 0);
   const shown = note ?? latest.current;
-  const finish = () => void flush().finally(onDone);
+  const color = QUICK_COLORS[quickColorOf(shown)];
+  const pickColor = async (picked: NoteColor) => {
+    setColorsOpen(false);
+    if (!shown || picked === quickColorOf(shown)) return;
+    onSaved({ ...shown, color: picked });
+    try {
+      onSaved(await notesApi.setColor(shown.id, picked, asClient));
+    } catch {
+      onSaved(shown);
+    }
+  };
 
   return (
-    <div className={`group overflow-hidden rounded-md shadow-sm ring-1 ring-black/5 ${color.card}`}>
-      <div className={`h-1 ${color.bar}`} aria-hidden="true" />
+    <div className={`group relative rounded-md shadow-sm ring-1 ring-black/5 ${color.card}`}>
+      <div className={`h-1 rounded-t-md ${color.bar}`} aria-hidden="true" />
       <div className="flex min-h-6 items-center justify-end gap-1 px-3 pt-1.5">
         {status === 'error' && <span className="mr-auto text-[11px] text-danger-text">Nicht gespeichert</span>}
         {shown && <time className="text-[11px] text-fg-subtle">{when(shown.updatedAt)}</time>}
+        {shown && (
+          <button
+            type="button"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => setColorsOpen((open) => !open)}
+            aria-label="Farbe der Kurznotiz"
+            aria-expanded={colorsOpen}
+            title="Farbe"
+            className={`${iconButtonClass} !size-6 ${editing || colorsOpen ? '' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}`}
+          >
+            <span aria-hidden="true" className={`size-3 rounded-full ring-1 ring-black/15 ${color.bar}`} />
+          </button>
+        )}
         {shown && (
           <button
             type="button"
@@ -260,40 +295,36 @@ function QuickCard({ projectId, note, editing, asClient, onEdit, onSaved, onDone
           </button>
         )}
       </div>
-      {editing ? (
-        <textarea
-          autoFocus
-          value={text}
-          onChange={(event) => {
-            setText(event.target.value);
-            schedule(event.target.value);
-          }}
-          onBlur={finish}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') {
-              event.preventDefault();
-              event.currentTarget.blur();
-            }
-          }}
-          placeholder="Notiz … (erste Zeile ist der Titel, „- “ macht eine Liste)"
-          aria-label="Kurznotiz"
-          className="block min-h-24 w-full resize-none bg-transparent px-3 pb-3 text-sm text-fg [field-sizing:content] placeholder:text-fg-subtle focus:outline-none"
-        />
-      ) : (
-        <button type="button" onClick={onEdit} className="block w-full px-3 pb-3 text-left text-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent">
-          {shown?.title && <span className="block font-semibold text-fg">{shown.title}</span>}
-          {previewLines(shown?.content ?? '').map((line, index) => (
-            <span key={index} className={`block text-fg ${line.bullet ? 'relative pl-4' : ''}`}>
-              {line.bullet && (
-                <span aria-hidden="true" className="absolute left-1 font-bold">
-                  •
-                </span>
-              )}
-              {line.text}
-            </span>
+      {colorsOpen && shown && (
+        <div role="group" aria-label="Farbe wählen" className="flex justify-end gap-1.5 px-3 pb-1.5">
+          {NOTE_COLORS.map((name) => (
+            <button
+              key={name}
+              type="button"
+              autoFocus={name === quickColorOf(shown)}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => void pickColor(name)}
+              onKeyDown={(event) => event.key === 'Escape' && setColorsOpen(false)}
+              aria-label={QUICK_COLORS[name].label}
+              aria-pressed={name === quickColorOf(shown)}
+              title={QUICK_COLORS[name].label}
+              className={`size-5 rounded-full ring-1 ring-black/15 transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent ${QUICK_COLORS[name].bar} ${
+                name === quickColorOf(shown) ? 'outline-2 outline-offset-1 outline-fg/60' : ''
+              }`}
+            />
           ))}
-        </button>
+        </div>
       )}
+      <Suspense fallback={<p className="px-3 pb-3 text-sm whitespace-pre-wrap text-fg">{shown ? quickText(shown) : ''}</p>}>
+        <QuickNoteEditor
+          value={markdown}
+          revision={revision}
+          autoFocus={autoFocus}
+          onChange={schedule}
+          onFocus={onEdit}
+          onBlur={() => void flush().finally(onDone)}
+        />
+      </Suspense>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { filterNotes, sortByUpdated } from './filterNotes';
 import { countTags, normalizeTag } from './tags';
 
 function note(id: number, title: string, content: string, tags: string[], updatedAt = '2026-01-01T00:00:00.000Z'): Note {
-  return { id, projectId: 1, folderId: null, position: null, title, content, tags, tasks: [], attachments: [], createdAt: updatedAt, updatedAt };
+  return { id, projectId: 1, folderId: null, position: null, color: null, title, content, tags, tasks: [], attachments: [], createdAt: updatedAt, updatedAt };
 }
 
 const notes = [

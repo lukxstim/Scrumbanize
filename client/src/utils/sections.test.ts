@@ -7,6 +7,7 @@ const note = (id: number, folderId: number | null, title: string, createdAt: str
   projectId: 1,
   folderId,
   position,
+  color: null,
   title,
   content: '',
   tags: [],

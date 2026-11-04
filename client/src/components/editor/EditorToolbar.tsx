@@ -10,7 +10,7 @@ const buttonClass = (active: boolean) =>
     active ? 'bg-accent-muted text-accent-text' : 'text-fg-muted hover:bg-surface-hover hover:text-fg'
   }`;
 
-function ToolButton({
+export function ToolButton({
   label,
   shortcut,
   active = false,
@@ -218,7 +218,7 @@ function TableBar({ editor }: { editor: Editor }) {
   );
 }
 
-function ListGlyph({ kind }: { kind: 'bullet' | 'ordered' | 'task' }) {
+export function ListGlyph({ kind }: { kind: 'bullet' | 'ordered' | 'task' }) {
   const marker = (i: number) =>
     kind === 'bullet' ? <circle cx="3" cy={4 + i * 4} r="1" fill="currentColor" stroke="none" /> : kind === 'ordered' ? (
       <text x="1.5" y={5.5 + i * 4} fontSize="4" fill="currentColor" stroke="none">{i + 1}</text>

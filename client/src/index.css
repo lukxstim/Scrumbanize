@@ -468,3 +468,24 @@ mark[data-color],
 .rich-text .selectedCell {
   background-color: var(--color-accent-muted);
 }
+
+/* A quick note card (US-26): compact, its first paragraph (the title) in bold, like the Windows Sticky Notes. */
+.quick-note {
+  font-size: 0.875rem;
+  line-height: 1.45;
+  min-height: 3.5rem;
+}
+.quick-note > p:first-child {
+  font-weight: 600;
+}
+.quick-note :where(p, ul, ol) {
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+}
+.quick-note :where(li) {
+  margin-top: 0.1em;
+  margin-bottom: 0.1em;
+}
+.quick-note :where(li > p) {
+  margin: 0;
+}
