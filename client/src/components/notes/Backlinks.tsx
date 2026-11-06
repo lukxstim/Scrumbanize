@@ -1,17 +1,25 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Link } from 'react-router';
 import type { Backlink, ContentRef } from '../../types/link';
 import { linksApi } from '../../utils/api';
+import { useNotesView } from '../../hooks/useNotesView';
 import { paths } from '../../utils/paths';
-import { BoardIcon, LinkIcon, NoteIcon } from '../icons';
+import { BoardIcon, ChevronDownIcon, LinkIcon, NoteIcon } from '../icons';
 
 /**
  * "Verlinkt von" (US-22): notes and tasks whose text links here, from any project or notebook the user may see.
- * Loaded when the note or task opens; hidden while there are none.
+ * Loaded when the note or task opens; hidden while there are none. It starts open or closed as chosen in the
+ * settings (US-34) and can be opened or closed right here, for this note only.
  */
 export default function Backlinks({ target, projectId }: { target: ContentRef; projectId: number }) {
   const [backlinks, setBacklinks] = useState<Backlink[]>([]);
   const { type, id } = target;
+  const [{ backlinksOpen }] = useNotesView();
+  const [open, setOpen] = useState(backlinksOpen);
+  const listId = useId();
+
+  // A new note, or a new choice in the settings, starts again from the setting.
+  useEffect(() => setOpen(backlinksOpen), [type, id, backlinksOpen]);
 
   useEffect(() => {
     let current = true;
@@ -27,11 +35,20 @@ export default function Backlinks({ target, projectId }: { target: ContentRef; p
   if (backlinks.length === 0) return null;
   return (
     <section aria-label="Verlinkt von" className="rounded-lg border border-line px-4 py-3">
-      <h3 className="flex items-center gap-1.5 text-sm font-medium text-fg-muted">
-        <LinkIcon className="size-3.5" />
-        Verlinkt von <span className="font-normal text-fg-subtle tabular-nums">{backlinks.length}</span>
+      <h3>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={listId}
+          onClick={() => setOpen(!open)}
+          className="flex w-full items-center gap-1.5 rounded text-left text-sm font-medium text-fg-muted hover:text-fg focus-visible:outline-2 focus-visible:outline-accent"
+        >
+          <LinkIcon className="size-3.5" />
+          Verlinkt von <span className="font-normal text-fg-subtle tabular-nums">{backlinks.length}</span>
+          <ChevronDownIcon className={`ml-auto size-3.5 text-fg-subtle transition-transform ${open ? '' : '-rotate-90'}`} />
+        </button>
       </h3>
-      <ul className="mt-2 space-y-1">
+      <ul id={listId} hidden={!open} className="mt-2 space-y-1">
         {backlinks.map((link) => (
           <li key={`${link.type}:${link.id}`}>
             <Link

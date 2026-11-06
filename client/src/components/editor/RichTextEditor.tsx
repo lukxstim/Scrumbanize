@@ -1,15 +1,16 @@
 import { Editor as CoreEditor } from '@tiptap/core';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import type { SuggestionProps } from '@tiptap/suggestion';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type MutableRefObject, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import type { LinkCandidate, ResolvedLink } from '../../types/link';
 import { linksApi } from '../../utils/api';
-import { refKey, resolvedPath } from '../../utils/contentLinks';
+import { contentHref, refKey, resolvedPath } from '../../utils/contentLinks';
 import EditorToolbar from './EditorToolbar';
 import { ContentLinks, contentLinksKey, contentRefsIn, LinkSuggestion } from './contentLinkExtensions';
 import { editorExtensions } from './extensions';
 import LinkPicker from './LinkPicker';
+import type { InsertLink } from './linkDrop';
 
 // Something of everything the editor reads and draws: headings, marks, lists, a checklist, a link, a table.
 const WARM_UP_MARKDOWN = `# Titel
@@ -63,6 +64,8 @@ export interface RichTextEditorProps {
   readOnly?: boolean;
   /** Links to notes and tasks (US-22): typing "[[" suggests them, this project's first. Without it, no picker. */
   links?: { projectId: number };
+  /** Set to a function that puts a link into the text (see MarkdownEditor), while the editor is shown. */
+  insertLinkRef?: MutableRefObject<InsertLink | null>;
 }
 
 interface PickerState {
@@ -88,6 +91,7 @@ export default function RichTextEditor({
   contentClassName = '',
   readOnly = false,
   links,
+  insertLinkRef,
 }: RichTextEditorProps) {
   // The editor is created once; the latest callbacks are read through refs.
   const onChangeRef = useRef(onChange);
@@ -216,6 +220,27 @@ export default function RichTextEditor({
     },
     onBlur: () => onSelectionRef.current?.(''),
   });
+
+  // A dropped page (US-34) goes where the pointer let go of it, between two characters; else to the caret.
+  useEffect(() => {
+    if (!insertLinkRef || !editor || readOnly) return;
+    insertLinkRef.current = ({ ref, title }, at) => {
+      if (editor.isDestroyed) return;
+      const pos = (at && editor.view.posAtCoords({ left: at.x, top: at.y })?.pos) ?? editor.state.selection.to;
+      const text = title.trim() || (ref.type === 'note' ? 'Unbenannte Notiz' : `Task #${ref.id}`);
+      editor
+        .chain()
+        .focus()
+        .insertContentAt(pos, [
+          { type: 'text', text, marks: [{ type: 'link', attrs: { href: contentHref(ref) } }] },
+          { type: 'text', text: ' ' },
+        ])
+        .run();
+    };
+    return () => {
+      insertLinkRef.current = null;
+    };
+  }, [insertLinkRef, editor, readOnly]);
 
   if (!editor) return null;
   return (

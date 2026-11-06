@@ -15,13 +15,13 @@ Die Web-Version soll auf mobilen Endgeräten wie eine native App funktionieren. 
 ## Akzeptanzkriterien
 
 ### 1. PWA-Manifest & Service Worker
-- [ ] Web App Manifest (`manifest.json`) mit App-Icons, Start-URL und Standalone-Display-Modus.
-- [ ] Service Worker für schnelles Cachen statischer Assets und Offline-Anzeige der UI.
+- [x] Web App Manifest (`manifest.json`) mit App-Icons, Start-URL und Standalone-Display-Modus.
+- [x] Service Worker für schnelles Cachen statischer Assets und Offline-Anzeige der UI.
 
 ### 2. Mobile Touch & Responsive UI
-- [ ] Touch-optimiertes Drag-and-Drop auf dem Kanban-Board für Smartphones und Tablets.
-- [ ] Mobile Navigation (Bottom Navigation Bar oder ausklappbares Menü auf kleinen Bildschirmen).
-- [ ] Optimierte Formulare und Modals für Bildschirmtastaturen.
+- [x] Touch-optimiertes Drag-and-Drop auf dem Kanban-Board für Smartphones und Tablets.
+- [x] Mobile Navigation (Bottom Navigation Bar oder ausklappbares Menü auf kleinen Bildschirmen).
+- [x] Optimierte Formulare und Modals für Bildschirmtastaturen.
 
 ---
 

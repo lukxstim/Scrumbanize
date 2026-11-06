@@ -15,16 +15,16 @@ Sobald mehrere Nutzer gleichzeitig über den Browser im selben Projekt arbeiten,
 ## Akzeptanzkriterien
 
 ### 1. Live Board-Updates
-- [ ] Wenn ein Nutzer eine Karte verschiebt, bearbeitet oder erstellt, aktualisiert sich das Board bei allen anderen aktiven Betrachtern sofort.
-- [ ] Visuelle Indikatoren (z. B. dezentes Aufblinken der Karte) bei Live-Änderungen.
+- [x] Wenn ein Nutzer eine Karte verschiebt, bearbeitet oder erstellt, aktualisiert sich das Board bei allen anderen aktiven Betrachtern sofort.
+- [x] Visuelle Indikatoren (z. B. dezentes Aufblinken der Karte) bei Live-Änderungen.
 
 ### 2. Präsenzanzeige & Notiz-Locking
-- [ ] Avatar-Anzeige im Header ("Wer ist gerade in diesem Projekt online?").
-- [ ] Notiz-Sperre (Soft-Lock): Wenn ein Nutzer eine Notiz bearbeitet, sehen andere einen Hinweis ("Wird gerade von Lukas bearbeitet") zur Vermeidung von Speicherkonflikten.
+- [x] Avatar-Anzeige im Header ("Wer ist gerade in diesem Projekt online?").
+- [x] Notiz-Sperre (Soft-Lock): Wenn ein Nutzer eine Notiz bearbeitet, sehen andere einen Hinweis ("Wird gerade von Lukas bearbeitet") zur Vermeidung von Speicherkonflikten.
 
 ### 3. Stabile WebSocket-Verbindung
-- [ ] Automatischer Reconnect bei Verbindungsabbruch.
-- [ ] Fallback auf Polling, falls WebSockets im Netzwerk blockiert werden.
+- [x] Automatischer Reconnect bei Verbindungsabbruch.
+- [x] Fallback auf Polling, falls WebSockets im Netzwerk blockiert werden.
 
 ---
 

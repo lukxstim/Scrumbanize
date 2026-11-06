@@ -1,3 +1,4 @@
+import { useDroppable } from '@dnd-kit/core';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useNotesView } from '../../hooks/useNotesView';
 import { useProjects } from '../../hooks/useProjects';
@@ -20,6 +21,7 @@ import { BoardIcon, DownloadIcon, FolderIcon, MindmapIcon } from '../icons';
 import Menu from '../Menu';
 import AttachmentsPanel from '../attachments/AttachmentsPanel';
 import MarkdownEditor from '../editor/MarkdownEditor';
+import type { InsertLink, LinkDropTarget } from '../editor/linkDrop';
 import LockNotice, { isTextField } from '../LockNotice';
 import Button, { buttonClass } from '../ui/Button';
 import ConvertToTaskDialog from './ConvertToTaskDialog';
@@ -99,6 +101,16 @@ export default function NoteEditor({
   // Markdown of what is selected in the editor, for "Auswahl in Task umwandeln".
   const [selection, setSelection] = useState('');
   const [mindmapOpen, setMindmapOpen] = useState(false);
+
+  // A page dragged from the notebook tree onto the text becomes a link to it (US-34); NotesPage handles the drop.
+  const insertLink = useRef<InsertLink | null>(null);
+  const linkDrop: LinkDropTarget = { noteId: note.id, insert: (link, at) => insertLink.current?.(link, at) };
+  const { setNodeRef: setLinkDropRef, isOver, active } = useDroppable({
+    id: `link-into:${note.id}`,
+    data: { linkInto: linkDrop },
+    disabled: !editable,
+  });
+  const linkDropActive = isOver && typeof active?.data.current?.noteId === 'number' && active.data.current.noteId !== note.id;
 
   // A change from elsewhere (US-24) is taken over right away while nobody works in this editor; otherwise the user
   // decides, also when a save was refused (409) because of it. The rich text editor starts over (new key) to show the
@@ -309,18 +321,24 @@ export default function NoteEditor({
           </fieldset>
           <LinkedTasks projectId={note.projectId} tasks={note.tasks} />
           <hr className="my-1 border-line" />
-          <MarkdownEditor
-            // Also anew when someone else's lock starts or ends: the editor takes `readOnly` only when it is made.
-            key={`${editorKey}-${editable}`}
-            value={draft.content}
-            onChange={(content) => change({ content })}
-            onSelectionChange={setSelection}
-            label="Inhalt"
-            placeholder="Schreibe deine Notiz … ([[ verlinkt Notizen und Tasks)"
-            minHeightClass="min-h-64"
-            readOnly={!editable}
-            links={{ projectId: note.projectId }}
-          />
+          <div
+            ref={setLinkDropRef}
+            className={`-mx-2 rounded-lg px-2 transition-shadow ${linkDropActive ? 'ring-2 ring-accent ring-offset-2 ring-offset-surface' : ''}`}
+          >
+            <MarkdownEditor
+              // Also anew when someone else's lock starts or ends: the editor takes `readOnly` only when it is made.
+              key={`${editorKey}-${editable}`}
+              value={draft.content}
+              onChange={(content) => change({ content })}
+              onSelectionChange={setSelection}
+              label="Inhalt"
+              placeholder="Schreibe deine Notiz … ([[ verlinkt Notizen und Tasks)"
+              minHeightClass="min-h-64"
+              readOnly={!editable}
+              links={{ projectId: note.projectId }}
+              insertLinkRef={insertLink}
+            />
+          </div>
           <AttachmentsPanel
             owner={{ type: 'note', id: note.id }}
             attachments={note.attachments}

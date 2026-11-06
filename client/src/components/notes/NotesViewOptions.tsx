@@ -145,6 +145,18 @@ export function NotesViewOptions({ idPrefix }: { idPrefix: string }) {
           ))}
         </span>
       </label>
+      <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-line p-3 hover:border-line-strong has-focus-visible:outline-2 has-focus-visible:outline-accent">
+        <input
+          type="checkbox"
+          checked={view.backlinksOpen}
+          onChange={(event) => setView({ ...view, backlinksOpen: event.target.checked })}
+          className="mt-0.5 size-3.5 accent-accent"
+        />
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium text-fg">„Verlinkt von“ aufgeklappt</span>
+          <span className="block text-xs text-fg-subtle">Unter der Notiz die Seiten und Aufgaben zeigen, die auf sie verlinken. Sonst nur die Anzahl, ein Klick klappt sie auf.</span>
+        </span>
+      </label>
     </div>
   );
 }

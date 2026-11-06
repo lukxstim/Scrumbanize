@@ -1,11 +1,13 @@
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { useStoredState } from '../../hooks/useStoredState';
 import { lazyWithPreload } from '../../utils/lazyWithPreload';
 import { useTextSelection } from '../../hooks/useTextSelection';
+import { linkMarkdown } from '../../utils/contentLinks';
 import { needsSourceMode } from '../../utils/highlight';
 import SegmentedControl from '../ui/SegmentedControl';
 import Skeleton from '../ui/Skeleton';
 import LinkPicker from './LinkPicker';
+import type { InsertLink } from './linkDrop';
 import { useSourceLinkPicker } from './useSourceLinkPicker';
 
 /** Loaded on demand, and in the background after the app started (US-29, see preload.ts). */
@@ -29,6 +31,11 @@ interface MarkdownEditorProps {
   readOnly?: boolean;
   /** Links to notes and tasks (US-22): "[[" opens a picker, this project's first. */
   links?: { projectId: number };
+  /**
+   * Set to a function that puts a link to a note or task into the text, while the editor can be edited: for a page
+   * dragged from the notebook tree onto it (US-34).
+   */
+  insertLinkRef?: MutableRefObject<InsertLink | null>;
 }
 
 /**
@@ -45,6 +52,7 @@ export default function MarkdownEditor({
   minHeightClass = 'min-h-48',
   readOnly = false,
   links,
+  insertLinkRef,
 }: MarkdownEditorProps) {
   const [preferred, setPreferred] = useStoredState<Mode>('scrumbanize.editorMode', 'rich', isMode);
   // Decided when opening, so typing such content in the source view does not switch views under the cursor.
@@ -54,6 +62,28 @@ export default function MarkdownEditor({
   const { selection, textareaHandlers } = useTextSelection();
   const textarea = useRef<HTMLTextAreaElement>(null);
   const linkPicker = useSourceLinkPicker(textarea, value, onChange, readOnly ? undefined : links?.projectId);
+
+  // In the Markdown view the link goes to the caret (or the end); the place under the pointer is not known there.
+  const valueRef = useRef(value);
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    valueRef.current = value;
+    onChangeRef.current = onChange;
+  });
+  useEffect(() => {
+    if (!insertLinkRef || mode !== 'source' || readOnly) return;
+    insertLinkRef.current = ({ ref, title }) => {
+      const text = valueRef.current;
+      const element = textarea.current;
+      const at = element && document.activeElement === element ? element.selectionEnd : text.length;
+      const before = text.slice(0, at);
+      const gap = before === '' || /s$/.test(before) ? '' : ' ';
+      onChangeRef.current(`${before}${gap}${linkMarkdown(ref, title)} ${text.slice(at)}`);
+    };
+    return () => {
+      insertLinkRef.current = null;
+    };
+  }, [insertLinkRef, mode, readOnly]);
 
   useEffect(() => {
     if (mode === 'source') onSelectionChange?.(selection);
@@ -89,6 +119,7 @@ export default function MarkdownEditor({
           contentClassName={minHeightClass}
           readOnly={readOnly}
           links={links}
+          insertLinkRef={insertLinkRef}
         />
       </Suspense>
     );

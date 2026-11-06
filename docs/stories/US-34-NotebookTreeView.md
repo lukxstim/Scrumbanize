@@ -29,8 +29,8 @@ Seit US-26 liegen alle Notizen in Notizbüchern. Die Ansicht hat aber drei Spalt
 ### 2. Wählbare Darstellung
 - [x] In den Einstellungen (Zahnrad oben rechts, Abschnitt „Notizen“, je mit kleiner Beispielskizze) wählt man die Darstellung: **Notizbuch** (wie OneNote) oder **Liste** (Titel mit Textanfang, Datum und Tags, wie bisher).
 - [x] Ebenfalls wählbar: Tags an der Notiz anzeigen oder ausblenden.
-- [ ] „Verlinkt von“ unter der Notiz aufgeklappt oder eingeklappt.
-- [ ] Die Wahl gilt je Person und bleibt nach dem Neuladen erhalten.
+- [x] „Verlinkt von“ unter der Notiz aufgeklappt oder eingeklappt.
+- [x] Die Wahl gilt je Person und bleibt nach dem Neuladen erhalten.
 
 ### 3. Tags auf Wunsch
 - [x] Standardmäßig keine Tag-Liste in der Seitenleiste und keine Tag-Chips über der Liste.
@@ -42,7 +42,7 @@ Seit US-26 liegen alle Notizen in Notizbüchern. Die Ansicht hat aber drei Spalt
 - [x] Alte Adressen (`/wissen`, `/wissen/notizen/:id`) öffnen die Notiz in ihrem Notizbuch bzw. das zuletzt benutzte Notizbuch.
 
 ### 5. Seiten verbinden
-- [ ] Eine Seite aus dem Baum in den Editor einer anderen Notiz ziehen fügt dort einen Link (`note:`) ein.
+- [x] Eine Seite aus dem Baum in den Editor einer anderen Notiz ziehen fügt dort einen Link (`note:`) ein.
 - [x] `[[`-Links und „Verlinkt von“ bleiben wie bisher.
 
 ### 6. Handy

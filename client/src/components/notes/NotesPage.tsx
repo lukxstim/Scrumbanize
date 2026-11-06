@@ -37,6 +37,7 @@ import MoveToFolderDialog from './MoveToFolderDialog';
 import NoteEditor from './NoteEditor';
 import NoteList from './NoteList';
 import NotesViewSwitch from './NotesViewSwitch';
+import { dropPoint, type LinkDropTarget } from '../editor/linkDrop';
 import SearchBar from './SearchBar';
 import { ActiveTags, TagFilterButton } from './TagFilter';
 import NotebookSections, { type DraggedSection, type SectionDrop, type SectionPlace } from './NotebookSections';
@@ -286,7 +287,8 @@ export default function NotesPage() {
       endPageDrag();
       setDraggedSection(null);
     },
-    onDragEnd: ({ over }) => {
+    onDragEnd: (event) => {
+      const { over } = event;
       const page = draggedPage;
       const before = insertBefore;
       const drop = over?.data.current?.drop as SectionDrop | undefined;
@@ -295,6 +297,12 @@ export default function NotesPage() {
       setDraggedSection(null);
       if (section) void placeSection(section, over?.data.current?.place as SectionPlace | undefined);
       if (!page) return;
+      // Onto the text of the open note: a link to the page there, where it was let go (US-34).
+      const linkInto = over?.data.current?.linkInto as LinkDropTarget | undefined;
+      if (linkInto) {
+        if (linkInto.noteId !== page.id) linkInto.insert({ ref: { type: 'note', id: page.id }, title: page.title }, dropPoint(event));
+        return;
+      }
       if (before !== null) void placePage(page, before);
       else if (drop && drop.projectId !== projectId) void movePageTo(page, drop);
       else if (drop && drop.folderId !== page.folderId) void folderActions.dropNote(page.id, drop.folderId);
