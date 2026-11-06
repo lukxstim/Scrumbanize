@@ -153,8 +153,13 @@ describe('the trash', () => {
     const gone = await createProject('Weg');
     const n1 = await createNote('N1');
     const t1 = await createTask('T1', {}, p.id);
+    // Deleted one after the other: on a fast machine two deletions can share a millisecond, and the order between a
+    // note and a task deleted at the same moment is not defined.
+    const tick = () => new Promise((resolve) => setTimeout(resolve, 5));
     await api.delete(`/api/notes/${n1.id}`);
+    await tick();
     await api.delete(`/api/tasks/${t1.id}`);
+    await tick();
     await api.delete(`/api/projects/${gone.id}`);
 
     expect((await trash()).map((i) => `${i.type}:${i.title}`)).toEqual(['project:Weg', 'task:T1', 'note:N1']);
@@ -169,6 +174,8 @@ describe('the trash', () => {
     await api.delete(`/api/tasks/${(await createTask('T')).id}`);
     await api.delete(`/api/notes/${(await createNote('Anderes', [], p.id)).id}`);
     const gone = await createProject('Weg');
+    // Later than the note above for sure, so "newest first" has one answer (see the test before).
+    await new Promise((resolve) => setTimeout(resolve, 5));
     await api.delete(`/api/projects/${gone.id}`);
 
     expect((await api.delete('/api/trash?project=1')).body).toEqual({ notes: 2, tasks: 1, projects: 0 });
