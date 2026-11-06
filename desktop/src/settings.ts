@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { DEFAULT_HOTKEY, isValidAccelerator } from './hotkey.js';
+import { normalizeServerUrl } from './serverLink.js';
 
 const FILE_NAME = 'desktop-settings.json';
 
@@ -20,6 +21,8 @@ export interface DesktopSettings {
   hotkey: string;
   /** The hint "läuft im Infobereich weiter" was shown once. */
   trayHintShown: boolean;
+  /** The online server to work with (US-31), as an origin; null: the database on this computer. */
+  serverUrl: string | null;
 }
 
 export const DEFAULT_SETTINGS: DesktopSettings = {
@@ -28,6 +31,7 @@ export const DEFAULT_SETTINGS: DesktopSettings = {
   notifications: true,
   hotkey: DEFAULT_HOTKEY,
   trayHintShown: false,
+  serverUrl: null,
 };
 
 /** Takes every valid field of `raw` and the default for the others, so an old or damaged file still works. */
@@ -40,7 +44,13 @@ export function parseSettings(raw: unknown): DesktopSettings {
     notifications: flag('notifications'),
     hotkey: typeof value.hotkey === 'string' && isValidAccelerator(value.hotkey) ? value.hotkey : DEFAULT_SETTINGS.hotkey,
     trayHintShown: flag('trayHintShown'),
+    serverUrl: typeof value.serverUrl === 'string' ? serverUrlOf(value.serverUrl) : null,
   };
+}
+
+function serverUrlOf(text: string): string | null {
+  const result = normalizeServerUrl(text);
+  return result.ok ? result.url : null;
 }
 
 export function loadSettings(dir: string): DesktopSettings {

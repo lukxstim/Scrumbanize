@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { desktopBridge } from '../../hooks/useDesktopSettings';
 import { useToast } from '../../hooks/useToast';
 import { calendarFeedApi } from '../../utils/api';
 import { feedUrl, webcalUrl } from '../../utils/calendarFeed';
@@ -63,8 +62,8 @@ export default function CalendarFeedSection() {
     }
   }
 
-  // Only the computer itself reaches the desktop app's address.
-  const local = desktopBridge !== undefined || ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
+  // Only the computer itself reaches this address: the desktop app on its own data (not on an online server, US-31).
+  const local = ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
 
   return (
     <Section

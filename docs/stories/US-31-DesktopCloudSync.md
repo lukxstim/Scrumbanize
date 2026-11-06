@@ -15,8 +15,13 @@ Die Desktop-App speichert ihre Daten bisher lokal, während die Web-Version auf 
 ## Akzeptanzkriterien
 
 ### 1. Online-Verbindung & Synchronisation
-- [ ] Die Desktop-Version baut automatisch eine Online-Verbindung zur PostgreSQL-Datenbank (Render) auf.
-- [ ] Alle Änderungen werden nahtlos in der Cloud gespeichert und synchronisiert.
+- [x] Die Desktop-Version baut automatisch eine Online-Verbindung zum Server (Render) auf, sobald er in den Einstellungen eingetragen ist.
+- [x] Alle Änderungen werden nahtlos in der Cloud gespeichert und synchronisiert.
 
 ### 2. Transparenz
-- [ ] In den Einstellungen wird der Speicherort / Verbindungsstatus klar angezeigt.
+- [x] In den Einstellungen wird der Speicherort / Verbindungsstatus klar angezeigt.
+
+---
+
+## Umsetzung
+Statt die Desktop-App direkt an eine Datenbank zu hängen und zwei Datenbestände abzugleichen, arbeitet sie auf Wunsch **mit dem Online-Server selbst**: Einstellungen → Desktop-App → Speicherort → Adresse eintragen und „Verbinden“. Das Fenster zeigt dann das Scrumbanize des Servers (mit dessen Anmeldung); Erinnerungen, Kurznotizen und Infobereich laufen weiter. So gibt es nur einen Datenstand und keine Konflikte. Die Daten auf dem Computer bleiben erhalten und werden nicht übertragen (dafür Backup und Wiederherstellen). Ist der Server beim Start nicht erreichbar, fragt die App, ob sie es erneut versucht oder bis zum nächsten Start mit den Daten auf diesem Computer arbeitet. Ohne Internet gibt es im Server-Modus also keinen Offline-Betrieb.

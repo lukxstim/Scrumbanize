@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('scrumbanizeDesktop', {
   updateSettings: (patch: DesktopSettingsPatch) => ipcRenderer.invoke(IPC.updateSettings, patch),
   checkReminders: () => ipcRenderer.invoke(IPC.checkReminders),
   openQuickNotes: () => ipcRenderer.invoke(IPC.openQuickNotes),
+  setServer: (url: string | null) => ipcRenderer.invoke(IPC.setServer, url),
   onNavigate: (handler: (path: string) => void) => {
     const listener = (_event: IpcRendererEvent, path: string) => handler(path);
     ipcRenderer.on(IPC.navigate, listener);

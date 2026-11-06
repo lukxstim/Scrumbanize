@@ -6,6 +6,7 @@ import { acceleratorFromKeyEvent, acceleratorKeys, DEFAULT_HOTKEY } from '../../
 import Button from '../ui/Button';
 import Kbd from '../ui/Kbd';
 import Switch from '../ui/Switch';
+import StorageSetting from './StorageSetting';
 
 /**
  * Settings of the desktop app only (US-18): notification area, starting at login, reminders, shortcut. On a Mac
@@ -85,6 +86,7 @@ export default function DesktopSection() {
           </Button>
         </div>
         <HotkeyField settings={settings} mac={mac} onChange={(hotkey) => change({ hotkey })} />
+        <StorageSetting settings={settings} />
       </div>
     </section>
   );

@@ -23,6 +23,7 @@ describe('desktop settings', () => {
       notifications: true,
       hotkey: 'CommandOrControl+Shift+Space',
       trayHintShown: false,
+      serverUrl: null,
     });
   });
 
@@ -38,6 +39,10 @@ describe('desktop settings', () => {
       closeToTray: true,
     });
     expect(parseSettings(null)).toEqual(DEFAULT_SETTINGS);
+    // The online server (US-31): only a valid address, as its origin.
+    expect(parseSettings({ serverUrl: 'https://scrumbanize.example/p/1' }).serverUrl).toBe('https://scrumbanize.example');
+    expect(parseSettings({ serverUrl: 'http://scrumbanize.example' }).serverUrl).toBeNull();
+    expect(parseSettings({ serverUrl: 42 }).serverUrl).toBeNull();
     fs.writeFileSync(path.join(dir, 'desktop-settings.json'), '{not json');
     expect(loadSettings(dir)).toEqual(DEFAULT_SETTINGS);
   });

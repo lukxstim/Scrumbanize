@@ -9,6 +9,8 @@ export const IPC = {
   checkReminders: 'desktop:check-reminders',
   /** Opens the quick notes (US-26): a panel docked to the right edge of the screen, always in front. */
   openQuickNotes: 'desktop:open-quick-notes',
+  /** Works with an online server from now on, or with the database on this computer again (null), US-31. */
+  setServer: 'desktop:set-server',
   /** Main → page: show this path of the app, e.g. after a click on a notification. */
   navigate: 'desktop:navigate',
 } as const;
@@ -28,7 +30,22 @@ export interface DesktopSettingsView {
   openAtLoginAvailable: boolean;
   /** The settings page words things for Windows or macOS and hides what a Mac does differently. */
   platform: NodeJS.Platform;
+  /** Where the data is (US-31). */
+  storage: StorageView;
 }
+
+export interface StorageView {
+  /** The chosen online server, or null for this computer. */
+  serverUrl: string | null;
+  /** What the window shows right now: the server, or this computer (also when the server could not be reached at the start). */
+  active: 'server' | 'local';
+  /** The database file on this computer. */
+  localFile: string;
+}
+
+export type SetServerResult =
+  | { ok: true; version: string | null }
+  | { ok: false; error: 'invalid_url' | 'insecure' | 'unreachable' | 'not_scrumbanize' | 'unhealthy' };
 
 export type DesktopSettingsPatch = Partial<Pick<DesktopSettingsView, 'closeToTray' | 'minimizeToTray' | 'notifications' | 'hotkey' | 'openAtLogin'>>;
 

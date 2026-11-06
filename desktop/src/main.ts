@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeTheme, Notification, powerMonitor, screen, shell, type IpcMainInvokeEvent, type Tray } from 'electron';
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeTheme, Notification, powerMonitor, screen, session, shell, type IpcMainInvokeEvent, type Tray } from 'electron';
 import { startServer, type RunningServer } from '../../server/src/start.js';
-import { IPC, type DesktopSettingsPatch, type DesktopSettingsView, type UpdateSettingsResult } from './bridge.js';
+import { IPC, type DesktopSettingsPatch, type DesktopSettingsView, type SetServerResult, type UpdateSettingsResult } from './bridge.js';
 import { isValidAccelerator } from './hotkey.js';
 import { macMenuTemplate } from './macMenu.js';
 import type { DueTask, ReminderMessage } from './reminderPlan.js';
@@ -10,7 +10,8 @@ import { startReminders, type Reminders } from './reminders.js';
 import { loadSettings, saveSettings, type DesktopSettings } from './settings.js';
 import { dockedBounds, loadQuickNotesState, QUICK_NOTES_WIDTH, saveQuickNotesState, type QuickNotesState } from './quickNotesState.js';
 import { attachAppBar } from './appBar.js';
-import { createTray } from './tray.js';
+import { checkServer, normalizeServerUrl } from './serverLink.js';
+import { createTray, setTrayMenu, type TrayActions } from './tray.js';
 import { loadWindowState, trackWindowState } from './windowState.js';
 
 /** The port the app prefers, so its address (and with it the browser storage: theme, last project …) stays the same. */
@@ -64,6 +65,11 @@ const trayIconName = isMac ? 'trayTemplate.png' : app.isPackaged ? 'tray.png' : 
 const trayIcon = app.isPackaged ? path.join(process.resourcesPath, trayIconName) : path.join(app.getAppPath(), 'build', trayIconName);
 
 let server: RunningServer | undefined;
+/**
+ * What the windows show (US-31): the online server from the settings, or the app's own server on this computer. The
+ * own server always runs, so switching back needs no restart.
+ */
+let appUrl = '';
 let mainWindow: BrowserWindow | undefined;
 let tray: Tray | undefined;
 let reminders: Reminders | undefined;
@@ -119,17 +125,18 @@ async function start(): Promise<void> {
   });
   if (server.port !== PREFERRED_PORT) log(`Port ${PREFERRED_PORT} was busy; settings stored in the browser start fresh on this port.`);
 
-  registerIpc(server.url);
-  createWindow(server.url, !startedAtLogin());
+  appUrl = settings.serverUrl ?? server.url;
+  if (settings.serverUrl) log(`Working with the server ${settings.serverUrl}`);
+  registerIpc();
+  createWindow(appUrl, !startedAtLogin());
   // The quick notes come back if they were open when the app was quit, also when it starts hidden at login.
-  if (quickNotesState.open) openQuickNotes(server.url);
-  tray = createTray(trayIcon, { open: showWindow, quickNotes: () => server && openQuickNotes(server.url), checkReminders: () => void reminders?.check(true), quit: () => app.quit() }, { template: isMac });
+  if (quickNotesState.open) openQuickNotes(appUrl);
+  tray = createTray(trayIcon, trayActions, { template: isMac, server: activeServer() });
   setHotkey(settings.hotkey);
-  const url = server.url;
   reminders = startReminders({
     dataDir: app.getPath('userData'),
     enabled: settings.notifications,
-    fetchDue: (day) => fetchDue(url, day),
+    fetchDue: (day) => fetchDue(appUrl, day),
     onClick: openReminder,
     log,
   });
@@ -190,7 +197,53 @@ function createWindow(url: string, visible: boolean): void {
   });
 
   keepInApp(window);
+  // The online server cannot be reached (US-31): try again, or work on this computer until the next start.
+  window.webContents.on('did-fail-load', (_event, code, description, failedUrl, isMainFrame) => {
+    if (!isMainFrame || code === -3 || !settings.serverUrl || appUrl !== settings.serverUrl) return; // -3: aborted by a new load
+    log(`Server ${settings.serverUrl} not reachable (${description}, ${failedUrl})`);
+    if (!window.isVisible()) window.show();
+    void dialog
+      .showMessageBox(window, {
+        type: 'warning',
+        title: 'Server nicht erreichbar',
+        message: `Scrumbanize erreicht ${settings.serverUrl} gerade nicht.`,
+        detail: 'Prüfe die Internetverbindung. Mit „Daten auf diesem Computer“ arbeitest du bis zum nächsten Start mit den Daten auf diesem Computer – sie werden nicht mit dem Server abgeglichen.',
+        buttons: ['Erneut versuchen', 'Daten auf diesem Computer'],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true,
+      })
+      .then(({ response }) => {
+        if (window.isDestroyed()) return;
+        if (response === 1 && server) switchTo(server.url);
+        else void window.loadURL(appUrl);
+      });
+  });
   void window.loadURL(url);
+}
+
+const trayActions: TrayActions = {
+  open: () => showWindow(),
+  quickNotes: () => openQuickNotes(appUrl),
+  checkReminders: () => void reminders?.check(true),
+  useLocal: () => {
+    updateSettings({ serverUrl: null });
+    if (server) switchTo(server.url);
+  },
+  quit: () => app.quit(),
+};
+
+/** The online server the windows show right now, or null for this computer (US-31). */
+const activeServer = () => (settings.serverUrl && appUrl === settings.serverUrl ? settings.serverUrl : null);
+
+/** Shows `url` (the online server or this computer) in every window from now on (US-31). */
+function switchTo(url: string): void {
+  appUrl = url;
+  log(`Windows now show ${url}`);
+  if (tray) setTrayMenu(tray, trayActions, activeServer());
+  if (mainWindow && !mainWindow.isDestroyed()) void mainWindow.loadURL(url);
+  if (quickNotesWindow && !quickNotesWindow.isDestroyed()) void quickNotesWindow.loadURL(`${url}/kurznotizen`);
+  void reminders?.check(false);
 }
 
 /**
@@ -198,7 +251,8 @@ function createWindow(url: string, visible: boolean): void {
  * only in unpacked runs.
  */
 function keepInApp(window: BrowserWindow): void {
-  const origin = server ? new URL(server.url).origin : '';
+  // Read at every navigation: the windows can switch between this computer and the online server (US-31).
+  const origin = () => (appUrl ? new URL(appUrl).origin : '');
   const openOutside = (target: string) => {
     if (/^https?:\/\//i.test(target) || /^mailto:/i.test(target)) void shell.openExternal(target);
   };
@@ -207,7 +261,7 @@ function keepInApp(window: BrowserWindow): void {
     return { action: 'deny' };
   });
   window.webContents.on('will-navigate', (event, target) => {
-    if (new URL(target).origin === origin) return;
+    if (new URL(target).origin === origin()) return;
     event.preventDefault();
     openOutside(target);
   });
@@ -329,8 +383,9 @@ function openReminder(message: ReminderMessage): void {
   else send();
 }
 
+/** Through the window's session, so the login of the online server (US-31) counts as well. */
 async function fetchDue(url: string, day: string): Promise<DueTask[]> {
-  const res = await fetch(`${url}/api/reminders/due?date=${day}`);
+  const res = await session.defaultSession.fetch(`${url}/api/reminders/due?date=${day}`);
   if (!res.ok) throw new Error(`GET /api/reminders/due: ${res.status}`);
   return (await res.json()) as DueTask[];
 }
@@ -378,7 +433,30 @@ function settingsView(): DesktopSettingsView {
     openAtLogin: !item ? false : isMac ? app.getLoginItemSettings().openAtLogin : app.getLoginItemSettings(item).executableWillLaunchAtLogin,
     openAtLoginAvailable: item !== undefined,
     platform: process.platform,
+    storage: {
+      serverUrl: settings.serverUrl,
+      active: activeServer() ? 'server' : 'local',
+      localFile: server?.dbFile ?? '',
+    },
   };
+}
+
+/** Checks the server before switching to it, so a typo does not leave the window blank (US-31). null: this computer. */
+async function setServer(input: unknown): Promise<SetServerResult> {
+  if (input === null) {
+    updateSettings({ serverUrl: null });
+    if (server) setTimeout(() => switchTo(server!.url), 0);
+    return { ok: true, version: null };
+  }
+  if (typeof input !== 'string') return { ok: false, error: 'invalid_url' };
+  const normalized = normalizeServerUrl(input);
+  if (!normalized.ok) return normalized;
+  const check = await checkServer(normalized.url, (url, init) => session.defaultSession.fetch(url, init));
+  if (!check.ok) return check;
+  updateSettings({ serverUrl: normalized.url });
+  // After the answer reached the page, which is replaced by the server's.
+  setTimeout(() => switchTo(normalized.url), 0);
+  return check;
 }
 
 function isPatch(value: unknown): value is DesktopSettingsPatch {
@@ -408,12 +486,11 @@ function applyPatch(patch: DesktopSettingsPatch): UpdateSettingsResult {
   return { ok: true, settings: settingsView() };
 }
 
-/** The page may only use the desktop functions when it is the app itself. */
-function registerIpc(appUrl: string): void {
-  const origin = new URL(appUrl).origin;
+/** The page may only use the desktop functions when it is the app itself: from this computer or the chosen server. */
+function registerIpc(): void {
   const fromApp = (event: IpcMainInvokeEvent) => {
     const url = event.senderFrame?.url;
-    return !!url && new URL(url).origin === origin;
+    return !!url && !!appUrl && new URL(url).origin === new URL(appUrl).origin;
   };
   ipcMain.handle(IPC.getSettings, (event) => {
     if (!fromApp(event)) throw new Error('Not allowed');
@@ -431,6 +508,10 @@ function registerIpc(appUrl: string): void {
   ipcMain.handle(IPC.openQuickNotes, (event) => {
     if (!fromApp(event)) throw new Error('Not allowed');
     openQuickNotes(appUrl);
+  });
+  ipcMain.handle(IPC.setServer, (event, url: unknown) => {
+    if (!fromApp(event)) throw new Error('Not allowed');
+    return setServer(url);
   });
 }
 
