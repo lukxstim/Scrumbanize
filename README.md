@@ -4,8 +4,13 @@
 
 <h1 align="center">Scrumbanize</h1>
 
-<p align="center"><b>Notizen und Aufgaben an einem Ort – übersichtlich, privat und direkt auf deinem Computer.</b></p>
+<p align="center"><b>Notizen und Aufgaben an einem Ort – als App für Windows und Mac oder direkt im Browser, auch auf dem Handy.</b></p>
 
+<p align="center">
+  <a href="https://scrumbanize.onrender.com">
+    <img src="https://img.shields.io/badge/Im%20Browser%20%C3%B6ffnen-scrumbanize.onrender.com-4f46e5?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Scrumbanize im Browser öffnen" />
+  </a>
+</p>
 <p align="center">
   <a href="https://github.com/lukxstim/Scrumbanize/releases/latest">
     <img src="https://img.shields.io/badge/Jetzt%20herunterladen-Windows%2010%20%2F%2011-1a7090?style=for-the-badge&logo=windows&logoColor=white" alt="Scrumbanize für Windows herunterladen" />
@@ -17,17 +22,48 @@
 
 <p align="center">
   <a href="https://github.com/lukxstim/Scrumbanize/releases/latest"><b>Direkt-Download: neueste Version für Windows und Mac</b></a>
+  ·
+  <a href="https://scrumbanize.onrender.com"><b>Web-Version: scrumbanize.onrender.com</b></a>
+  ·
+  <a href="RELEASE_NOTES.md"><b>Was ist neu in 1.2.0?</b></a>
 </p>
+
+![Scrumbanize: Notizbücher mit Abschnitten und Seiten](docs/screenshots/notizen.png)
 
 ---
 
 ## Anleitung für die Installation
 
-Du brauchst keine Vorkenntnisse – die Installation dauert etwa eine Minute.
+Du brauchst keine Vorkenntnisse. Es gibt drei Wege, die du auch kombinieren kannst:
 
-> **Vorab:** Scrumbanize wird nur an eingeladene Personen verteilt. Du brauchst ein kostenloses GitHub-Konto und eine Einladung (kommt per E-Mail – einmal auf „Accept invitation“ klicken). Zum Herunterladen musst du bei GitHub **angemeldet** sein, sonst zeigt die Seite „404“.
+| | Was du bekommst | Anleitung |
+|---|---|---|
+| **Im Browser** | Nichts installieren, überall anmelden – am Computer, Tablet und Handy. Gemeinsam mit anderen arbeiten. | [Web-Version](#web-version-im-browser) |
+| **Windows** | Eine App mit Erinnerungen, Symbol neben der Uhr und Kurznotizen am Bildschirmrand. | [Windows](#windows) |
+| **Mac** | Dieselbe App für Macs mit Apple-Chip und Intel. | [Mac](#mac) |
 
-Weiter geht es mit der Anleitung für [Windows](#windows) oder für den [Mac](#mac).
+Die Desktop-App speichert zunächst alles auf deinem Computer. Verbindest du sie mit der Web-Version, sind [App und Browser auf demselben Stand](#desktop-app-und-web-version-verbinden).
+
+> **Vorab:** Scrumbanize wird nur an eingeladene Personen verteilt. Für die Web-Version bekommst du einen Einladungs-Link von der Person, die dir Scrumbanize empfohlen hat. Für die Desktop-App brauchst du ein kostenloses GitHub-Konto und eine Einladung zum Projekt (kommt per E-Mail – einmal auf „Accept invitation“ klicken). Zum Herunterladen musst du bei GitHub **angemeldet** sein, sonst zeigt die Seite „404“.
+
+### Web-Version im Browser
+
+**1. Einladung annehmen**
+Öffne den Einladungs-Link, den du bekommen hast. Gib deinen Namen und ein Passwort ein – fertig, du bist angemeldet.
+
+**2. Später wieder anmelden**
+Öffne **[scrumbanize.onrender.com](https://scrumbanize.onrender.com)** und melde dich mit E-Mail und Passwort an. Passwort vergessen? Die Person, die dich eingeladen hat, schickt dir einen Link zum Zurücksetzen.
+
+**3. Als App aufs Handy oder den Computer**
+- **iPhone/iPad (Safari):** Teilen-Symbol → **„Zum Home-Bildschirm“**.
+- **Android (Chrome):** Menü ⋮ → **„App installieren“** bzw. „Zum Startbildschirm hinzufügen“.
+- **Computer (Chrome, Edge):** das Installieren-Symbol rechts in der Adressleiste.
+
+Scrumbanize startet dann wie eine App, ohne Browser-Leisten. Neue Versionen kommen von selbst; ein kleiner Hinweis bietet „Neu laden“ an.
+
+> **Gut zu wissen:** Deine Daten liegen auf dem Server und werden jede Nacht gesichert. Während eines Updates ist die Web-Version ein bis zwei Minuten nicht erreichbar.
+
+Weiter geht es mit der Anleitung für [Windows](#windows) oder für den [Mac](#mac) – oder direkt zu [Was kann Scrumbanize?](#was-kann-scrumbanize)
 
 ### Windows
 
@@ -79,14 +115,23 @@ Danach startet Scrumbanize ganz normal, z. B. über das Launchpad oder Spotlight
 - Bei der ersten Erinnerung fragt der Mac, ob Scrumbanize **Mitteilungen** senden darf – auf **„Erlauben“** klicken. Ändern lässt sich das später unter Systemeinstellungen → Mitteilungen → Scrumbanize.
 - Tastenkürzel heißen auf dem Mac `⌘` statt `Strg`, z. B. `⌘` + `K` für die Suche.
 
+### Desktop-App und Web-Version verbinden
+
+So haben die Desktop-App und die Web-Version **denselben Stand** – was du am Computer schreibst, siehst du sofort im Browser und auf dem Handy und umgekehrt.
+
+1. **Nur wenn du Notizen aus der Desktop-App mitnehmen willst:** In der Desktop-App Zahnrad oben rechts → **„Backup herunterladen“**. Dann in der Web-Version (als Administratorin bzw. Administrator) Zahnrad → **„Wiederherstellen“** und die ZIP-Datei auswählen. Dein Konto bleibt dabei erhalten.
+2. In der Desktop-App: Zahnrad → Abschnitt **Desktop-App** → ganz unten **Speicherort**.
+3. `scrumbanize.onrender.com` eintragen und **„Verbinden“** klicken.
+4. Mit deinem Konto der Web-Version anmelden – das ist nur einmal nötig.
+
+Unter „Speicherort“ steht danach **„Verbunden mit https://scrumbanize.onrender.com“**. Erinnerungen, Kurznotizen und das Symbol neben der Uhr funktionieren wie gewohnt. Zurück zu den Daten auf dem Computer geht es mit **„Wieder auf diesem Computer speichern“** (oder im Menü des Symbols neben der Uhr). Ohne Internet ist der Server nicht erreichbar; dann fragt die App beim Start, ob sie vorerst mit den Daten auf dem Computer arbeiten soll.
+
 ## Was kann Scrumbanize?
 
-> **Neu in Version 1.1.0:** Scrumbanize gibt es jetzt auch **für den Mac** (eine App für Apple-Chip und Intel). Dazu **Erinnerungen an fällige Aufgaben**, ein **Symbol neben der Uhr** bzw. in der Menüleiste, eine **Tastenkombination**, mit der du Scrumbanize von überall nach vorne holst, und auf dem Board **verstellbare Spaltenbreiten** und Überschriften, die beim Scrollen stehen bleiben.
+> **Neu in Version 1.2.0:** Scrumbanize gibt es jetzt **im Browser** – mit Konten, Teilen und **Live-Zusammenarbeit**, auch auf dem **Handy**. Die Desktop-App kann mit der Web-Version **denselben Stand** haben. Notizen sind in **Notizbüchern wie bei OneNote** organisiert, dazu kommen **Tabellen**, **Kurznotizen**, **Diagramme**, **Unteraufgaben**, ein **Kalender-Abo** für Outlook, Google und Apple und **Farbthemen**. Alle Neuerungen stehen in den [Release-Notizen](RELEASE_NOTES.md).
 
 ### Notizen
-Schreibe Notizen mit Überschriften, Listen, **Checklisten** und farbigen Markierungen – so einfach wie in einem Textprogramm. Hänge Bilder, PDFs und Dokumente an. Aus jedem Satz wird mit einem Klick eine Aufgabe.
-
-![Notizen mit Checklisten und Markierungen](docs/screenshots/notizen.png)
+Schreibe Notizen mit Überschriften, Listen, **Checklisten**, **Tabellen** und farbigen Markierungen – so einfach wie in einem Textprogramm. Hänge Bilder, PDFs und Dokumente an oder zeichne ein **Diagramm**. Aus jedem Satz wird mit einem Klick eine Aufgabe.
 
 ### Notizbücher, Boards und Ordner
 Alles liegt in **Notizbüchern** – fürs Studium, ein Projekt, Rezepte oder Ideen –, jedes mit Farbe und, wenn du willst, einem Symbol. Ein Notizbuch kann ein **Board** haben (mit Kalender und Statistiken für seine Aufgaben) oder nur Notizen; du schaltest es unter „Bearbeiten …“ mit „Board verwenden“ ein und aus. Schaltest du ein Board aus, werden seine Aufgaben nur ausgeblendet, nicht gelöscht – vorher sagt Scrumbanize, wie viele es sind, und schaltest du es wieder ein, ist alles wieder da. Das letzte Notizbuch mit Board bleibt immer erhalten, damit Aufgaben einen Platz haben. Die Seitenleiste links zeigt alle Notizbücher, über „⋯“ bearbeitest oder teilst du sie. Zum Start gibt es das Beispiel-Notizbuch „Wissen & Ideen“ mit einer kurzen Anleitung und einem Rezept im Ordner „Rezepte“. Notizen ordnest du in **Ordnern** (bis zu fünf Ebenen tief): per Drag-and-Drop oder über „Verschieben nach …“. Wird ein Ordner gelöscht, rückt sein Inhalt eine Ebene nach oben – keine Notiz geht verloren.
@@ -95,9 +140,11 @@ Alles liegt in **Notizbüchern** – fürs Studium, ein Projekt, Rezepte oder Id
 
 **Kurznotizen:** Für schnelle Kleinigkeiten gibt es eine Leiste wie die Windows Sticky Notes – Button oben rechts im Header (oder `Strg` + `K` → „Kurznotizen öffnen“, in der Desktop-App auch im Tray-Menü). „+ Notiz“, tippen, fertig: Jede Kurznotiz ist eine farbige Karte, die erste Zeile ihr Titel, „- “ macht eine Liste; ein Klick auf eine Karte bearbeitet sie, alles speichert sich selbst. Gespeichert werden sie im Notizbuch „Kurznotizen“, das beim ersten Mal entsteht. In der Desktop-App ist die Leiste rechts am Bildschirmrand über die ganze Höhe angedockt und bleibt vor allen Fenstern – unter Windows wie die angedockten Sticky Notes als App-Leiste: Windows hält den Streifen frei, maximierte Fenster enden daneben (dafür nutzt die App die Bibliothek koffi, ohne Compiler); ihre Breite lässt sich ziehen, und war sie beim Beenden offen, ist sie beim nächsten Start wieder da. In Chrome und Edge öffnet sie sich als Bild-im-Bild-Fenster; andere Browser zeigen den Button nicht.
 
+![Kurznotizen am rechten Bildschirmrand neben dem Board](docs/screenshots/kurznotizen.png)
+
 **Tabellen:** In der Werkzeugleiste des Editors fügt „Tabelle einfügen“ eine Tabelle mit Kopfzeile ein. Steht der Cursor darin, erscheint eine zweite Leiste: Zeilen und Spalten einfügen und löschen, Spalten links, zentriert oder rechts ausrichten, Tabelle löschen. `Tab` springt zur nächsten Zelle, `Enter` in die Zelle darunter (in der letzten Zeile entsteht eine neue). Tabellen werden als Markdown-Tabellen gespeichert. Die Werkzeugleiste bleibt beim Scrollen oben stehen.
 
-**Verlinken:** Tippe `[[` in einer Notiz oder Aufgabe und wähle eine Notiz oder Aufgabe aus – auch aus anderen Projekten und Notizbüchern. Ein Klick auf den Link öffnet das Ziel; unter jeder Notiz und Aufgabe steht, was auf sie verweist („Verlinkt von“). Auch Notizen aus Notizbüchern lassen sich in Aufgaben eines beliebigen Projekts umwandeln. Auf dem Board zeigt ein Notiz-Symbol mit Zahl, wie viele Notizen mit einer Aufgabe verlinkt sind – fährst du darüber, siehst du welche und aus welchem Notizbuch.
+**Verlinken:** Tippe `[[` in einer Notiz oder Aufgabe und wähle eine Notiz oder Aufgabe aus – auch aus anderen Projekten und Notizbüchern. Oder **ziehe eine Seite aus der Seitenliste direkt in den Text** einer anderen Notiz: Dort, wo du loslässt, entsteht der Link. Ein Klick auf den Link öffnet das Ziel; unter jeder Notiz und Aufgabe steht, was auf sie verweist („Verlinkt von“ – lässt sich einklappen, und in den Einstellungen wählst du, ob es aufgeklappt startet). Auch Notizen aus Notizbüchern lassen sich in Aufgaben eines beliebigen Projekts umwandeln. Auf dem Board zeigt ein Notiz-Symbol mit Zahl, wie viele Notizen mit einer Aufgabe verlinkt sind – fährst du darüber, siehst du welche und aus welchem Notizbuch.
 
 ### Aufgaben-Board
 Deine Aufgaben als Karten in Spalten wie „To Do“, „In Progress“ und „Done“. Ziehe Karten mit der Maus weiter, wenn du vorankommst. Prioritäten, Fälligkeiten, Labels und Checklisten siehst du direkt auf der Karte; filtern kannst du nach Priorität, Label und Fälligkeit.
@@ -106,13 +153,26 @@ Deine Aufgaben als Karten in Spalten wie „To Do“, „In Progress“ und „D
 - **„⋯“ rechts über dem Board:** „An Fenster anpassen“ (alle Spalten so breit, dass das Board ins Fenster passt), „Spaltenbreiten zurücksetzen“ und der Export als CSV-Datei für Excel.
 - **Lange Spalten:** Beim Herunterscrollen bleiben die Spaltenüberschriften und die Namen der Swimlanes oben sichtbar.
 - **Kleine Fenster und Tablets:** Die Kopfzeile wird schmaler (nur Symbole, Namen als Tooltip), statt aus dem Fenster zu ragen.
+- **„Erledigte ausblenden“** räumt die letzte Spalte weg, wenn du dich auf das Offene konzentrieren willst.
 
-![Aufgaben-Board mit Karten in Spalten](docs/screenshots/board.png)
+![Aufgaben-Board mit Karten in Spalten und Swimlanes](docs/screenshots/board.png)
+
+### Aufgaben und Unteraufgaben
+Ein Klick auf eine Karte öffnet die Details: Priorität, Fälligkeit und Startdatum, Labels, Verknüpfungen („blockiert“, „hängt zusammen mit“), eine Beschreibung mit Checklisten und Anhängen. **Unteraufgaben** legst du direkt dort an; die Karte zeigt dann den Fortschritt (z. B. „0/2“), und auf dem Board stehen Unteraufgaben bei ihrer Aufgabe oder – wählbar über „Unteraufgaben“ – in eigenen Zeilen. Wird eine Notiz zur Aufgabe, lassen sich Start- und Fälligkeitsdatum gleich mit setzen.
+
+![Aufgabe mit Verknüpfungen und Unteraufgaben](docs/screenshots/aufgabe.png)
 
 ### Kalender
-Alle Fälligkeiten im Monat oder in der Woche. Einen Termin verschiebst du, indem du ihn auf einen anderen Tag ziehst.
+Alle Fälligkeiten im Monat oder in der Woche; Aufgaben mit Startdatum erscheinen als Balken über den ganzen Zeitraum. Einen Termin verschiebst du, indem du ihn auf einen anderen Tag ziehst.
 
-![Kalender mit Terminen im Oktober](docs/screenshots/kalender.png)
+![Kalender mit Terminen im November](docs/screenshots/kalender.png)
+
+### Kalender abonnieren
+Deine Termine auch in **Outlook, Google Kalender oder Apple Kalender**: Zahnrad oben rechts → **„Kalender abonnieren“** → „Kalender-Link erstellen“. Den Link kopierst du in deine Kalender-App (Google Kalender: „Weitere Kalender“ → „Per URL“) oder öffnest ihn mit „In Kalender-App öffnen“. Alle Aufgaben mit Start- oder Fälligkeitsdatum erscheinen dann als ganztägige Termine und aktualisieren sich von selbst (die Kalender-Apps schauen meist alle paar Stunden nach).
+
+Der Link ist geheim – wer ihn hat, sieht deine Termine. Er wird deshalb nur einmal angezeigt; „Neuen Link erstellen“ ersetzt ihn, „Widerrufen“ schaltet ihn ab. Am besten funktioniert das mit der [Web-Version](#web-version-im-browser): Den Link der Desktop-App erreichen nur Kalender-Apps auf demselben Computer.
+
+![Kalender-Abo in den Einstellungen](docs/screenshots/kalender-abo.png)
 
 ### Statistiken
 Wie läuft dein Projekt? Unter **„Statistiken“** siehst du für die letzten Wochen oder Monate:
@@ -132,6 +192,11 @@ Jedes Diagramm lässt sich auch als Tabelle anzeigen. Gerechnet wird aus dem Boa
 ![Graph mit Notizen und Aufgaben als Netzwerk](docs/screenshots/graph.png)
 
 ![Mindmap einer Notiz](docs/screenshots/mindmap.png)
+
+### Diagramme
+Ablaufpläne, Organigramme oder Skizzen zeichnest du direkt in Scrumbanize: Bei den **Anhängen** einer Notiz oder Aufgabe auf **„+ Diagramm“** klicken. Es öffnet sich der Editor von **diagrams.net** (draw.io) mit allen Formen, Pfeilen und Farben. **„Speichern & Beenden“** legt das Diagramm als Anhang ab – es erscheint als Bild, und der **Stift** auf dem Bild öffnet es wieder zum Bearbeiten. Der Diagramm-Editor braucht eine Internetverbindung.
+
+![Ein Ablaufplan im Diagramm-Editor](docs/screenshots/diagramm.png)
 
 ### Papierkorb
 Aus Versehen gelöscht? Kein Problem: Gelöschtes landet zuerst im Papierkorb und lässt sich mit einem Klick wiederherstellen.
@@ -160,21 +225,39 @@ Aus Versehen gelöscht? Kein Problem: Gelöschtes landet zuerst im Papierkorb un
 - **Beim Anmelden starten:** Scrumbanize startet dann mit Windows bzw. bei der Anmeldung am Mac, damit Erinnerungen auch kommen, wenn du es nicht geöffnet hast.
 - **Keine Benachrichtigungen?** Unter Windows in den Einstellungen unter **System → Benachrichtigungen** prüfen, ob sie für Scrumbanize erlaubt sind und „Nicht stören“ aus ist (mit der **portablen Version** klappen sie nicht immer zuverlässig – besser den Installer verwenden). Auf dem Mac unter **Systemeinstellungen → Mitteilungen → Scrumbanize**.
 
+### Gemeinsam arbeiten (Web-Version)
+- **Teilen:** Über „⋯“ neben einem Notizbuch → **„Mitglieder“** lädst du andere ein – als *Mitglied* (darf bearbeiten) oder *Betrachter* (nur lesen). Wer *Besitzer* ist, verwaltet die Mitglieder.
+- **Live:** Was andere ändern, erscheint bei dir sofort – Karten wandern, Notizen aktualisieren sich, ohne Neuladen.
+- **Wer ist da?** Kleine Avatare zeigen, wer ein Notizbuch, eine Seite oder eine Aufgabe gerade offen hat.
+- **Nichts geht verloren:** Schreibt jemand anderes gerade an einer Notiz, steht das oben in der Notiz, und du kannst übernehmen. Gab es gleichzeitig Änderungen, wählst du, welche Fassung bleibt.
+
+### Auf dem Handy
+Die Web-Version passt sich an Handy und Tablet an: Navigation unten, Board spaltenweise zum Durchtippen, Karten per Finger verschieben, Notizbücher als Liste. [Als App installiert](#web-version-im-browser) startet Scrumbanize wie jede andere App.
+
+![Board und Notizbuch auf dem Handy](docs/screenshots/mobil.png)
+
+### Farben und Hintergründe
+Neben **Hell** und **Dunkel** (oben rechts) gibt es unter Zahnrad → **„Darstellung“** acht **Farbthemen** – Indigo, Blau, Türkis, Grün, Bernstein, Rose, Violett, Graphit – und **Hintergründe** wie *Morgenrot*, *Ozean* oder *Wald*, oder ein eigenes Bild.
+
+![Dunkles Design mit Farbthema Türkis und Hintergrund Ozean](docs/screenshots/dunkel.png)
+
 ### Und außerdem
 - **Projekte**, um Privates, Arbeit oder Schule zu trennen – jedes mit eigener Farbe.
 - **Suche über alles** mit `Strg` + `K` (Mac: `⌘` + `K`) – Notizen, Aufgaben und Tags in allen Projekten und Notizbüchern. Mehrere Wörter dürfen irgendwo stehen, `#17` findet Aufgabe 17.
-- **Heller und dunkler Modus.**
 - **Verlauf**: Die Uhr oben rechts zeigt, was zuletzt passiert ist.
 
 ## Deine Daten
 
-- Alles bleibt **auf deinem Computer** – es gibt kein Konto, keine Cloud und keine Werbung. Internet brauchst du nur zum Herunterladen.
-- Gespeichert wird unter Windows im Ordner `%APPDATA%\Scrumbanize` (in die Adresszeile des Explorers eintippen), auf dem Mac in `~/Library/Application Support/Scrumbanize` (im Finder `⇧` + `⌘` + `G` drücken und den Pfad eintippen). **Zum Sichern** in den Einstellungen (Zahnrad oben rechts) auf „Backup herunterladen“ klicken und die Datei z. B. auf einen USB-Stick kopieren.
-- Jede Person am Computer hat mit ihrem eigenen Benutzerkonto auch ihre eigenen Notizen.
+- **Desktop-App:** Alles bleibt **auf deinem Computer** – ohne Konto und ohne Werbung, Internet brauchst du nur zum Herunterladen (und für Diagramme). Gespeichert wird unter Windows im Ordner `%APPDATA%\Scrumbanize` (in die Adresszeile des Explorers eintippen), auf dem Mac in `~/Library/Application Support/Scrumbanize` (im Finder `⇧` + `⌘` + `G` drücken und den Pfad eintippen). Jede Person am Computer hat mit ihrem eigenen Benutzerkonto auch ihre eigenen Notizen.
+- **Web-Version:** Deine Notizen liegen auf dem Server, geschützt durch dein Passwort, und werden jede Nacht gesichert. Sehen kann sie nur, wem du ein Notizbuch freigibst.
+- **Verbunden:** Hast du die [Desktop-App mit der Web-Version verbunden](#desktop-app-und-web-version-verbinden), arbeitet sie mit den Daten des Servers; die Daten auf dem Computer bleiben unverändert liegen.
+- **Zum Sichern** in den Einstellungen (Zahnrad oben rechts) auf **„Backup herunterladen“** klicken und die Datei z. B. auf einen USB-Stick kopieren. In der Web-Version können das Administratorinnen und Administratoren.
 
 ## Neue Version installieren
 
-Alle **4 Wochen erinnert dich Scrumbanize** mit einem kleinen Hinweis unten rechts daran, nach einer neuen Version zu schauen. Ein Klick auf **„Nachsehen“** zeigt die neueste Version im Browser.
+**Web-Version:** Du musst nichts tun – sie ist immer auf dem neuesten Stand. Nach einem Update bietet ein kleiner Hinweis „Neu laden“ an.
+
+**Desktop-App:** Alle **4 Wochen erinnert dich Scrumbanize** mit einem kleinen Hinweis unten rechts daran, nach einer neuen Version zu schauen. Ein Klick auf **„Nachsehen“** zeigt die neueste Version im Browser.
 
 Gibt es dort eine neuere Version als deine (die Nummer steht im Hinweis), lade sie wie oben beschrieben herunter. Unter Windows führst du die neue `Scrumbanize-Setup-….exe` aus; auf dem Mac beendest du Scrumbanize (`⌘` + `Q`) und ziehst die neue Version aus der `.dmg`-Datei in den Ordner „Programme“ („Ersetzen“ wählen). Die neue Version ersetzt die alte – **deine Notizen und Aufgaben bleiben erhalten.**
 
@@ -189,7 +272,18 @@ Gibt es dort eine neuere Version als deine (die Nummer steht im Hinweis), lade s
 
 Selbstgehostete Web-App, die Notizen und ein Scrumban-Board verbindet. Hintergrund und Ziele: [docs/vision.md](docs/vision.md), User Stories: [docs/stories](docs/stories).
 
-**Stand:** US-01 bis US-13 sind umgesetzt:
+**Stand:** US-01 bis US-34 sind umgesetzt (Version 1.2.0). Die Web-Version läuft unter [scrumbanize.onrender.com](https://scrumbanize.onrender.com) (Render, Node-Service mit persistenter Disk für `DATA_DIR`, deployt bei jedem Push auf `main`). Neu seit 1.1.0, kurz:
+
+- **Konten und Rechte (US-21), Betrieb auf einem Server (US-23):** siehe [Betrieb mit Docker](#betrieb-mit-docker) und [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+- **Live-Zusammenarbeit (US-24):** Socket.io; Änderungen gehen nach erfolgreicher Antwort an alle offenen Seiten des Projekts, dazu Anwesenheit, Soft-Locks für Notizen und Konfliktprüfung über `baseUpdatedAt` (409 bei veralteter Fassung).
+- **Installierbare Web-App und Mobil-Layout (US-25):** Manifest, Service Worker (nicht in der Desktop-App), Update-Hinweis, Touch-Drag-and-Drop.
+- **Ein Notizbereich, Tabellen, Kurznotizen (US-26), Termine beim Umwandeln (US-27), Unteraufgaben und responsives Board (US-28), Viewport und Ladezeit (US-29), Farbthemen (US-30).**
+- **Desktop-App mit dem Online-Server (US-31):** `desktop-settings.json` → `serverUrl`; die Fenster laden dann den Server statt `127.0.0.1`, geprüft über `GET /api/health` (nur https, http im eigenen Netz). Erinnerungen laufen über `session.fetch`, damit der Login gilt.
+- **Diagramme (US-32):** diagrams.net im Embed-Modus (`embed.diagrams.net`, Nachrichten nur von dort); gespeichert als Anhang `Name.drawio.png` – ein PNG mit dem Diagramm-XML im `tEXt`-Chunk `mxfile`, sodass SVG weiter verboten bleibt.
+- **Kalender-Abo (US-33):** `GET /api/calendar/feed/<token>.ics` (öffentlich, iCalendar mit ganztägigen Terminen von Start bis Fälligkeit), Token je Person nur als SHA-256-Hash in `calendar_feeds` (nicht im Backup); `GET/POST/DELETE /api/account/calendar`. Falsche Tokens zählen wie fehlgeschlagene Logins.
+- **Notizbuch-Ansicht (US-34):** siehe unten.
+
+Im Einzelnen:
 
 - **Projekte:** Notizen und Board sind nach Projekten getrennt (z. B. „Privat“, „Studium“). Projekte werden im Header gewechselt, angelegt, umbenannt, eingefärbt und gelöscht (sie kommen nach einer Rückfrage in den Papierkorb; das letzte Projekt bleibt erhalten). Beim ersten Start gibt es das leere Projekt „Allgemein“ und das Beispielprojekt „Willkommen bei Scrumbanize“ (siehe Einstieg); das zuletzt geöffnete Projekt merkt sich der Browser.
 - **Einstieg:** Eine neue Installation (leere Datenbank) legt einmalig das Beispielprojekt „Willkommen bei Scrumbanize“ an – mit einer Notiz „So funktioniert Scrumbanize“ (Erste Schritte, eine Checkliste der Funktionen bis 1.1 – Spaltenbreiten, Graph, Mindmap, Statistiken, Vorlagen, Backup –, Hinweise zur Desktop-App und Tastenkürzel für Windows und Mac; als Mindmap lesbar), einer Notiz „Meeting: Projektstart“ im Format der Vorlage „Meeting-Protokoll“ und elf Tasks über alle Spalten (Prioritäten, Termine relativ zum ersten Start, Labels *Bug*/*Feature*/*Dringend*, Checkliste, zwei Verknüpfungen, aus beiden Notizen erstellt – im Graph zwei verbundene Gruppen; ein Task ist am ersten Tag fällig, damit die Desktop-App gleich eine Erinnerung zeigt). Es öffnet sich beim ersten Besuch; gelöscht kommt es nicht wieder, und bestehende Installationen bekommen es beim Update nicht. Dazu zeigt eine kurze Einführung in 9 Schritten die wichtigsten Stellen im Header (inklusive Statistiken und Einstellungen). Jeder Schritt hat „Überspringen“ und „Nicht erneut anzeigen“ (voreingestellt); die Wahl merkt sich der Browser. Ohne Haken erscheint die Einführung beim nächsten Start wieder. Neu starten: Befehlspalette → „Einführung erneut starten“.
@@ -217,13 +311,13 @@ Selbstgehostete Web-App, die Notizen und ein Scrumban-Board verbindet. Hintergru
 - **Befehlspalette** (`Strg+K` / `⌘K`, oder „Suchen …“ im Header): durchsucht Notizen und Tasks aller Projekte und Notizbücher (das aktuelle zuerst), wechselt Projekte, Notizbücher und Ansichten, legt Notizen, Tasks, Projekte und Notizbücher an und schaltet Farbschema und Kompaktansicht um. Jedes Wort der Suche muss irgendwo vorkommen (Titel, Text, Tag bzw. Label), die Reihenfolge ist egal; `#17` oder `17` findet Task 17 und zeigt ihn zuerst. „Neue Notiz in „Rezepte““ legt eine Notiz in einem anderen Notizbuch an.
 - **Design:** helles und dunkles Farbschema (Hell / Dunkel / System, Standard: System; merkt sich der Browser), Schrift Inter (lokal eingebunden, kein externes CDN), dezente Animationen (respektieren „Bewegung reduzieren“) und Toast-Meldungen. Optimiert für Bildschirme ab 1024 px Breite.
 
-Die App ist für einen einzelnen Nutzer ohne Login gedacht – betreibe sie nur in einem vertrauenswürdigen Netz oder hinter einem Reverse-Proxy mit Authentifizierung.
+Auf einem Server läuft die App mit Anmeldung (`AUTH=on`, Standard außerhalb der Desktop-App); ohne Anmeldung (`AUTH=off`) nur in einem vertrauenswürdigen Netz betreiben.
 
 Außerdem gibt es Scrumbanize als **Desktop-App für Windows und macOS** (US-08, US-20), die ohne installiertes Node.js läuft – siehe [Desktop-App](#desktop-app-windows-und-macos).
 
 ## Desktop-App (Windows und macOS)
 
-Die Desktop-App bündelt Frontend, Server und SQLite in einem Electron-Programm. Jede Person hat ihre eigenen, lokalen Daten; es gibt keine Synchronisation.
+Die Desktop-App bündelt Frontend, Server und SQLite in einem Electron-Programm. Jede Person hat ihre eigenen, lokalen Daten – oder arbeitet, unter Einstellungen → Desktop-App → Speicherort, direkt mit einem Online-Server (US-31). Es gibt keine Synchronisation zweier Datenbestände: Verbunden zeigt die App nur noch die Daten des Servers.
 
 ### Installieren und starten
 
@@ -284,14 +378,15 @@ Die Download-Links oben und die Erinnerung in der Desktop-App (`RELEASES_URL` in
 
 Releases baut GitHub Actions (`.github/workflows/release.yml`, US-20): Tests, dann Windows auf `windows-latest` und die Universal-Mac-App auf `macos-latest`. Beide gepackten Apps werden einmal gestartet (`/api/health` muss antworten), bevor ihre Dateien in einen **Release-Entwurf** kommen.
 
-1. Version in `desktop/package.json` erhöhen (z. B. `1.1.0` → `1.2.0`); sie steht in den Dateinamen und im Update-Hinweis.
-2. Änderungen committen und auf `main` pushen.
-3. Tag anlegen und pushen – er muss zur Version passen, sonst bricht der Workflow ab:
+1. Version in `desktop/package.json` erhöhen (z. B. `1.2.0` → `1.3.0`, die übrigen `package.json` gleich mit); sie steht in den Dateinamen und im Update-Hinweis.
+2. [`RELEASE_NOTES.md`](RELEASE_NOTES.md) für die neue Version schreiben – die erste Zeile `# Scrumbanize 1.3.0`. Der Workflow übernimmt den Rest der Datei als Text des Releases (Bilder mit absoluten Links `https://github.com/lukxstim/Scrumbanize/raw/main/…`, relative zeigt die Release-Seite nicht). Passt die Überschrift nicht zur Version, erzeugt GitHub die Notizen aus den Commits.
+3. Änderungen committen und auf `main` pushen.
+4. Tag anlegen und pushen – er muss zur Version passen, sonst bricht der Workflow ab:
    ```sh
-   git tag v1.2.0
-   git push origin v1.2.0
+   git tag v1.3.0
+   git push origin v1.3.0
    ```
-4. Nach etwa 15 Minuten liegt unter **Releases** ein Entwurf „Scrumbanize 1.2.0“ mit den beiden `.exe`-Dateien, der `.dmg`- und der `.zip`-Datei und automatisch erzeugten Notizen. Notizen auf Deutsch kurz zusammenfassen und **„Publish release“** klicken. Der Link „neueste Version“ zeigt danach auf dieses Release.
+5. Nach etwa 15 Minuten liegt unter **Releases** ein Entwurf „Scrumbanize 1.3.0“ mit den beiden `.exe`-Dateien, der `.dmg`- und der `.zip`-Datei und dem Text aus `RELEASE_NOTES.md`. Kurz prüfen und **„Publish release“** klicken. Der Link „neueste Version“ zeigt danach auf dieses Release.
 
 **Probelauf ohne Release:** ein Tag mit Zusatz wie `v1.2.0-rc.1` pushen oder in **Actions → Release → „Run workflow“** starten. Die Dateien hängen dann nur am Workflow-Lauf („Artifacts“, 14 Tage). Der Mac-Runner zählt bei privaten Repositories zehnfach gegen die Actions-Minuten (ein Release ≈ 150 von 2.000 Freiminuten im Monat), deshalb läuft der Workflow nur auf Tags oder von Hand.
 

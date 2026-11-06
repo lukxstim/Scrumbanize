@@ -122,6 +122,11 @@ jobs:
     permissions:
       contents: write
     steps:
+      # RELEASE_NOTES.md of the tagged commit becomes the release's text, when it is about this version.
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: RELEASE_NOTES.md
+          sparse-checkout-cone-mode: false
       - uses: actions/download-artifact@v4
         with:
           path: files
@@ -131,8 +136,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           ls -l files
+          version="${GITHUB_REF_NAME#v}"
+          if head -n 1 RELEASE_NOTES.md | grep -q "Scrumbanize $version\$"; then
+            # The heading is the release title already.
+            tail -n +2 RELEASE_NOTES.md > notes.md
+            notes=(--notes-file notes.md)
+          else
+            echo "::warning::RELEASE_NOTES.md is not about $version; using notes generated from the commits"
+            notes=(--generate-notes)
+          fi
           gh release create "$GITHUB_REF_NAME" files/* \
             --repo "$GITHUB_REPOSITORY" \
             --draft \
-            --title "Scrumbanize ${GITHUB_REF_NAME#v}" \
-            --generate-notes
+            --title "Scrumbanize $version" \
+            "${notes[@]}"

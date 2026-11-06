@@ -1,82 +1,120 @@
-# Scrumbanize 1.1.0
+# Scrumbanize 1.2.0
 
 ## Überblick
 
-Scrumbanize gibt es jetzt auch **für den Mac**: eine App für Macs mit Apple-Chip und mit Intel-Prozessor, neben der bekannten Windows-Version. Dazu kommen **Statistiken** zu deinen Projekten, ein **Graph** und **Mindmaps** für Notizen, **Backup und Wiederherstellung** mit einem Klick, **Labels und Vorlagen**, **Erinnerungen an fällige Aufgaben** und ein Board, dessen **Spalten du selbst breiter oder schmaler** machen kannst.
+Scrumbanize gibt es jetzt **auch im Browser**: unter **[scrumbanize.onrender.com](https://scrumbanize.onrender.com)**, mit eigenem Konto, auf dem Computer, Tablet und Handy. Die Desktop-App kann **mit der Web-Version verbunden** werden, dann sehen beide denselben Stand, und mehrere Personen arbeiten **live zusammen**.
+
+Die Notizen sind jetzt in **Notizbüchern wie bei OneNote** organisiert, mit Abschnitten, Seiten und Verlinkungen. Neu sind außerdem **Tabellen**, **Kurznotizen** wie die Windows Sticky Notes, **Diagramme** mit diagrams.net, **Unteraufgaben**, ein **Kalender-Abo** für Outlook, Google und Apple sowie **Farbthemen und Hintergründe**.
 
 Deine Daten bleiben beim Update erhalten. Die Datenbank wird beim ersten Start automatisch auf den neuen Stand gebracht.
 
+![Notizbuch-Ansicht mit Abschnitten, Seiten und einer Tabelle](https://github.com/lukxstim/Scrumbanize/raw/main/docs/screenshots/notizen.png)
+
 ## Neue Features und Highlights
 
-### Für Windows und macOS
+### Web-Version mit Konten
 
-- **Neu: Scrumbanize für den Mac** – als `.dmg` (und `.zip`) für macOS 12 oder neuer. Es ist eine einzige Universal-App für Apple-Chip (M1, M2 …) und Intel, du kannst also nicht die falsche Datei erwischen.
-- Auf dem Mac verhält sich Scrumbanize wie ein Mac-Programm: Menüleiste mit „Bearbeiten“ (`⌘C`, `⌘V` usw. in allen Textfeldern), Schließen des Fensters lässt die App im Dock und in der Menüleiste weiterlaufen, `⌘Q` beendet sie. Tastenkürzel zeigen `⌘`, `⇧`, `⌥` statt Strg und Umschalt.
-- Für Windows gibt es weiterhin den Installer (`Scrumbanize-Setup-1.1.0.exe`) und die portable Version (`Scrumbanize-1.1.0-portable.exe`).
+- **Im Browser:** [scrumbanize.onrender.com](https://scrumbanize.onrender.com) – nichts zu installieren. Ein Konto gibt es per Einladung.
+- **Anmeldung und Konten:** Anmelden mit E-Mail und Passwort, eigenes Profil mit Bild, Passwort ändern und zurücksetzen. Administratorinnen laden neue Personen per Link ein und verwalten die Konten.
+- **Teilen mit Rollen:** Jedes Notizbuch und Projekt lässt sich mit anderen teilen: als *Besitzer*, *Mitglied* (bearbeiten) oder *Betrachter* (nur lesen).
+- **Tägliche Backups auf dem Server** und vor jedem Update eine Sicherung der Datenbank.
+- **Eigener Server:** Wer Scrumbanize selbst betreiben will, findet in [docs/DEPLOYMENT.md](https://github.com/lukxstim/Scrumbanize/blob/main/docs/DEPLOYMENT.md) eine Anleitung mit Docker und HTTPS.
 
-### Erinnerungen, Infobereich und Tastenkombination (Desktop-App)
+### Desktop-App und Web-Version mit demselben Stand
 
-- **Erinnerungen an fällige Aufgaben:** Ist eine Aufgabe heute fällig oder überfällig, meldet sich Scrumbanize mit einer Benachrichtigung von Windows bzw. einer Mitteilung auf dem Mac – einmal am Tag, bis die Aufgabe in der letzten Spalte liegt. Ein Klick öffnet die Aufgabe; bei mehr als drei Aufgaben kommt eine Sammelmeldung, die den Kalender öffnet.
-- **Symbol neben der Uhr (Windows) bzw. in der Menüleiste (Mac):** holt Scrumbanize nach vorne, prüft auf Wunsch sofort die Erinnerungen oder beendet die App.
-- **Im Infobereich weiterlaufen (Windows):** Auf Wunsch schließt bzw. minimiert sich Scrumbanize nicht mehr, sondern läuft neben der Uhr weiter. Beides ist voreingestellt aus, damit das Schließen-Kreuz weiter wie gewohnt beendet.
-- **Tastenkombination:** `Strg` + `Umschalt` + `Leertaste` (Mac: `⌘` + `⇧` + `Leertaste`) holt Scrumbanize von überall nach vorne. Sie lässt sich in den Einstellungen ändern; ist eine Kombination schon von einem anderen Programm belegt, sagt Scrumbanize Bescheid.
-- **Beim Anmelden starten:** Scrumbanize startet mit Windows (ohne Fenster, im Infobereich) bzw. bei der Anmeldung am Mac, damit Erinnerungen auch kommen, wenn du es nicht geöffnet hast.
-- Alles einstellbar unter **Einstellungen → Desktop-App**.
+- Unter **Einstellungen → Desktop-App → Speicherort** trägst du die Adresse der Web-Version ein und klickst „Verbinden“. Die Desktop-App zeigt dann die Daten des Servers, und du meldest dich einmal an.
+- Ab dann sind **Desktop-App, Browser und Handy auf demselben Stand**. Erinnerungen, Kurznotizen und das Symbol neben der Uhr funktionieren weiter.
+- Die Einstellungen zeigen, wo die Daten liegen. Mit **„Wieder auf diesem Computer speichern“** geht es zurück zu den lokalen Daten, ebenso über das Menü des Symbols neben der Uhr.
+- Ist der Server beim Start nicht erreichbar, fragt die App, ob sie es noch einmal versuchen oder vorerst mit den Daten auf dem Computer arbeiten soll.
 
-### Statistiken
+### Live zusammenarbeiten
 
-- Neuer Bereich **„Statistiken“** für jedes Projekt, für die letzten 4 Wochen bis 12 Monate oder einen eigenen Zeitraum, nach Wochen oder Monaten:
-  - **Velocity:** erledigte und neu angelegte Aufgaben pro Woche bzw. Monat.
-  - **Lead Time** (vom Anlegen bis „Erledigt“) und **Cycle Time** (vom Arbeitsbeginn bis „Erledigt“), jeweils Median und 85-%-Wert.
-  - **WIP-Überschreitungen:** wann und wie lange in einer Spalte mehr Aufgaben lagen, als ihr Limit erlaubt.
-- Jedes Diagramm gibt es auch als Tabelle. Gerechnet wird aus dem Board und dem Verlauf; für Zeiträume ohne Verlauf zeigt Scrumbanize „Keine Daten“, statt zu schätzen.
+- **Änderungen erscheinen sofort** bei allen, die dasselbe Board oder Notizbuch offen haben – ohne Neuladen.
+- **Wer ist gerade da?** Kleine Avatare zeigen, wer ein Notizbuch, eine Seite oder eine Aufgabe gerade geöffnet hat.
+- **Keine überschriebenen Texte:** Schreibt jemand anderes gerade an einer Notiz, siehst du das und kannst übernehmen. Gab es gleichzeitig Änderungen, wählst du, welche Fassung bleibt.
 
-### Graph und Mindmap
+### Auf dem Handy und als App installierbar
 
-- **Graph:** Unter „Notizen“ → „Graph“ siehst du alle Notizen und Aufgaben eines Projekts als Netzwerk – welche Aufgabe aus welcher Notiz stammt und welche Aufgaben sich gegenseitig blockieren. Mit Suche, Filtern (Notizen, Aufgaben, Erledigte, ohne Verbindung) und Sprung zur Notiz oder Aufgabe per Klick. Auch große Projekte bleiben flüssig (getestet mit 2.000 Einträgen).
-- **Mindmap:** „Als Mindmap“ im Editor zeigt die Überschriften, Listen und Checklisten einer Notiz als Mindmap. Zweige lassen sich auf- und zuklappen; Export als **SVG** oder **PNG**.
+- Die Web-Version passt sich an **Handy und Tablet** an: Navigation unten, große Touch-Flächen, Board spaltenweise zum Wischen, Karten per Finger verschieben.
+- **Als App installieren:** Im Browser „Zum Startbildschirm hinzufügen“ (Handy) bzw. das Installieren-Symbol in der Adressleiste (Chrome, Edge). Neue Versionen meldet die App von selbst.
 
-### Einstellungen: Sichern, Wiederherstellen, Importieren, Exportieren
+![Board und Notizbuch auf dem Handy](https://github.com/lukxstim/Scrumbanize/raw/main/docs/screenshots/mobil.png)
 
-- Neue **Einstellungen** über das Zahnrad oben rechts.
-- **Backup mit einem Klick:** eine ZIP-Datei mit allen Projekten, Notizen, Aufgaben, dem Verlauf und allen Anhängen – auch während der Arbeit.
-- **Wiederherstellen:** Scrumbanize prüft das Backup zuerst und zeigt, was es enthält. Vor dem Ersetzen sichert es automatisch den jetzigen Stand (die letzten fünf Sicherungen bleiben). Backups älterer Versionen lassen sich ebenfalls einspielen.
-- **Notizen importieren** aus Markdown-Dateien, ganzen Ordnern (z. B. Obsidian) oder ZIP-Exporten (z. B. Notion): Titel, Tags und Erstelldatum werden übernommen.
-- **Exportieren:** einzelne Notizen als Markdown oder druckfertiges HTML, alle Notizen eines Projekts als ZIP (mit Anhängen), das Board als CSV-Datei für Excel.
+### Notizbücher wie bei OneNote
 
-### Labels und Vorlagen
+- **Alles in Notizbüchern:** Fürs Studium, ein Projekt, Rezepte oder Ideen – jedes mit Farbe und Symbol. Ein Notizbuch kann ein **Board** haben (mit Kalender und Statistiken) oder nur Notizen; das lässt sich jederzeit umschalten, Aufgaben gehen dabei nicht verloren.
+- **Drei Spalten:** links die Notizbücher mit ihren **Abschnitten**, daneben die **Seiten**, rechts die Seite. Mehrere Notizbücher können gleichzeitig aufgeklappt sein.
+- **Ordnen per Drag-and-Drop:** Seiten und Abschnitte in eine eigene Reihenfolge ziehen, Seiten in einen anderen Abschnitt oder ein anderes Notizbuch.
+- **Verlinken:** `[[` tippen und eine Notiz oder Aufgabe auswählen – auch aus anderen Notizbüchern. Oder eine Seite aus der Liste **direkt in den Text ziehen**, dann entsteht dort ein Link.
+- **„Verlinkt von“** unter jeder Notiz zeigt, was auf sie verweist; in den Einstellungen wählst du, ob der Bereich aufgeklappt startet.
+- **Tags auf Wunsch:** Standardmäßig aufgeräumt; eingeschaltet gibt es einen Filter mit allen Tags.
+- Wer lieber die bisherige **Listen-Ansicht** mit Textanfang und Datum mag, wählt sie in den Einstellungen.
 
-- **Farbige Labels** für Aufgaben – neue Projekte starten mit *Bug*, *Feature* und *Dringend*. Sie erscheinen auf den Karten, im Kalender und im Graph, und das Board lässt sich danach filtern. Verwalten über „Labels“ über dem Board.
-- **Vorlagen für Notizen und Aufgaben**, für ein Projekt oder für alle. Mitgeliefert: *Meeting-Protokoll*, *Sprint-Planning* und *Bug-Report*.
-- **Platzhalter** wie `{{datum}}`, `{{wochentag}}`, `{{uhrzeit}}`, `{{kw}}` und `{{projekt}}` werden beim Anlegen ausgefüllt. Aufgaben-Vorlagen setzen auch Priorität, Labels, Spalte, Swimlane und eine Fälligkeit (z. B. „in 7 Tagen“).
-- Vorlagen auswählen beim Anlegen oder über die Befehlspalette (`Strg` + `K`), verwalten in den Einstellungen oder mit „Als Vorlage speichern“.
+### Tabellen im Editor
+
+- „Tabelle einfügen“ in der Werkzeugleiste. Darin gibt es eine eigene Leiste: Zeilen und Spalten einfügen und löschen, Spalten ausrichten.
+- `Tab` springt zur nächsten Zelle, `Enter` in die Zelle darunter.
+
+### Kurznotizen wie die Windows Sticky Notes
+
+- Für schnelle Kleinigkeiten: Knopf oben rechts, „+ Notiz“, tippen – fertig. Jede Kurznotiz ist eine **farbige Karte**, alles speichert sich selbst.
+- In der **Desktop-App** ist die Leiste rechts am Bildschirmrand angedockt und bleibt vor allen Fenstern; unter Windows halten andere Fenster Platz für sie frei. In Chrome und Edge öffnet sie sich als kleines Fenster, das vorne bleibt.
+
+![Kurznotizen am rechten Bildschirmrand](https://github.com/lukxstim/Scrumbanize/raw/main/docs/screenshots/kurznotizen.png)
+
+### Diagramme mit diagrams.net
+
+- **„+ Diagramm“** bei den Anhängen einer Notiz oder Aufgabe öffnet den Editor von diagrams.net (draw.io): Ablaufpläne, Mindmaps, Organigramme und mehr.
+- **„Speichern & Beenden“** legt das Diagramm als Anhang ab – als Bild, das du mit dem Stift jederzeit wieder bearbeiten kannst.
+- Der Diagramm-Editor braucht eine Internetverbindung.
+
+![Ein Ablaufplan im Diagramm-Editor](https://github.com/lukxstim/Scrumbanize/raw/main/docs/screenshots/diagramm.png)
+
+### Kalender abonnieren
+
+- **Einstellungen → Kalender abonnieren** erstellt einen persönlichen Link. In **Outlook, Google Kalender oder Apple Kalender** eingetragen, erscheinen deine Aufgaben mit Start- oder Fälligkeitsdatum dort als ganztägige Termine – und aktualisieren sich von selbst.
+- Der Link ist geheim und wird nur einmal angezeigt; er lässt sich jederzeit neu erstellen oder widerrufen.
+
+### Aufgaben
+
+- **Unteraufgaben:** Eine Aufgabe kann Unteraufgaben haben, mit Fortschritt („1 von 3 erledigt“) auf der Karte. Auf dem Board stehen sie bei ihrer Aufgabe oder in eigenen Zeilen.
+- **Start und Fälligkeit beim Umwandeln:** Wird eine Notiz zur Aufgabe, lassen sich gleich Start- und Fälligkeitsdatum setzen; „+“ im Kalender legt Aufgaben mit Startdatum an.
+- **„Erledigte ausblenden“** auf dem Board.
+- Auf dem Board erscheinen verlinkte Notizen als Zähler mit Notiz-Symbol.
+
+![Aufgabe mit Verknüpfungen und Unteraufgaben](https://github.com/lukxstim/Scrumbanize/raw/main/docs/screenshots/aufgabe.png)
+
+### Farbthemen und Hintergründe
+
+- Unter **Einstellungen → Darstellung**: acht Farbthemen (Indigo, Blau, Türkis, Grün, Bernstein, Rose, Violett, Graphit) und Hintergründe wie *Morgenrot*, *Ozean* oder *Wald* – oder ein eigenes Bild. Zusammen mit Hell und Dunkel.
+
+![Dunkles Design mit Farbthema Türkis und Hintergrund Ozean](https://github.com/lukxstim/Scrumbanize/raw/main/docs/screenshots/dunkel.png)
 
 ## UI/UX- und Performance-Verbesserungen
 
-- **Verstellbare Spaltenbreiten:** am rechten Rand einer Spaltenüberschrift ziehen (200 bis 600 Pixel), Doppelklick setzt zurück; per Tastatur ebenso. Die Breiten werden gespeichert, gelten auf allen Geräten und sind im Backup enthalten.
-- **Neues Menü „⋯“ über dem Board** mit „An Fenster anpassen“ (alle Spalten so breit, dass das Board ins Fenster passt), „Spaltenbreiten zurücksetzen“ und dem CSV-Export. Jede Spalte kann einzeln zurückgesetzt werden.
-- **Überschriften bleiben stehen:** Beim Scrollen durch lange Spalten bleiben die Spaltenüberschriften und die Namen der Swimlanes oben sichtbar.
-- **Eigene Scrollbereiche:** Board, Notizen und die übrigen Seiten scrollen jeweils für sich; Kopfzeile und Navigation bleiben immer stehen. Eine einzelne Swimlane reicht jetzt bis zum unteren Fensterrand.
-- **Kopfzeile für kleinere Fenster und Tablets:** Sie wird stufenweise kompakter (Symbole statt Beschriftung, Suche als Lupe) und ragt nicht mehr aus dem Fenster – vorher passierte das zwischen etwa 1024 und 1300 Pixel Breite, auch in der Desktop-App.
-- **Ziehen per Tastatur** springt auch bei unterschiedlich breiten Spalten genau in die Nachbarspalte.
-- Schmale Scrollbalken in den Farben des hellen bzw. dunklen Modus.
-- Das Zahnrad der Einstellungen hat Zähne bekommen und ist nicht mehr mit der Sonne des Farbmodus-Schalters zu verwechseln.
+- **Kopfzeile:** Die Reiter behalten ihre Namen, solange Platz ist; „Zurück“ aus den Einstellungen (auch mit `Esc`) führt dorthin, wo du warst.
+- **Schneller:** Die erste Notiz öffnet spürbar schneller, weil der Editor im Hintergrund vorbereitet wird.
+- **Kein Verrutschen mehr:** Die Seite scrollt nicht mehr ungewollt mit, z. B. am Ende langer Notizen.
+- **Board für kleine Fenster:** Die Leiste über dem Board bricht sauber um, Karten und Spalten passen sich an.
+- Die Suche (`Strg` + `K`) durchsucht alle Notizbücher gleichzeitig, auch die Kurznotizen.
 
 ## Hinter den Kulissen
 
-- Neue Versionen werden jetzt automatisch gebaut: Ein Versions-Tag startet auf GitHub die Tests, baut die Windows- und die Mac-App, startet beide einmal zur Probe und legt einen Release-Entwurf mit allen Dateien an.
-- Jede Änderung am Hauptzweig wird automatisch getestet.
+- Die Release-Notizen auf GitHub kommen jetzt direkt aus dieser Datei.
+- Neue Tests für Konten, Rechte, Live-Updates, Kalender-Abo, Diagramme und die Verbindung der Desktop-App – insgesamt über 700.
 
 ## Installation und Systemanforderungen
 
-| | Windows | Mac |
-|---|---|---|
-| **System** | Windows 10 oder 11, 64 Bit | macOS 12 (Monterey) oder neuer, Apple-Chip oder Intel |
-| **Datei** | `Scrumbanize-Setup-1.1.0.exe` (Installer) oder `Scrumbanize-1.1.0-portable.exe` | `Scrumbanize-1.1.0-universal.dmg` (alternativ `.zip`) |
-| **Installieren** | Datei ausführen – ohne Administrator-Passwort | `.dmg` öffnen und Scrumbanize auf den Ordner „Programme“ ziehen |
-| **Daten** | `%APPDATA%\Scrumbanize` | `~/Library/Application Support/Scrumbanize` |
+| | Windows | Mac | Browser |
+|---|---|---|---|
+| **System** | Windows 10 oder 11, 64 Bit | macOS 12 (Monterey) oder neuer, Apple-Chip oder Intel | aktuelles Chrome, Edge, Firefox oder Safari – auch auf Handy und Tablet |
+| **Datei** | `Scrumbanize-Setup-1.2.0.exe` (Installer) oder `Scrumbanize-1.2.0-portable.exe` | `Scrumbanize-1.2.0-universal.dmg` (alternativ `.zip`) | – |
+| **Installieren** | Datei ausführen – ohne Administrator-Passwort | `.dmg` öffnen und Scrumbanize auf den Ordner „Programme“ ziehen | [scrumbanize.onrender.com](https://scrumbanize.onrender.com) öffnen und anmelden |
+| **Daten** | `%APPDATA%\Scrumbanize` | `~/Library/Application Support/Scrumbanize` | auf dem Server |
 
-**Update von 1.0.0:** Unter Windows einfach den neuen Installer ausführen. Notizen, Aufgaben und Einstellungen bleiben erhalten.
+**Update von 1.1.0:** Unter Windows einfach den neuen Installer ausführen, auf dem Mac die App im Ordner „Programme“ ersetzen. Notizen, Aufgaben und Einstellungen bleiben erhalten.
+
+**Notizen der Desktop-App in die Web-Version übernehmen:** in der Desktop-App unter Einstellungen „Backup herunterladen“, dann in der Web-Version (als Administratorin bzw. Administrator) unter Einstellungen „Wiederherstellen“. Danach die Desktop-App unter „Speicherort“ verbinden.
 
 **Windows-SmartScreen:** Beim ersten Start kann „Der Computer wurde durch Windows geschützt“ erscheinen. Auf **„Weitere Informationen“** und dann **„Trotzdem ausführen“** klicken.
 
@@ -85,8 +123,4 @@ Deine Daten bleiben beim Update erhalten. Die Datenbank wird beim ersten Start a
 - **macOS 15 (Sequoia) und neuer:** Scrumbanize öffnen, die Meldung mit „Fertig“ schließen, dann Apple-Menü → **Systemeinstellungen** → **Datenschutz & Sicherheit** → ganz unten **„Dennoch öffnen“** klicken und mit dem Mac-Passwort bestätigen.
 - **macOS 14 (Sonoma) und älter:** Scrumbanize im Ordner „Programme“ mit gedrückter `ctrl`-Taste anklicken (oder Rechtsklick), **„Öffnen“** wählen und noch einmal **„Öffnen“** bestätigen.
 
-Danach startet Scrumbanize ganz normal. Bei der ersten Erinnerung fragt der Mac außerdem, ob Scrumbanize **Mitteilungen** senden darf – dafür auf „Erlauben“ klicken.
-
-**Benachrichtigungen unter Windows:** Sie sind mit dem Installer zuverlässig; mit der portablen Version kommen sie nicht immer an.
-
-Die ausführliche Schritt-für-Schritt-Anleitung steht in der [README](README.md#anleitung-für-die-installation).
+Die ausführliche Schritt-für-Schritt-Anleitung steht in der [README](https://github.com/lukxstim/Scrumbanize#anleitung-für-die-installation).
