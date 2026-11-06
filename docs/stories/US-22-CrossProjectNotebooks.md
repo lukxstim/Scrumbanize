@@ -15,19 +15,19 @@ Notizen sind derzeit fest an einzelne Projekte gekoppelt. Für allgemeine Themen
 ## Akzeptanzkriterien
 
 ### 1. Globale Notizbücher & Ordnerstruktur
-- [ ] Neuer Hauptbereich "Wissen / Notizbücher" in der Hauptnavigation (neben der Projektauswahl).
-- [ ] Erstellung von Notizbüchern mit eigener Farbcodierung und Symbolen (z. B. "Arbeit", "Studium", "Privat").
-- [ ] Verschachtelte Ordnerstrukturen innerhalb von Notizbüchern.
+- [x] Neuer Hauptbereich "Wissen / Notizbücher" in der Hauptnavigation (neben der Projektauswahl).
+- [x] Erstellung von Notizbüchern mit eigener Farbcodierung und Symbolen (z. B. "Arbeit", "Studium", "Privat").
+- [x] Verschachtelte Ordnerstrukturen innerhalb von Notizbüchern.
 
 ### 2. Projektübergreifende Verlinkung
-- [ ] Autovervollständigung beim Tippen von `[[` im Markdown-Editor für:
+- [x] Autovervollständigung beim Tippen von `[[` im Markdown-Editor für:
   - Andere Notizen (unabhängig vom Notizbuch).
   - Aufgaben aus allen zugänglichen Projekten (z. B. `[[ProjektA/Task-42]]`).
-- [ ] Backlink-Sektion unter Notizen zeigt alle Aufgaben und Notizen an, die auf das aktuelle Dokument verweisen.
+- [x] Backlink-Sektion unter Notizen zeigt alle Aufgaben und Notizen an, die auf das aktuelle Dokument verweisen.
 
 ### 3. Globale Suche & Tags
-- [ ] Die Schnellsuche (Command Palette `Ctrl+K` / `⌘K`) durchsucht alle persönlichen und projektbezogenen Notizbücher gleichzeitig.
-- [ ] Globale Tag-Übersicht zum Filtern aller Notizen nach Schlagworten.
+- [x] Die Schnellsuche (Command Palette `Ctrl+K` / `⌘K`) durchsucht alle persönlichen und projektbezogenen Notizbücher gleichzeitig.
+- [x] Globale Tag-Übersicht zum Filtern aller Notizen nach Schlagworten.
 
 ---
 
@@ -35,3 +35,5 @@ Notizen sind derzeit fest an einzelne Projekte gekoppelt. Für allgemeine Themen
 1. **Schema-Anpassung:** Tabelle `notebooks` einführen. Feld `project_id` in `notes` optional machen (`NULL` für globale Notizen).
 2. **Editor-Integrität:** Ausbau des Markdown-Parsers für projektübergreifende Link-Syntax.
 3. **API & Repositories:** Erweiterung von `notesRepository.ts` um projektunabhängige Abfragen.
+
+Anmerkung: Die globale Tag-Übersicht ist seit US-34 das Menü „Filter“ (alle Tags mit Anzahl, durchsuchbar) statt einer Liste in der Seitenleiste.

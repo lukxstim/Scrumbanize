@@ -15,19 +15,19 @@ Bei der täglichen Arbeit mit vielen Aufgaben oder breiten Monitoren stoßen fes
 ## Akzeptanzkriterien
 
 ### 1. Flexibles Anpassen der Spaltenbreiten (Board Column Resizing)
-- [ ] Spalten im Kanban-Board erhalten ziehbare Trennlinien (Resize-Handles) an den Rändern.
-- [ ] Spaltenbreiten lassen sich individuell per Drag-and-Drop anpassen (mit sinnvollen Min- und Max-Breiten, z. B. min. `250px`).
-- [ ] Individuell eingestellte Spaltenbreiten werden lokal im Zustand / LocalStorage pro Projekt gespeichert und beim erneuten Laden wiederhergestellt.
-- [ ] Option zum Zurücksetzen auf die Standard-Spaltenbreiten ("Spaltenbreiten zurücksetzen" im Board-Menü).
+- [x] Spalten im Kanban-Board erhalten ziehbare Trennlinien (Resize-Handles) an den Rändern.
+- [x] Spaltenbreiten lassen sich individuell per Drag-and-Drop anpassen (mit sinnvollen Min- und Max-Breiten, z. B. min. `250px`).
+- [x] Individuell eingestellte Spaltenbreiten werden lokal im Zustand / LocalStorage pro Projekt gespeichert und beim erneuten Laden wiederhergestellt.
+- [x] Option zum Zurücksetzen auf die Standard-Spaltenbreiten ("Spaltenbreiten zurücksetzen" im Board-Menü).
 
 ### 2. Fixierte Header & Navigation (Sticky UI & Scrolling)
-- [ ] **Sticky Header / Navigation:** Die Hauptnavigationsleiste und der Projekt-Header bleiben beim Herunterscrollen am oberen Bildschirmrand fixiert.
-- [ ] **Sticky Board-Kopfzeilen:** Die Spaltenüberschriften (Spaltenname, Task-Anzahl, WIP-Limits, Spalten-Aktionen) bleiben beim vertikalen Scrollen der Tasks oben angedockt.
-- [ ] **Unabhängiges Scrollen (Viewports):** Die Hauptseite/das Board nutzt ein sauberes Viewport-Höhenmanagement (`height: 100vh` / flexbox container), sodass Inhaltsbereiche unabhängig scrollen, ohne das Gesamtsystem zu verschieben.
+- [x] **Sticky Header / Navigation:** Die Hauptnavigationsleiste und der Projekt-Header bleiben beim Herunterscrollen am oberen Bildschirmrand fixiert.
+- [x] **Sticky Board-Kopfzeilen:** Die Spaltenüberschriften (Spaltenname, Task-Anzahl, WIP-Limits, Spalten-Aktionen) bleiben beim vertikalen Scrollen der Tasks oben angedockt.
+- [x] **Unabhängiges Scrollen (Viewports):** Die Hauptseite/das Board nutzt ein sauberes Viewport-Höhenmanagement (`height: 100vh` / flexbox container), sodass Inhaltsbereiche unabhängig scrollen, ohne das Gesamtsystem zu verschieben.
 
 ### 3. Allgemeine UI & Drag-and-Drop-Polishing
-- [ ] Glattere Scrollbars und fehlerfreies Rendering beim Ziehen von Tasks über unterschiedlich breite Spalten.
-- [ ] Saubere responsive Anpassung bei kleineren Bildschirmauflösungen.
+- [x] Glattere Scrollbars und fehlerfreies Rendering beim Ziehen von Tasks über unterschiedlich breite Spalten.
+- [x] Saubere responsive Anpassung bei kleineren Bildschirmauflösungen.
 
 ---
 
@@ -41,3 +41,5 @@ Bei der täglichen Arbeit mit vielen Aufgaben oder breiten Monitoren stoßen fes
 ## Abgrenzung (Out of Scope)
 - Komplette Themes / Custom CSS Styling (Dark/Light Mode Anpassungen).
 - Neue funktionale Board-Features (reine UI/Layout-Verbesserungen).
+
+Anmerkung: Die Spaltenbreiten werden nicht im LocalStorage, sondern auf dem Server je Spalte gespeichert (200–600 px), damit sie auf jedem Gerät gleich sind.

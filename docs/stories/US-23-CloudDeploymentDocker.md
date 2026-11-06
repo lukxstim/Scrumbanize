@@ -15,22 +15,22 @@ Um Scrumbanize als Web-App im Team oder für den eigenen Cloud-Zugriff bereitzus
 ## Akzeptanzkriterien
 
 ### 1. Docker & Docker Compose Setup
-- [ ] Optimiertes Multi-Stage `Dockerfile` (Node.js Build-Stage + schlanke Production-Runtime-Stage).
-- [ ] Produktionsfertiges `docker-compose.yml` mit:
+- [x] Optimiertes Multi-Stage `Dockerfile` (Node.js Build-Stage + schlanke Production-Runtime-Stage).
+- [x] Produktionsfertiges `docker-compose.yml` mit:
   - Scrumbanize-App-Container.
   - Reverse Proxy (Caddy oder Nginx-Proxy-Automation) für automatische HTTPS/SSL-Zertifikate.
   - Persistenten Volumes für SQLite-Datenbank (`scrumbanize.db`), Uploads und automatisierte Backups.
 
 ### 2. Umgebungs-Konfiguration (Environment Variables)
-- [ ] Unterstützung wichtiger `.env`-Variablen:
+- [x] Unterstützung wichtiger `.env`-Variablen:
   - `PORT`, `NODE_ENV=production`
   - `JWT_SECRET` (für Auth-Tokens)
   - `DATABASE_URL` (Pfad zur SQLite-Datei oder Anbindung an PostgreSQL)
   - `BASE_URL` / `ALLOWED_ORIGINS` (CORS-Schutz)
 
 ### 3. Backup- & Wartungs-Skripte
-- [ ] Integrierter Cronjob / Shell-Skript im Container zur täglichen automatischen Sicherung der Datenbank im Backup-Ordner.
-- [ ] Health-Check Endpoint (`GET /api/health`) für Server-Monitoring.
+- [x] Integrierter Cronjob / Shell-Skript im Container zur täglichen automatischen Sicherung der Datenbank im Backup-Ordner.
+- [x] Health-Check Endpoint (`GET /api/health`) für Server-Monitoring.
 
 ---
 

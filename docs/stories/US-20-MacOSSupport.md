@@ -15,20 +15,20 @@ Scrumbanize wird als Electron-Desktop-Anwendung entwickelt. Bisher ist der Paket
 ## Akzeptanzkriterien
 
 ### 1. `electron-builder` Konfiguration
-- [ ] Erweiterung der `electron-builder`-Konfiguration (`package.json` oder `electron-builder.yml`) um ein eigenes `mac`-Target.
-- [ ] Unterstützung beider Prozessor-Architekturen:
+- [x] Erweiterung der `electron-builder`-Konfiguration (`package.json` oder `electron-builder.yml`) um ein eigenes `mac`-Target.
+- [x] Unterstützung beider Prozessor-Architekturen:
   - **`arm64`** (für neuere Apple Silicon Macs: M1, M2, M3, M4)
   - **`x64`** (für ältere Intel-basierte Macs)
-- [ ] Erstellung eines benutzerfreundlichen Drag-and-Drop `.dmg`-Installers (App-Icon -> `/Applications`-Verzeichnis).
+- [x] Erstellung eines benutzerfreundlichen Drag-and-Drop `.dmg`-Installers (App-Icon -> `/Applications`-Verzeichnis).
 
 ### 2. Automatisierte Builds (GitHub Actions CI/CD)
-- [ ] Anpassung / Erstellung der GitHub-Workflow-Datei (z. B. `.github/workflows/build.yml`), um bei einem Release-Tag sowohl Windows (`.exe`) als auch macOS (`.dmg` / `.zip`) automatisiert zu bauen.
-- [ ] Ausführung des macOS-Build-Schritts auf einer `macos-latest` GitHub-Runner-Instanz.
-- [ ] Automatische Anheftung der generierten `.dmg`-Dateien an das entsprechende GitHub Release.
+- [x] Anpassung / Erstellung der GitHub-Workflow-Datei (z. B. `.github/workflows/build.yml`), um bei einem Release-Tag sowohl Windows (`.exe`) als auch macOS (`.dmg` / `.zip`) automatisiert zu bauen.
+- [x] Ausführung des macOS-Build-Schritts auf einer `macos-latest` GitHub-Runner-Instanz.
+- [x] Automatische Anheftung der generierten `.dmg`-Dateien an das entsprechende GitHub Release.
 
 ### 3. Dokumentation & Erste-Schritte-Anleitung
-- [ ] Aktualisierung der `README.md` um eine kurze macOS-Installationsanleitung.
-- [ ] Dokumentation des Hinweises zum ersten Start unter macOS bezüglich Gatekeeper (da die App unsigniert / ohne gebührenpflichtiges Apple-Entwicklerzertifikat ausgeliefert wird: *Rechtsklick -> Öffnen -> Bestätigen*).
+- [x] Aktualisierung der `README.md` um eine kurze macOS-Installationsanleitung.
+- [x] Dokumentation des Hinweises zum ersten Start unter macOS bezüglich Gatekeeper (da die App unsigniert / ohne gebührenpflichtiges Apple-Entwicklerzertifikat ausgeliefert wird: *Rechtsklick -> Öffnen -> Bestätigen*).
 
 ---
 
