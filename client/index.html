@@ -25,7 +25,24 @@
           setting = JSON.parse(localStorage.getItem('scrumbanize.theme')) || 'system';
         } catch (e) {}
         var dark = setting === 'dark' || (setting !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
-        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        var root = document.documentElement;
+        root.dataset.theme = dark ? 'dark' : 'light';
+        // Color theme and background (US-30); keep in sync with client/src/utils/appearance.ts.
+        try {
+          var appearance = JSON.parse(localStorage.getItem('scrumbanize.appearance'));
+          if (appearance && appearance.palette && appearance.palette !== 'indigo') root.dataset.palette = appearance.palette;
+          var kind = appearance && appearance.background && appearance.background.kind;
+          var css = null;
+          if (kind === 'preset') css = localStorage.getItem('scrumbanize.backgroundCss');
+          if (kind === 'custom') {
+            var image = JSON.parse(localStorage.getItem('scrumbanize.background'));
+            if (image) css = 'center / cover no-repeat url("' + image + '")';
+          }
+          if (css) {
+            root.dataset.background = kind;
+            root.style.setProperty('--app-background', css);
+          }
+        } catch (e) {}
       })();
     </script>
   </head>

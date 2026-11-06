@@ -15,7 +15,7 @@ Das Erscheinungsbild der Oberfläche soll sich über Farben und Hintergründe pe
 ## Akzeptanzkriterien
 
 ### 1. Themes
-- [ ] Themes-Auswahl mit fertigen Farbtönen und Beispiel-Hintergründen in den Einstellungen.
+- [x] Themes-Auswahl mit fertigen Farbtönen und Beispiel-Hintergründen in den Einstellungen.
 
 ### 2. Eigene Hintergründe
-- [ ] Upload-Möglichkeit für eigene Hintergrundbilder.
+- [x] Upload-Möglichkeit für eigene Hintergrundbilder.
