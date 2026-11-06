@@ -1,12 +1,19 @@
-import { useId, useRef, useState, type DragEvent } from 'react';
+import { lazy, Suspense, useId, useRef, useState, type DragEvent } from 'react';
 import type { Attachment, AttachmentOwner } from '../../types/attachment';
 import { ApiError, attachmentsApi } from '../../utils/api';
 import { ACCEPT, canPreview, fileLabel, fileProblem, fileUrl, formatSize, isImage, MAX_FILES_PER_UPLOAD } from '../../utils/attachments';
+import { DIAGRAM_SUFFIX, diagramName, diagramXmlFromPng, isDiagram, newDiagramName } from '../../utils/drawio';
 import { formatDate } from '../../utils/format';
 import ConfirmDialog from '../ConfirmDialog';
-import { PaperclipIcon } from '../icons';
+import { PaperclipIcon, PencilIcon, PlusIcon } from '../icons';
 import { labelClass, touchHitAreaBeforeClass } from '../ui/styles';
 import Lightbox from './Lightbox';
+
+// Loaded when a diagram is first opened (US-32).
+const DiagramEditor = lazy(() => import('./DiagramEditor'));
+
+/** The diagram open in the editor: a new one, or an attachment with what was read from it. */
+type OpenDiagram = { name: string; xml?: string; replaces?: Attachment };
 
 interface AttachmentsPanelProps {
   owner: AttachmentOwner;
@@ -51,6 +58,8 @@ export default function AttachmentsPanel({ owner, attachments, onUpdate, readOnl
   const [previewId, setPreviewId] = useState<number | null>(null);
   const [removing, setRemoving] = useState<Attachment | null>(null);
   const [removeFailed, setRemoveFailed] = useState(false);
+  const [diagram, setDiagram] = useState<OpenDiagram | null>(null);
+  const [diagramError, setDiagramError] = useState<string | null>(null);
 
   const images = attachments.filter(isImage);
   const files = attachments.filter((a) => !isImage(a));
@@ -90,6 +99,35 @@ export default function AttachmentsPanel({ owner, attachments, onUpdate, readOnl
     }
   }
 
+  // Diagrams (US-32): drawn in diagrams.net, kept as a PNG with the diagram in it. Editing saves a new file and then
+  // removes the old one, so a failed save never loses the diagram.
+  async function openDiagram(attachment: Attachment) {
+    setDiagramError(null);
+    try {
+      const response = await fetch(fileUrl(attachment.id));
+      if (!response.ok) throw new Error(String(response.status));
+      const xml = diagramXmlFromPng(new Uint8Array(await response.arrayBuffer()));
+      if (!xml) throw new Error('no diagram');
+      setDiagram({ name: diagramName(attachment.fileName), xml, replaces: attachment });
+    } catch {
+      setDiagramError(`„${attachment.fileName}“ konnte nicht als Diagramm geöffnet werden.`);
+    }
+  }
+
+  async function saveDiagram(open: OpenDiagram, png: Blob) {
+    const [added] = await attachmentsApi.upload(owner, [new File([png], `${open.name}${DIAGRAM_SUFFIX}`, { type: 'image/png' })]);
+    if (!added) throw new Error('Upload returned nothing');
+    const old = open.replaces;
+    onUpdate((current) => [...current.filter((a) => a.id !== old?.id), added]);
+    if (!old) return;
+    try {
+      await attachmentsApi.remove(old.id);
+    } catch {
+      // The old version stays as an extra attachment; nothing is lost.
+      onUpdate((current) => (current.some((a) => a.id === old.id) ? current : [...current, old]));
+    }
+  }
+
   const onDrop = (event: DragEvent) => {
     event.preventDefault();
     setDragging(false);
@@ -118,11 +156,21 @@ export default function AttachmentsPanel({ owner, attachments, onUpdate, readOnl
           Anhänge {attachments.length > 0 && <span className="font-normal text-fg-subtle">({attachments.length})</span>}
         </h3>
         {!readOnly && (
-          <span className="text-xs text-fg-subtle">
-            Dateien hierher ziehen oder{' '}
-            <label htmlFor={inputId} className="cursor-pointer font-medium text-accent-text hover:underline">
-              auswählen
-            </label>
+          <span className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs text-fg-subtle">
+            <span>
+              Dateien hierher ziehen oder{' '}
+              <label htmlFor={inputId} className="cursor-pointer font-medium text-accent-text hover:underline">
+                auswählen
+              </label>
+            </span>
+            <button
+              type="button"
+              onClick={() => setDiagram({ name: newDiagramName(attachments.filter(isDiagram).map((a) => a.fileName)) })}
+              className="inline-flex items-center gap-1 font-medium text-accent-text hover:underline"
+            >
+              <PlusIcon className="size-3" />
+              Diagramm
+            </button>
           </span>
         )}
         <input
@@ -177,8 +225,26 @@ export default function AttachmentsPanel({ owner, attachments, onUpdate, readOnl
                 title={`${image.fileName} · ${formatSize(image.size)}`}
                 className="block aspect-[4/3] w-full overflow-hidden rounded-md border border-line bg-surface-muted focus-visible:outline-2 focus-visible:outline-accent"
               >
-                <img src={fileUrl(image.id)} alt={image.fileName} loading="lazy" className="size-full object-cover" />
+                <img
+                  src={fileUrl(image.id)}
+                  alt={image.fileName}
+                  loading="lazy"
+                  // A diagram is shown whole, on white like in diagrams.net.
+                  className={isDiagram(image) ? 'size-full bg-white object-contain p-1' : 'size-full object-cover'}
+                />
               </button>
+              {isDiagram(image) && !readOnly && (
+                <button
+                  type="button"
+                  onClick={() => void openDiagram(image)}
+                  aria-label={`„${diagramName(image.fileName)}“ bearbeiten`}
+                  title="Diagramm bearbeiten"
+                  className={`absolute top-1 left-1 grid size-6 place-items-center rounded-md bg-surface/90 text-fg-muted opacity-0 shadow-card transition-opacity hover:text-accent-text focus-visible:opacity-100 group-hover/att:opacity-100 [@media(hover:none)]:opacity-100 ${touchHitAreaBeforeClass}`}
+                >
+                  <PencilIcon className="size-3.5" />
+                </button>
+              )}
+              {isDiagram(image) && <span className="mt-0.5 block truncate text-[11px] text-fg-subtle">{diagramName(image.fileName)}</span>}
               {!readOnly && (
                 <button
                   type="button"
@@ -237,6 +303,18 @@ export default function AttachmentsPanel({ owner, attachments, onUpdate, readOnl
             </li>
           ))}
         </ul>
+      )}
+
+      {diagramError && (
+        <p role="alert" className="mt-2 text-xs text-danger-text">
+          {diagramError}
+        </p>
+      )}
+
+      {diagram && (
+        <Suspense fallback={null}>
+          <DiagramEditor name={diagram.name} xml={diagram.xml} onSave={(png) => saveDiagram(diagram, png)} onClose={() => setDiagram(null)} />
+        </Suspense>
       )}
 
       {removeFailed && (

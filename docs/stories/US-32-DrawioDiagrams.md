@@ -15,7 +15,7 @@ Diagramme entstehen bisher in externen Werkzeugen und lassen sich nur als Anhang
 ## Akzeptanzkriterien
 
 ### 1. Diagramm-Editor
-- [ ] Einbindung eines Diagramm-Tabs oder -Editors (angelehnt an diagrams.net) innerhalb der Notizumgebung.
+- [x] Einbindung eines Diagramm-Tabs oder -Editors (angelehnt an diagrams.net) innerhalb der Notizumgebung.
 
 ### 2. Speichern & Laden
-- [ ] Diagramme lassen sich direkt im Notiz-Kontext speichern und wieder laden.
+- [x] Diagramme lassen sich direkt im Notiz-Kontext speichern und wieder laden.
