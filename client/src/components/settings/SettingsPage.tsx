@@ -16,6 +16,7 @@ import Button, { buttonClass } from '../ui/Button';
 import { NotesViewOptions } from '../notes/NotesViewOptions';
 import Section from '../ui/Section';
 import AutoBackupStatus from './AutoBackupStatus';
+import CalendarFeedSection from './CalendarFeedSection';
 import AppearanceSection from './AppearanceSection';
 import DesktopSection from './DesktopSection';
 import TemplatesSection from './TemplatesSection';
@@ -78,7 +79,7 @@ export default function SettingsPage() {
           </Link>
           <h1 className="text-xl font-semibold tracking-tight text-fg">Einstellungen</h1>
           <p className="mt-1 text-sm text-fg-subtle">
-            {desktopBridge ? 'Sicherung, Wiederherstellung, Vorlagen, Import und Export deiner Daten sowie die Desktop-App.' : 'Sicherung, Wiederherstellung, Vorlagen, Import und Export deiner Daten.'}
+            {desktopBridge ? 'Sicherung, Wiederherstellung, Vorlagen, Import und Export deiner Daten, das Kalender-Abo sowie die Desktop-App.' : 'Sicherung, Wiederherstellung, Vorlagen, Import und Export deiner Daten und das Kalender-Abo.'}
           </p>
         </div>
 
@@ -89,6 +90,8 @@ export default function SettingsPage() {
         <Section title="Notizen" description="So erscheinen deine Notizbücher und Seiten. Gilt in diesem Browser.">
           <NotesViewOptions idPrefix="settings" />
         </Section>
+
+        <CalendarFeedSection />
 
         {isAdmin && (
           <Section title="Backup" description="Eine ZIP-Datei mit allen Projekten, Notizen, Tasks, dem Aktivitätsprotokoll und allen Anhängen.">

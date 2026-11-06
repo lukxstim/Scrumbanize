@@ -7,6 +7,7 @@ import { sessionTokenOf, userOf } from '../auth/middleware.js';
 import { hashPassword, verifyPassword } from '../auth/passwords.js';
 import type { RateLimiter } from '../auth/rateLimit.js';
 import { HttpError, notFound } from '../errors.js';
+import type { CalendarFeedsRepository } from '../repositories/calendarFeedsRepository.js';
 import type { UsersRepository } from '../repositories/usersRepository.js';
 import { accessChanged } from '../realtime/events.js';
 import { idParamSchema, passwordChangeSchema, profilePatchSchema } from '../validation.js';
@@ -33,13 +34,14 @@ interface AccountRouterOptions {
   users: UsersRepository;
   uploadsDir: string;
   limiter: RateLimiter;
+  calendarFeeds: CalendarFeedsRepository;
 }
 
 /**
  * The logged-in user's own account (US-21c), at /api/account: name, color, profile picture, password. Pictures are
  * files in the uploads folder (named `avatar-…`), so backups include them.
  */
-export function accountRouter({ mode, users, uploadsDir, limiter }: AccountRouterOptions): Router {
+export function accountRouter({ mode, users, uploadsDir, limiter, calendarFeeds }: AccountRouterOptions): Router {
   const router = Router();
   const removeFile = (file: string | null) => {
     if (file) fs.rmSync(path.join(uploadsDir, file), { force: true });
@@ -83,6 +85,20 @@ export function accountRouter({ mode, users, uploadsDir, limiter }: AccountRoute
   router.delete('/avatar', (_req, res) => {
     removeFile(users.setAvatarFile(userOf(res)!.id, null));
     res.json({ user: users.get(userOf(res)!.id) });
+  });
+
+  // The calendar subscription (US-33): whether there is a link, a new one (its token only in this answer), or none.
+  router.get('/calendar', (_req, res) => {
+    res.json({ feed: calendarFeeds.status(userOf(res)!.id) });
+  });
+
+  router.post('/calendar', (_req, res) => {
+    res.status(201).json(calendarFeeds.renew(userOf(res)!.id));
+  });
+
+  router.delete('/calendar', (_req, res) => {
+    calendarFeeds.revoke(userOf(res)!.id);
+    res.status(204).end();
   });
 
   return router;

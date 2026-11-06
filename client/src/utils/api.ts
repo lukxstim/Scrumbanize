@@ -79,6 +79,13 @@ export const accountApi = {
   removeAvatar: () => request<{ user: AuthUser }>('/account/avatar', { method: 'DELETE' }),
 };
 
+/** The calendar subscription (US-33): the token of a new link comes only with the answer that makes it. */
+export const calendarFeedApi = {
+  status: () => request<{ feed: { createdAt: string } | null }>('/account/calendar'),
+  renew: () => request<{ token: string; createdAt: string }>('/account/calendar', { method: 'POST' }),
+  revoke: () => request<void>('/account/calendar', { method: 'DELETE' }),
+};
+
 export interface Account extends AuthUser {
   disabled: boolean;
   createdAt: string;

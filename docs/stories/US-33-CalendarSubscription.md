@@ -15,11 +15,11 @@ Termine aus Scrumbanize sind bisher nur im eigenen Kalender der App sichtbar. Ei
 ## Akzeptanzkriterien
 
 ### 1. Abo-Link
-- [ ] In den Benutzer-Einstellungen gibt es eine Option „Kalender abonnieren“.
-- [ ] Die App generiert einen eindeutigen, geschützten iCal-Link (z. B. `https://scrumbanize.onrender.com/api/calendar/feed/<secret-token>.ics`).
+- [x] In den Benutzer-Einstellungen gibt es eine Option „Kalender abonnieren“.
+- [x] Die App generiert einen eindeutigen, geschützten iCal-Link (z. B. `https://scrumbanize.onrender.com/api/calendar/feed/<secret-token>.ics`).
 
 ### 2. Feed
-- [ ] Der Server stellt unter dieser URL alle Aufgaben mit Fälligkeits-/Startdatum im Standard-`iCalendar` (`.ics`)-Format bereit.
+- [x] Der Server stellt unter dieser URL alle Aufgaben mit Fälligkeits-/Startdatum im Standard-`iCalendar` (`.ics`)-Format bereit.
 
 ### 3. Sicherheit
-- [ ] Der Token kann bei Bedarf vom Nutzer neu generiert/widerrufen werden.
+- [x] Der Token kann bei Bedarf vom Nutzer neu generiert/widerrufen werden.

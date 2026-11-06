@@ -20,6 +20,7 @@ import { createActivityRepository } from './repositories/activityRepository.js';
 import { createAnalyticsRepository } from './repositories/analyticsRepository.js';
 import { createAttachmentsRepository } from './repositories/attachmentsRepository.js';
 import { createBoardRepository } from './repositories/boardRepository.js';
+import { createCalendarFeedsRepository } from './repositories/calendarFeedsRepository.js';
 import { createGraphRepository } from './repositories/graphRepository.js';
 import { createLabelsRepository } from './repositories/labelsRepository.js';
 import { createMetaRepository } from './repositories/metaRepository.js';
@@ -39,6 +40,7 @@ import { attachmentsRouter } from './routes/attachments.js';
 import { authRouter } from './routes/auth.js';
 import { backupRouter } from './routes/backup.js';
 import { columnsRouter, lanesRouter } from './routes/board.js';
+import { calendarFeedRouter } from './routes/calendar.js';
 import { exportsRouter } from './routes/exports.js';
 import { labelsRouter } from './routes/labels.js';
 import { membersRouter } from './routes/members.js';
@@ -105,6 +107,7 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   const meta = createMetaRepository(db);
   const reminders = createRemindersRepository(db);
   const users = createUsersRepository(db);
+  const calendarFeeds = createCalendarFeedsRepository(db);
   const authMode = options.auth ?? 'local';
   const realtime = options.realtime ?? createRealtimeHub();
   const setupCode = createSetupCode(options.onSetupCode ?? (() => {}));
@@ -150,6 +153,8 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
     const report = healthReport(db, backupsDir, options.version ?? null);
     res.status(report.database === 'ok' ? 200 : 503).json(report);
   });
+  // The calendar subscription (US-33): public, the secret in the link is the key; calendar apps send no cookie.
+  api.use(calendarFeedRouter({ mode: authMode, calendarFeeds, access, limiter }));
   // With a session cookie, only the app's own pages may change something.
   if (authMode === 'required') api.use(sameOriginForChanges(options.allowedOrigins));
   api.use(authenticate(authMode, users));
@@ -164,7 +169,7 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
     res.json({ sampleProjectId: meta.sampleProjectId(), desktop: options.desktop ?? null, restoredAt: meta.get('restored_at') ?? null });
   });
   // The user's own account, profile pictures, and user management for administrators (US-21c).
-  api.use('/account', accountRouter({ mode: authMode, users, uploadsDir, limiter }));
+  api.use('/account', accountRouter({ mode: authMode, users, uploadsDir, limiter, calendarFeeds }));
   api.use('/users', avatarsRouter({ mode: authMode, users, uploadsDir }));
   api.use('/admin', adminRouter(users, access));
   // Every route below checks the user's role in the project it touches (auth/access.ts, US-21).

@@ -466,6 +466,14 @@ export const migrations: string[] = [
     SELECT t.* FROM tasks t JOIN projects p ON p.id = t.project_id
     WHERE t.deleted_at IS NULL AND p.deleted_at IS NULL AND p.kind = 'project';
   `,
+  // Calendar subscriptions (US-33): one secret link per user, stored as the SHA-256 hash of its token.
+  `
+  CREATE TABLE calendar_feeds (
+    user_id    INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    token_hash TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL
+  );
+  `,
 ];
 
 export interface OpenOptions {

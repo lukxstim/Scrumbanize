@@ -89,9 +89,10 @@ function countData(db: Db): BackupCounts {
 
 /**
  * Logins are not data: sessions and one-time links (invitations, password resets) never go into a backup, and a
- * restore does not bring any back – everyone logs in again afterwards (US-21).
+ * restore does not bring any back – everyone logs in again afterwards (US-21). Calendar links (US-33) are keys as
+ * well: after a restore, everyone makes a new one.
  */
-export const TABLES_NOT_BACKED_UP = ['sessions', 'auth_tokens'] as const;
+export const TABLES_NOT_BACKED_UP = ['sessions', 'auth_tokens', 'calendar_feeds'] as const;
 
 export const backupFileName = (now: Date) => `scrumbanize-backup-${now.toISOString().slice(0, 10)}.zip`;
 
