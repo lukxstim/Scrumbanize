@@ -1,5 +1,6 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useStoredState } from '../../hooks/useStoredState';
+import { lazyWithPreload } from '../../utils/lazyWithPreload';
 import { useTextSelection } from '../../hooks/useTextSelection';
 import { needsSourceMode } from '../../utils/highlight';
 import SegmentedControl from '../ui/SegmentedControl';
@@ -7,7 +8,8 @@ import Skeleton from '../ui/Skeleton';
 import LinkPicker from './LinkPicker';
 import { useSourceLinkPicker } from './useSourceLinkPicker';
 
-const RichTextEditor = lazy(() => import('./RichTextEditor'));
+/** Loaded on demand, and in the background after the app started (US-29, see preload.ts). */
+export const RichTextEditor = lazyWithPreload(() => import('./RichTextEditor'));
 
 type Mode = 'rich' | 'source';
 const isMode = (value: unknown): value is Mode => value === 'rich' || value === 'source';

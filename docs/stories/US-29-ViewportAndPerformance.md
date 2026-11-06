@@ -15,7 +15,7 @@ Derzeit scrollt die Ansicht teilweise außerhalb des Notizbereichs (mit schwarze
 ## Akzeptanzkriterien
 
 ### 1. Viewport
-- [ ] Kein ungewolltes Scrollen außerhalb des Notizbereichs (keine schwarzen Ränder oder Viewport-Overlays).
+- [x] Kein ungewolltes Scrollen außerhalb des Notizbereichs (keine schwarzen Ränder oder Viewport-Overlays).
 
 ### 2. Performance
-- [ ] Lade- und Umschaltzeiten zwischen Ansichten werden spürbar optimiert (kein leichtes Hängen/Laggen).
+- [x] Lade- und Umschaltzeiten zwischen Ansichten werden spürbar optimiert (kein leichtes Hängen/Laggen).

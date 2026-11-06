@@ -108,7 +108,9 @@ export default function AttachmentsPanel({ owner, attachments, onUpdate, readOnl
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
       }}
       onDrop={onDrop}
-      className={`rounded-lg border border-dashed p-3 transition-colors ${dragging ? 'border-accent bg-accent-muted' : 'border-line'}`}
+      // `relative`: the hidden file input (sr-only, absolute) stays inside the panel; otherwise it is placed against the
+      // page and, at the end of a long note, makes the whole page scroll (US-29).
+      className={`relative rounded-lg border border-dashed p-3 transition-colors ${dragging ? 'border-accent bg-accent-muted' : 'border-line'}`}
     >
       <div className="flex items-center justify-between gap-3">
         <h3 id={`${inputId}-heading`} className={`flex items-center gap-1.5 ${labelClass}`}>

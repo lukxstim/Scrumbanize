@@ -1,3 +1,4 @@
+import { Editor as CoreEditor } from '@tiptap/core';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import type { SuggestionProps } from '@tiptap/suggestion';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
@@ -9,6 +10,42 @@ import EditorToolbar from './EditorToolbar';
 import { ContentLinks, contentLinksKey, contentRefsIn, LinkSuggestion } from './contentLinkExtensions';
 import { editorExtensions } from './extensions';
 import LinkPicker from './LinkPicker';
+
+// Something of everything the editor reads and draws: headings, marks, lists, a checklist, a link, a table.
+const WARM_UP_MARKDOWN = `# Titel
+
+Text mit **fett**, *kursiv*, ~~durch~~, \`Code\` und einem [Link](https://example.org).
+
+- eins
+- zwei
+
+1. erstens
+
+- [ ] offen
+- [x] erledigt
+
+> Zitat
+
+| A | B |
+| --- | --- |
+| 1 | 2 |
+`;
+
+/**
+ * Sets up an editor once, off the page, and throws it away (US-29): the first note otherwise pays for the browser
+ * compiling the editor's code (about 150 ms here); afterwards it opens as fast as every later one. Called in the
+ * background after the app started, see preload.ts.
+ */
+export function warmUp(): void {
+  const editor = new CoreEditor({
+    element: document.createElement('div'),
+    extensions: editorExtensions('Warm-up'),
+    content: WARM_UP_MARKDOWN,
+    contentType: 'markdown',
+  });
+  editor.getMarkdown();
+  editor.destroy();
+}
 
 export interface RichTextEditorProps {
   /** Markdown; only read when the editor is created (remount it, e.g. via `key`, for other content). */

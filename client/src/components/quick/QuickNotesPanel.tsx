@@ -1,4 +1,5 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { lazyWithPreload } from '../../utils/lazyWithPreload';
 import { useAutosave } from '../../hooks/useAutosave';
 import { useRealtimeProject } from '../../hooks/useRealtime';
 import { NOTE_COLORS, type Note, type NoteColor } from '../../types/note';
@@ -9,8 +10,9 @@ import { fromQuickMarkdown, QUICK_COLORS, QUICK_NOTEBOOK_NAME, quickCards, quick
 import { PlusIcon, SearchIcon, TrashIcon } from '../icons';
 import { iconButtonClass } from '../ui/styles';
 
-// The editor (Tiptap) is loaded on demand: the panel also lives in every tab, for Picture-in-Picture.
-const QuickNoteEditor = lazy(() => import('./QuickNoteEditor'));
+// The editor (Tiptap) is loaded on demand: the panel also lives in every tab, for Picture-in-Picture. It is fetched as
+// soon as the panel opens, so the cards render it right away (US-29).
+const QuickNoteEditor = lazyWithPreload(() => import('./QuickNoteEditor'));
 
 interface QuickNotesPanelProps {
   onClose: () => void;
@@ -88,6 +90,8 @@ export default function QuickNotesPanel({ onClose, inTab = false }: QuickNotesPa
   useEffect(() => {
     void load();
   }, [load]);
+  // The editor's file comes while the notes load, so the cards need not suspend (US-29).
+  useEffect(() => void QuickNoteEditor.preload().catch(() => undefined), []);
   useRealtimeProject(projectId ?? undefined, () => void load());
   useEffect(() => (inTab ? onNotesChanged(() => void load()) : undefined), [inTab, load]);
 
@@ -102,7 +106,7 @@ export default function QuickNotesPanel({ onClose, inTab = false }: QuickNotesPa
   const cards = notes ? quickCards(notes, query ?? '').filter((n) => n.id !== draft?.noteId) : [];
 
   return (
-    <div className="flex h-screen flex-col bg-canvas text-fg">
+    <div className="relative flex h-screen flex-col overflow-hidden bg-canvas text-fg">
       <div className="flex h-10 shrink-0 items-center gap-2 px-3">
         <span aria-hidden="true" className="size-3.5 rounded-sm bg-gradient-to-br from-amber-300 to-amber-500" />
         <h1 className="flex-1 text-sm font-medium">Kurznotizen</h1>

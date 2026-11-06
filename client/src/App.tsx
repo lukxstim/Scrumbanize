@@ -1,4 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { RichTextEditor } from './components/editor/MarkdownEditor';
+import { lazyWithPreload } from './utils/lazyWithPreload';
+import { preloadInBackground } from './utils/preload';
 import { flushSync } from 'react-dom';
 import { Link, Navigate, NavLink, Route, Routes, useLocation, useMatch, useNavigate, useParams, useSearchParams } from 'react-router';
 import BoardPage from './components/board/BoardPage';
@@ -37,10 +40,11 @@ import { isReminderState, REMINDER_STORAGE_KEY, reminderStep, type ReminderState
 import { ACTIVITY_PARAM, KNOWLEDGE_PATH, paths, withActivityDrawer } from './utils/paths';
 import { hasBoard } from './utils/projects';
 
-// Loaded on first visit, so the charting library stays out of the main bundle.
-const AnalyticsPage = lazy(() => import('./components/analytics/AnalyticsPage'));
-const GraphPage = lazy(() => import('./components/graph/GraphPage'));
-const SettingsPage = lazy(() => import('./components/settings/SettingsPage'));
+// Loaded on first visit, so the charting library stays out of the main bundle; and in the background once the app
+// is idle (US-29), so the first visit does not wait.
+const AnalyticsPage = lazyWithPreload(() => import('./components/analytics/AnalyticsPage'));
+const GraphPage = lazyWithPreload(() => import('./components/graph/GraphPage'));
+const SettingsPage = lazyWithPreload(() => import('./components/settings/SettingsPage'));
 const ProfilePage = lazy(() => import('./components/account/ProfilePage'));
 const UsersPage = lazy(() => import('./components/account/UsersPage'));
 
@@ -124,6 +128,18 @@ export default function App() {
   const hasProject = withBoard;
   // It points at the header of wide screens, so phones (US-25) never get it.
   const mobile = useIsMobile();
+  // US-29: the editor and the other parts loaded on demand come in the background, so the first click does not wait;
+  // the editor is also set up once off the page, so the first note opens as fast as the later ones.
+  useEffect(
+    () =>
+      preloadInBackground([
+        () => RichTextEditor.preload().then((module) => module.warmUp()),
+        AnalyticsPage.preload,
+        GraphPage.preload,
+        SettingsPage.preload,
+      ]),
+    [],
+  );
   useEffect(() => {
     if (!hasProject || mobile || tourOffered.current || tourState.status === 'done') return;
     tourOffered.current = true;
@@ -180,7 +196,10 @@ export default function App() {
 
   return (
     // dvh: on tablets the browser's address bar must not push the bottom of the page out of view.
-    <div className="flex h-dvh flex-col bg-canvas text-fg">
+    // relative + overflow-hidden (US-29): the app is exactly one screen; anything placed absolutely without a positioned
+    // parent (a hidden input deep in a scrolled list, say) is clipped here instead of making the whole page scroll,
+    // which showed a bare dark strip. Dialogs and menus live outside, in portals, and are not affected.
+    <div className="relative flex h-dvh flex-col overflow-hidden bg-canvas text-fg">
       {/*
         The header gets compact in steps, so it never overflows: below xl (1280 px) the tabs show only icons and the
         wordmark goes, below lg (1024 px, the desktop app's minimum width) the search is an icon. Below md (768 px,
