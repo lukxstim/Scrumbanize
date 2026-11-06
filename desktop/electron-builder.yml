@@ -79,9 +79,11 @@ mac:
   hardenedRuntime: false
   # Both Mac binaries of better-sqlite3 are in both halves of the universal app (it loads the matching one), so they
   # are the same in the x64 and the arm64 build and must not be merged.
+  # koffi is only loaded on Windows (the app bar, see appBar.ts); its Mac binaries would be in both halves as well and
+  # stop the universal build, so it stays out of the Mac app.
   files:
     - "!**/node_modules/better-sqlite3/prebuilds/!(darwin-*.node)"
-    - "!**/node_modules/koffi/build/koffi/!(darwin_*)/**"
+    - "!**/node_modules/koffi/**"
   x64ArchFiles: "**/node_modules/better-sqlite3/prebuilds/darwin-*.node"
   # The menu bar icon: black on transparent, macOS tints it ("Template" in the name).
   extraResources:
