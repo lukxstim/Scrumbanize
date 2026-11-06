@@ -1,5 +1,5 @@
-import { lazy, Suspense, useRef, useState } from 'react';
-import { useParams } from 'react-router';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router';
 import { useAuth } from '../../hooks/useAuth';
 import { desktopBridge } from '../../hooks/useDesktopSettings';
 import { useCan } from '../../hooks/useProjectRole';
@@ -7,13 +7,16 @@ import { useProjects } from '../../hooks/useProjects';
 import { useToast } from '../../hooks/useToast';
 import { ApiError, backupApi, exportUrls, type PreparedRestore } from '../../utils/api';
 import { formatDate } from '../../utils/format';
+import { paths } from '../../utils/paths';
+import { pageBeforeSettings } from '../../utils/returnPath';
 import { countLabel } from '../../utils/projects';
 import ConfirmDialog from '../ConfirmDialog';
-import { DownloadIcon, RestoreIcon } from '../icons';
+import { ChevronLeftIcon, DownloadIcon, RestoreIcon } from '../icons';
 import Button, { buttonClass } from '../ui/Button';
 import { NotesViewOptions } from '../notes/NotesViewOptions';
 import Section from '../ui/Section';
 import AutoBackupStatus from './AutoBackupStatus';
+import AppearanceSection from './AppearanceSection';
 import DesktopSection from './DesktopSection';
 import TemplatesSection from './TemplatesSection';
 
@@ -46,11 +49,33 @@ export default function SettingsPage() {
   // A backup holds every project of every user, and a restore replaces them: administrators only (US-21).
   const isAdmin = useAuth().session?.user?.systemRole === 'admin';
   const canEdit = useCan('edit');
+  // Out again: back to the page before the settings, also with Escape (unless a dialog is open, which Escape closes).
+  const back = pageBeforeSettings(paths.notes(projectId));
+  const navigate = useNavigate();
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || document.querySelector('dialog[open]')) return;
+      // Typing in a field: Escape belongs to the field. (The target can also be the window, without closest.)
+      const target = event.target;
+      if (target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"]')) return;
+      navigate(back);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [back, navigate]);
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto max-w-3xl space-y-6 px-6 py-8">
         <div>
+          <Link
+            to={back}
+            className="-ml-2 mb-3 inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm font-medium text-fg-muted transition-colors hover:bg-surface-hover hover:text-fg focus-visible:outline-2 focus-visible:outline-accent"
+          >
+            <ChevronLeftIcon className="size-4" />
+            Zurück
+            <span className="ml-1 text-xs font-normal text-fg-subtle max-md:hidden">(Esc)</span>
+          </Link>
           <h1 className="text-xl font-semibold tracking-tight text-fg">Einstellungen</h1>
           <p className="mt-1 text-sm text-fg-subtle">
             {desktopBridge ? 'Sicherung, Wiederherstellung, Vorlagen, Import und Export deiner Daten sowie die Desktop-App.' : 'Sicherung, Wiederherstellung, Vorlagen, Import und Export deiner Daten.'}
@@ -58,6 +83,8 @@ export default function SettingsPage() {
         </div>
 
         {desktopBridge && <DesktopSection />}
+
+        <AppearanceSection />
 
         <Section title="Notizen" description="So erscheinen deine Notizbücher und Seiten. Gilt in diesem Browser.">
           <NotesViewOptions idPrefix="settings" />

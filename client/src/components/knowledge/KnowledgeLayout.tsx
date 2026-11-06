@@ -148,14 +148,19 @@ function KnowledgeSidebar({
                   >
                     <ProjectMark project={notebook} />
                     <span className="flex-1 truncate">{notebook.name}</span>
-                    {hasBoard(notebook) && (
-                      <span title="Mit Board" className="shrink-0 text-fg-faint">
-                        <BoardIcon className="size-3.5" aria-hidden="true" />
-                        <span className="sr-only">(mit Board)</span>
-                      </span>
-                    )}
                     <span className="text-xs text-fg-subtle tabular-nums group-hover:hidden group-focus-within:hidden">{notebook.noteCount}</span>
                   </Link>
+                  {/* US-34: the board symbol opens the notebook's board (a link of its own: links cannot nest). */}
+                  {hasBoard(notebook) && (
+                    <Link
+                      to={paths.board(notebook.id)}
+                      aria-label={`Board von „${notebook.name}“ öffnen`}
+                      title="Board öffnen"
+                      className="grid size-6 shrink-0 place-items-center rounded-md text-fg-faint transition-colors hover:bg-surface-hover hover:text-fg focus-visible:outline-2 focus-visible:outline-accent"
+                    >
+                      <BoardIcon className="size-3.5" aria-hidden="true" />
+                    </Link>
+                  )}
                   {items.length > 0 && (
                     <div className="hidden group-hover:block group-focus-within:block pointer-coarse:block">
                       <Menu

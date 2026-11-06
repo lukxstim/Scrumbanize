@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { RichTextEditor } from './components/editor/MarkdownEditor';
 import { lazyWithPreload } from './utils/lazyWithPreload';
 import { preloadInBackground } from './utils/preload';
+import { useAppearance } from './hooks/useAppearance';
 import { flushSync } from 'react-dom';
 import { Link, Navigate, NavLink, Route, Routes, useLocation, useMatch, useNavigate, useParams, useSearchParams } from 'react-router';
 import BoardPage from './components/board/BoardPage';
@@ -39,6 +40,9 @@ import { closedTourState, INITIAL_TOUR_STATE, isTourState, TOUR_STORAGE_KEY } fr
 import { isReminderState, REMINDER_STORAGE_KEY, reminderStep, type ReminderState } from './utils/updateReminder';
 import { ACTIVITY_PARAM, KNOWLEDGE_PATH, paths, withActivityDrawer } from './utils/paths';
 import { hasBoard } from './utils/projects';
+import { can } from './utils/permissions';
+import { pageBeforeSettings, rememberPage } from './utils/returnPath';
+import EnableBoardDialog from './components/projects/EnableBoardDialog';
 
 // Loaded on first visit, so the charting library stays out of the main bundle; and in the background once the app
 // is idle (US-29), so the first visit does not wait.
@@ -61,15 +65,17 @@ function ActivityRedirect() {
 }
 
 /**
- * A tab's name: visible from xl (1280 px) on; narrower, only for screen readers, and the tab shows its icon and a
- * tooltip. With names, the header needs about 1160 px.
+ * A tab's name. The header measures its own width (a container query, so a docked quick notes panel counts) and gives
+ * way in steps, the least needed first: the keyboard hint of the search, the wordmark, the search field (an icon
+ * then), and only last the tabs' names. Narrower, a name is for screen readers only, and the tab shows its icon and a
+ * tooltip.
  */
 function TabLabel({ children }: { children: string }) {
-  return <span className="sr-only xl:not-sr-only">{children}</span>;
+  return <span className="sr-only @min-[880px]/header:not-sr-only">{children}</span>;
 }
 
 const tabClass = (active: boolean) =>
-  `flex h-7 items-center gap-1.5 rounded-md px-2 text-sm font-medium xl:px-2.5 transition-[color,background-color,box-shadow] duration-150 focus-visible:outline-2 focus-visible:outline-accent ${
+  `flex h-7 items-center gap-1.5 rounded-md px-2 text-sm font-medium @min-[880px]/header:px-2.5 transition-[color,background-color,box-shadow] duration-150 focus-visible:outline-2 focus-visible:outline-accent ${
     active ? 'bg-surface text-fg shadow-card' : 'text-fg-subtle hover:text-fg'
   }`;
 
@@ -84,7 +90,7 @@ const QuickNotesIcon = () => (
 );
 
 export default function App() {
-  const { projects, desktop } = useProjects();
+  const { projects, desktop, updateProject } = useProjects();
   const toast = useToast();
   const projectMatch = useMatch('/p/:projectId/*');
   const activeProject = projects.find((p) => p.id === Number(projectMatch?.params.projectId));
@@ -105,6 +111,13 @@ export default function App() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const activityOpen = searchParams.get(ACTIVITY_PARAM) === '1' && activeProject !== undefined;
+  // The page before the settings, so they lead back there (their back button, Escape, a second click on the gear).
+  useEffect(() => {
+    if (!onSettings) rememberPage(location.pathname + location.search);
+  }, [onSettings, location.pathname, location.search]);
+  // A notebook without board (US-26): its board tab asks to switch the board on; owners only, who may do that.
+  const [enablingBoard, setEnablingBoard] = useState(false);
+  const mayEnableBoard = activeProject !== undefined && !withBoard && can(activeProject.role, 'manageProject');
 
   function closeActivity() {
     const params = new URLSearchParams(location.search);
@@ -128,6 +141,8 @@ export default function App() {
   const hasProject = withBoard;
   // It points at the header of wide screens, so phones (US-25) never get it.
   const mobile = useIsMobile();
+  // Color theme and background (US-30): kept on <html> while the app runs (index.html sets them on page load).
+  useAppearance();
   // US-29: the editor and the other parts loaded on demand come in the background, so the first click does not wait;
   // the editor is also set up once off the page, so the first note opens as fast as the later ones.
   useEffect(
@@ -206,7 +221,7 @@ export default function App() {
         phones, US-25) it keeps logo, notebook, search and account; the tabs and the tools move to the bottom
         navigation (MobileNav). The top padding keeps it clear of the notch of an installed app.
       */}
-      <header className="relative z-20 flex h-[calc(3.25rem+env(safe-area-inset-top))] shrink-0 items-center gap-2 border-b border-line bg-surface/80 px-3 pt-[env(safe-area-inset-top)] backdrop-blur-md lg:gap-3 lg:px-4">
+      <header className="@container/header relative z-20 flex h-[calc(3.25rem+env(safe-area-inset-top))] shrink-0 items-center gap-2 border-b border-line bg-surface/80 px-3 pt-[env(safe-area-inset-top)] backdrop-blur-md lg:gap-3 lg:px-4">
         {/* The logo leads back to the last project used, e.g. from the profile or the user management. */}
         <Link
           to="/"
@@ -215,7 +230,7 @@ export default function App() {
         >
           {/* The logo tile (public/scrumbanize-logo.png, from docs/branding); the wordmark is plain text, so it stays sharp. */}
           <img src="/scrumbanize-logo.png" alt="" width={28} height={28} className="size-7 rounded-md shadow-sm" />
-          <span className="sr-only text-sm font-semibold tracking-tight xl:not-sr-only">Scrumbanize</span>
+          <span className="sr-only text-sm font-semibold tracking-tight @min-[1240px]/header:not-sr-only">Scrumbanize</span>
         </Link>
         {/* The notebook shown (US-26: one area for all), its notes and – with board – board, calendar and statistics. */}
         {activeProject && (
@@ -246,6 +261,18 @@ export default function App() {
                   </NavLink>
                 </>
               )}
+              {mayEnableBoard && (
+                <button
+                  type="button"
+                  onClick={() => setEnablingBoard(true)}
+                  className={`${tabClass(false)} opacity-60 hover:opacity-100`}
+                  title={`Board für „${activeProject.name}“ einschalten`}
+                >
+                  <BoardIcon className="size-3.5" />
+                  <TabLabel>Board</TabLabel>
+                  <span aria-hidden="true" className="text-xs">+</span>
+                </button>
+              )}
             </nav>
           </>
         )}
@@ -266,11 +293,11 @@ export default function App() {
           onClick={() => setPaletteOpen(true)}
           data-tour="search"
           title={`Suchen (${modKey}+K)`}
-          className="flex h-8 w-8 shrink-0 items-center justify-center gap-2 rounded-md border border-line bg-surface-muted text-sm text-fg-subtle transition-colors hover:border-line-strong hover:text-fg-muted focus-visible:outline-2 focus-visible:outline-accent lg:w-36 lg:justify-start lg:px-2.5 xl:w-44 2xl:w-60"
+          className="flex h-8 w-8 shrink-0 items-center justify-center gap-2 rounded-md border border-line bg-surface-muted text-sm text-fg-subtle transition-colors hover:border-line-strong hover:text-fg-muted focus-visible:outline-2 focus-visible:outline-accent @min-[1080px]/header:w-36 @min-[1080px]/header:justify-start @min-[1080px]/header:px-2.5 @min-[1320px]/header:w-44 @min-[1600px]/header:w-60"
         >
           <SearchIcon className="size-4 shrink-0" />
-          <span className="sr-only truncate lg:not-sr-only">Suchen …</span>
-          <span className="ml-auto hidden gap-0.5 xl:flex">
+          <span className="sr-only truncate @min-[1080px]/header:not-sr-only">Suchen …</span>
+          <span className="ml-auto hidden gap-0.5 @min-[1320px]/header:flex">
             <Kbd>{modKey}</Kbd>
             <Kbd>K</Kbd>
           </span>
@@ -310,11 +337,12 @@ export default function App() {
               )}
             </Link>
             <Link
-              to={paths.settings(activeProject.id)}
+              // Open, the gear closes the settings again: back to the page before.
+              to={onSettings ? pageBeforeSettings(paths.notes(activeProject.id)) : paths.settings(activeProject.id)}
               className={headerIconClass(onSettings)}
               aria-current={onSettings ? 'page' : undefined}
-              aria-label="Einstellungen"
-              title="Einstellungen: Backup, Import, Export"
+              aria-label={onSettings ? 'Einstellungen schließen' : 'Einstellungen'}
+              title={onSettings ? 'Einstellungen schließen (Esc)' : 'Einstellungen: Darstellung, Backup, Import, Export'}
             >
               <SettingsIcon />
             </Link>
@@ -419,6 +447,18 @@ export default function App() {
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} activeProject={activeProject} />
       {/* The quick notes of this tab's Picture-in-Picture window (US-26). */}
       <QuickNotesPipHost />
+      {enablingBoard && activeProject && (
+        <EnableBoardDialog
+          notebook={activeProject}
+          onCancel={() => setEnablingBoard(false)}
+          onEnable={async () => {
+            await updateProject(activeProject.id, { board: true });
+            setEnablingBoard(false);
+            toast({ message: `Board für „${activeProject.name}“ eingeschaltet.` });
+            navigate(paths.board(activeProject.id));
+          }}
+        />
+      )}
     </div>
   );
 }
