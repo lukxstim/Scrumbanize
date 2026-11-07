@@ -93,6 +93,25 @@ export default function SettingsPage() {
 
         <CalendarFeedSection />
 
+        <Section
+          title="Meine Daten exportieren"
+          description="Alle Notizbücher, die du sehen kannst – mit Anhängen –, die Aufgaben als CSV-Datei und deine Termine als Kalenderdatei, in einer ZIP-Datei."
+        >
+          <div className="flex flex-wrap gap-2">
+            <a href={exportUrls.account('md')} download className={buttonClass('secondary', 'sm')}>
+              <DownloadIcon className="size-3.5" />
+              Alles exportieren (Markdown)
+            </a>
+            <a href={exportUrls.account('html')} download className={buttonClass('ghost', 'sm')}>
+              Als HTML (druckbar)
+            </a>
+          </div>
+          <p className="mt-3 text-xs text-fg-subtle">
+            Die Kalenderdatei (.ics) lässt sich in Outlook, Google oder Apple Kalender importieren, die Notizen über „Notizen importieren“ wieder in
+            Scrumbanize einlesen.
+          </p>
+        </Section>
+
         {isAdmin && (
           <Section title="Backup" description="Eine ZIP-Datei mit allen Projekten, Notizen, Tasks, dem Aktivitätsprotokoll und allen Anhängen.">
             <a href={backupApi.downloadUrl} download className={buttonClass('primary', 'sm')}>

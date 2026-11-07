@@ -208,6 +208,7 @@ Aus Versehen gelöscht? Kein Problem: Gelöschtes landet zuerst im Papierkorb un
 - **Backup mit einem Klick** – eine ZIP-Datei mit allen Projekten, Notizen, Tasks und Anhängen – und **Wiederherstellen** aus so einem Backup. Vor dem Wiederherstellen sichert Scrumbanize den jetzigen Stand automatisch.
 - **Notizen importieren** aus Markdown-Dateien, ganzen Ordnern (z. B. Obsidian) oder ZIP-Exporten (z. B. Notion). Titel, Tags und Erstelldatum werden übernommen; Bilder noch nicht.
 - **Exportieren**: alle Notizen als Markdown oder HTML (ZIP, mit Anhängen), das Board als CSV-Datei für Excel. Einzelne Notizen lassen sich auch direkt im Editor exportieren.
+- **Meine Daten exportieren** – für alle, nicht nur für Administratoren: eine ZIP-Datei mit allen Notizbüchern, die du sehen kannst (mit Anhängen), den Aufgaben als CSV und deinen Terminen als `Kalender.ics`. Auf einem Mac lässt sich das jeden Tag automatisch herunterladen: [Anleitung](deploy/mac-backup/README.md).
 - **Vorlagen** verwalten und – in der Desktop-App – Erinnerungen, Infobereich und Tastenkombination einstellen (siehe unten).
 
 ![Einstellungen mit Desktop-App, Backup und Wiederherstellen](docs/screenshots/einstellungen.png)

@@ -1,8 +1,11 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
+import { userOf } from '../auth/middleware.js';
 import { HttpError, notFound } from '../errors.js';
 import type { Access } from '../auth/access.js';
 import { attachmentDisposition, boardToCsv, exportContentLinks, noteToHtml, noteToMarkdown, safeFileName, uniqueNames } from '../exports.js';
+import { buildCalendar } from '../ics.js';
 import type { AttachmentsRepository } from '../repositories/attachmentsRepository.js';
+import type { CalendarFeedsRepository } from '../repositories/calendarFeedsRepository.js';
 import type { BoardRepository } from '../repositories/boardRepository.js';
 import type { NotesRepository } from '../repositories/notesRepository.js';
 import type { ProjectsRepository } from '../repositories/projectsRepository.js';
@@ -10,6 +13,7 @@ import type { TasksRepository } from '../repositories/tasksRepository.js';
 import { changed } from '../realtime/events.js';
 import { exportQuerySchema, idParamSchema, importNotesSchema } from '../validation.js';
 import { createZipStream, isCompressible } from '../zipStream.js';
+import { taskEvent } from './calendar.js';
 
 interface Repositories {
   access: Access;
@@ -18,12 +22,27 @@ interface Repositories {
   tasks: TasksRepository;
   board: BoardRepository;
   attachments: AttachmentsRepository;
+  calendarFeeds: CalendarFeedsRepository;
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+type Zip = ReturnType<typeof createZipStream>;
+type ExportFormat = 'md' | 'html';
+
+/** What the personal export holds, for whoever opens it later. */
+const EXPORT_README = (date: string, user: string) => `Scrumbanize – Export vom ${date} für ${user}
+
+Notizbücher/   Jedes Notizbuch ein Ordner: jede Notiz als Datei, ihre Anhänge unter „Anhänge“.
+Aufgaben/      Die Aufgaben jedes Boards als CSV-Datei (für Excel).
+Kalender.ics   Alle Aufgaben mit Start- oder Fälligkeitsdatum, zum Importieren in Outlook, Google oder Apple Kalender.
+
+Notizen lassen sich in Scrumbanize wieder einlesen: Einstellungen → „Notizen importieren“ und den Ordner eines
+Notizbuchs (oder diese ZIP-Datei) auswählen.
+`;
+
 /** Notes as Markdown/HTML, the board as CSV, and the notes import. Mounted at /api. */
-export function exportsRouter({ access, projects, notes, tasks, board, attachments }: Repositories): Router {
+export function exportsRouter({ access, projects, notes, tasks, board, attachments, calendarFeeds }: Repositories): Router {
   const router = Router();
 
   const projectOf = (raw: unknown) => {
@@ -32,6 +51,29 @@ export function exportsRouter({ access, projects, notes, tasks, board, attachmen
     if (!project) throw notFound('Project not found');
     return project;
   };
+
+  /** The notes of a project into the ZIP under `folder` ('' for the top): one file each, attachments beside them. */
+  async function addNotes(zip: Zip, projectId: number, format: ExportFormat, folder = '') {
+    // Older notes first among equal titles, so they keep the plain file name.
+    const list = notes.list(projectId).sort((a, b) => a.title.localeCompare(b.title, 'de', { sensitivity: 'base' }) || a.id - b.id);
+    const names = uniqueNames(list.map((n) => safeFileName(n.title)));
+    const files = attachments.noteFiles(projectId);
+    // Links between the exported notes point to their files (US-22).
+    const fileOfNote = new Map(list.map((note, i) => [note.id, `${names[i]}.${format}`]));
+    const fileOf = (ref: { type: string; id: number }) => (ref.type === 'note' ? fileOfNote.get(ref.id) : undefined);
+    for (const [i, note] of list.entries()) {
+      const own = files.get(note.id) ?? [];
+      const fileNames = uniqueNames(own.map((f) => safeFileName(f.fileName, 'Anhang')));
+      const attachmentFolder = `Anhänge/${names[i]}`;
+      const linked = {
+        ...note,
+        content: exportContentLinks(note.content, fileOf),
+        files: fileNames.map((name) => ({ name, href: `${attachmentFolder}/${name}` })),
+      };
+      await zip.addText(`${folder}${names[i]}.${format}`, format === 'md' ? noteToMarkdown(linked) : noteToHtml(linked));
+      for (const [j, file] of own.entries()) await zip.addFile(`${folder}${attachmentFolder}/${fileNames[j]}`, file.path, isCompressible(file.fileName));
+    }
+  }
 
   router.get('/notes/:id/export', access.requireRole('viewer', access.of.note()), (req, res) => {
     const note = notes.get(idParamSchema.parse(req.params.id));
@@ -48,30 +90,43 @@ export function exportsRouter({ access, projects, notes, tasks, board, attachmen
   router.get('/projects/:projectId/export/notes', access.requireRole('viewer', access.of.project()), async (req, res) => {
     const project = projectOf(req.params.projectId);
     const { format } = exportQuerySchema.parse(req.query);
-    // Older notes first among equal titles, so they keep the plain file name.
-    const list = notes.list(project.id).sort((a, b) => a.title.localeCompare(b.title, 'de', { sensitivity: 'base' }) || a.id - b.id);
-    const names = uniqueNames(list.map((n) => safeFileName(n.title)));
-    const files = attachments.noteFiles(project.id);
-    // Links between the exported notes point to their files (US-22).
-    const fileOfNote = new Map(list.map((note, i) => [note.id, `${names[i]}.${format}`]));
-    const fileOf = (ref: { type: string; id: number }) => (ref.type === 'note' ? fileOfNote.get(ref.id) : undefined);
-
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', attachmentDisposition(`${safeFileName(project.name, 'Projekt')} – Notizen ${today()}.zip`));
     const zip = createZipStream(res);
     try {
-      for (const [i, note] of list.entries()) {
-        const own = files.get(note.id) ?? [];
-        const fileNames = uniqueNames(own.map((f) => safeFileName(f.fileName, 'Anhang')));
-        const folder = `Anhänge/${names[i]}`;
-        const linked = {
-          ...note,
-          content: exportContentLinks(note.content, fileOf),
-          files: fileNames.map((name) => ({ name, href: `${folder}/${name}` })),
-        };
-        await zip.addText(`${names[i]}.${format}`, format === 'md' ? noteToMarkdown(linked) : noteToHtml(linked));
-        for (const [j, file] of own.entries()) await zip.addFile(`${folder}/${fileNames[j]}`, file.path, isCompressible(file.fileName));
+      await addNotes(zip, project.id, format);
+      await zip.end();
+    } catch (error) {
+      console.error(error);
+      res.destroy();
+    }
+  });
+
+  /**
+   * Everything of the logged-in person in one ZIP (for everyone, not only administrators): every notebook they may
+   * see with its notes and attachments, the tasks of every board as CSV, and their dated tasks as a calendar (.ics).
+   * Also what the backup script for a Mac downloads (deploy/mac-backup).
+   */
+  router.get('/account/export', async (req: Request, res) => {
+    const user = userOf(res)!;
+    const { format } = exportQuerySchema.parse(req.query);
+    const roles = access.roles(user);
+    const visible = projects.list().filter((project) => roles.has(project.id));
+    const date = today();
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', attachmentDisposition(`Scrumbanize – Export ${date}.zip`));
+    const zip = createZipStream(res);
+    try {
+      await zip.addText('LIESMICH.txt', EXPORT_README(date, user.name));
+      const folders = uniqueNames(visible.map((project) => safeFileName(project.name, 'Notizbuch')));
+      for (const [i, project] of visible.entries()) await addNotes(zip, project.id, format, `Notizbücher/${folders[i]}/`);
+      for (const [i, project] of visible.entries()) {
+        if (project.kind === 'notebook') continue;
+        await zip.addText(`Aufgaben/${folders[i]}.csv`, boardToCsv(tasks.list(project.id), board.listColumns(project.id), board.listLanes(project.id)));
       }
+      const origin = `${req.protocol}://${req.get('host') ?? 'localhost'}`;
+      const events = calendarFeeds.tasks(new Set(visible.map((project) => project.id))).map((task) => taskEvent(task, origin));
+      await zip.addText('Kalender.ics', buildCalendar({ name: 'Scrumbanize', events, now: new Date() }));
       await zip.end();
     } catch (error) {
       console.error(error);

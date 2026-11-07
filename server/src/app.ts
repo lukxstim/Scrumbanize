@@ -189,7 +189,7 @@ export function createApp(db: Db, options: AppOptions = {}): express.Express {
   api.use('/trash', trashRouter(trash, projects, () => attachments.sweep(), access));
   api.use(attachmentsRouter(attachments, access));
   api.use('/backup', backupRouter({ db, uploadsDir, backupsDir, schedule: options.backupSchedule, restore, access }));
-  api.use(exportsRouter({ access, projects, notes, tasks, board, attachments }));
+  api.use(exportsRouter({ access, projects, notes, tasks, board, attachments, calendarFeeds }));
   api.use(apiNotFoundHandler);
   app.use('/api', api);
 

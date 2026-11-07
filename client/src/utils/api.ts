@@ -429,6 +429,8 @@ export const exportUrls = {
   note: (noteId: number, format: ExportFormat) => `/api/notes/${noteId}/export?format=${format}`,
   projectNotes: (projectId: number, format: ExportFormat) => `/api/projects/${projectId}/export/notes?format=${format}`,
   boardCsv: (projectId: number) => `/api/projects/${projectId}/export/board.csv`,
+  /** Everything the logged-in person may see: notebooks, tasks as CSV and a calendar (.ics), in one ZIP. */
+  account: (format: ExportFormat) => `/api/account/export?format=${format}`,
 };
 
 export interface ImportedNoteInput {
