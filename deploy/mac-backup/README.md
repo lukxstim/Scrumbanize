@@ -34,3 +34,5 @@ Danach läuft alles von selbst. Schläft der Mac zur eingestellten Uhrzeit, holt
 - **Ändern:** `install.sh` einfach noch einmal ausführen.
 - **Entfernen:** `bash ~/Downloads/mac-backup/install.sh --remove` – die bisherigen Backups bleiben liegen.
 - **Wiederherstellen:** Die ZIP-Datei entpacken. Notizen lassen sich in Scrumbanize unter Einstellungen → „Notizen importieren“ wieder einlesen (den Ordner eines Notizbuchs auswählen), die `Kalender.ics` in jede Kalender-App importieren.
+
+Für Windows gibt es dasselbe unter [`../windows-backup`](../windows-backup/README.md).

@@ -105,7 +105,7 @@ export function exportsRouter({ access, projects, notes, tasks, board, attachmen
   /**
    * Everything of the logged-in person in one ZIP (for everyone, not only administrators): every notebook they may
    * see with its notes and attachments, the tasks of every board as CSV, and their dated tasks as a calendar (.ics).
-   * Also what the backup script for a Mac downloads (deploy/mac-backup).
+   * Also what the backup scripts for a Mac and for Windows download (deploy/mac-backup, deploy/windows-backup).
    */
   router.get('/account/export', async (req: Request, res) => {
     const user = userOf(res)!;
